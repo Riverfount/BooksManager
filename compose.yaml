@@ -2,9 +2,9 @@ services:
   postgres:
     image: postgres:17
     environment:
-      POSTGRES_DB: biblioteca
-      POSTGRES_USER: biblioteca
-      POSTGRES_PASSWORD: biblioteca
+      POSTGRES_DB: ${POSTGRES_DB:-biblioteca}
+      POSTGRES_USER: ${POSTGRES_USER:-biblioteca}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no arquivo .env}
     ports:
       - "5432:5432"
     volumes:
