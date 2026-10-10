@@ -12,11 +12,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.riverfount.booksmanager.catalogo.application.port.in.CadastrarCategoriaUseCase;
-import com.riverfount.booksmanager.catalogo.application.port.in.ConsultarCategoriaUseCase;
-import com.riverfount.booksmanager.catalogo.domain.Categoria;
+import com.riverfount.booksmanager.catalogo.application.port.in.CadastrarAutorUseCase;
+import com.riverfount.booksmanager.catalogo.application.port.in.ConsultarAutorUseCase;
+import com.riverfount.booksmanager.catalogo.domain.Autor;
 import com.riverfount.booksmanager.compartilhado.adapter.in.web.TratadorDeExcecaoGlobal;
-import com.riverfount.booksmanager.compartilhado.domain.RegraDeNegocioException;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,39 +26,39 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-@WebMvcTest(CategoriaController.class)
+@WebMvcTest(AutorController.class)
 @Import(TratadorDeExcecaoGlobal.class)
-class CategoriaControllerTest {
+class AutorControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
     @MockitoBean
-    private CadastrarCategoriaUseCase cadastrarCategoriaUseCase;
+    private CadastrarAutorUseCase cadastrarAutorUseCase;
 
     @MockitoBean
-    private ConsultarCategoriaUseCase consultarCategoriaUseCase;
+    private ConsultarAutorUseCase consultarAutorUseCase;
 
     @Test
     @WithMockUser
-    void deveCadastrarCategoriaEDevolver201ComLocation() throws Exception {
-        given(cadastrarCategoriaUseCase.cadastrar(any())).willReturn(Categoria.reconstituir(1L, "Ficção", true));
+    void deveCadastrarAutorEDevolver201ComLocation() throws Exception {
+        given(cadastrarAutorUseCase.cadastrar(any())).willReturn(Autor.reconstituir(1L, "Machado de Assis", true));
 
-        mockMvc.perform(post("/api/v1/categorias")
+        mockMvc.perform(post("/api/v1/autores")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"nome\":\"Ficção\"}"))
+                        .content("{\"nome\":\"Machado de Assis\"}"))
                 .andExpect(status().isCreated())
-                .andExpect(header().string("Location", containsString("/api/v1/categorias/1")))
+                .andExpect(header().string("Location", containsString("/api/v1/autores/1")))
                 .andExpect(jsonPath("$.id").value(1))
-                .andExpect(jsonPath("$.nome").value("Ficção"))
+                .andExpect(jsonPath("$.nome").value("Machado de Assis"))
                 .andExpect(jsonPath("$.ativo").value(true));
     }
 
     @Test
     @WithMockUser
     void deveDevolver400ComProblemDetailParaNomeEmBranco() throws Exception {
-        mockMvc.perform(post("/api/v1/categorias")
+        mockMvc.perform(post("/api/v1/autores")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"nome\":\"\"}"))
@@ -72,10 +71,10 @@ class CategoriaControllerTest {
     void deveDevolver400ParaNomeComEspacoNaPonta() throws Exception {
         // o DTO precisa pegar isso como erro de formato (400), e não deixar
         // cair no domínio como regra de negócio (422)
-        mockMvc.perform(post("/api/v1/categorias")
+        mockMvc.perform(post("/api/v1/autores")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"nome\":\" Ficção\"}"))
+                        .content("{\"nome\":\" Machado de Assis\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
     }
@@ -83,11 +82,9 @@ class CategoriaControllerTest {
     @Test
     @WithMockUser
     void deveDevolver400ParaNomeMaiorQueOLimiteDoDominio() throws Exception {
-        // o limite do DTO precisa ser o mesmo da regra de negócio
-        // (Categoria.TAMANHO_MAXIMO_NOME), não um número duplicado à parte
-        var nomeUmCaractereAcimaDoLimite = "A".repeat(Categoria.TAMANHO_MAXIMO_NOME + 1);
+        var nomeUmCaractereAcimaDoLimite = "A".repeat(Autor.TAMANHO_MAXIMO_NOME + 1);
 
-        mockMvc.perform(post("/api/v1/categorias")
+        mockMvc.perform(post("/api/v1/autores")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"nome\":\"" + nomeUmCaractereAcimaDoLimite + "\"}"))
@@ -97,37 +94,22 @@ class CategoriaControllerTest {
 
     @Test
     @WithMockUser
-    void deveDevolver422ComMensagemClaraParaNomeDuplicado() throws Exception {
-        given(cadastrarCategoriaUseCase.cadastrar(any()))
-                .willThrow(new RegraDeNegocioException("já existe uma categoria com o nome 'Ficção'"));
+    void deveBuscarAutorExistentePorId() throws Exception {
+        given(consultarAutorUseCase.buscarPorId(eq(1L)))
+                .willReturn(Optional.of(Autor.reconstituir(1L, "Machado de Assis", true)));
 
-        mockMvc.perform(post("/api/v1/categorias")
-                        .with(csrf())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"nome\":\"Ficção\"}"))
-                .andExpect(status().isUnprocessableContent())
-                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")))
-                .andExpect(jsonPath("$.detail").value("já existe uma categoria com o nome 'Ficção'"));
-    }
-
-    @Test
-    @WithMockUser
-    void deveBuscarCategoriaExistentePorId() throws Exception {
-        given(consultarCategoriaUseCase.buscarPorId(eq(1L)))
-                .willReturn(Optional.of(Categoria.reconstituir(1L, "Ficção", true)));
-
-        mockMvc.perform(get("/api/v1/categorias/1"))
+        mockMvc.perform(get("/api/v1/autores/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1))
-                .andExpect(jsonPath("$.nome").value("Ficção"));
+                .andExpect(jsonPath("$.nome").value("Machado de Assis"));
     }
 
     @Test
     @WithMockUser
     void deveDevolver404ParaIdInexistente() throws Exception {
-        given(consultarCategoriaUseCase.buscarPorId(eq(99L))).willReturn(Optional.empty());
+        given(consultarAutorUseCase.buscarPorId(eq(99L))).willReturn(Optional.empty());
 
-        mockMvc.perform(get("/api/v1/categorias/99"))
+        mockMvc.perform(get("/api/v1/autores/99"))
                 .andExpect(status().isNotFound())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
     }
