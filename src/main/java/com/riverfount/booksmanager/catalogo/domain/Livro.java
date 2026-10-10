@@ -53,6 +53,17 @@ public class Livro {
         return new Livro(id, isbn, titulo, editora, anoPublicacao, categoriaId, autorIds, ativo);
     }
 
+    /**
+     * Decide se o ISBN pode ser usado, dado se já existe outro livro com
+     * ele. Quem busca essa informação (a aplicação, via o repositório)
+     * não decide; só traz o fato para o domínio decidir.
+     */
+    public static void validarIsbnUnico(Isbn isbn, boolean jaExisteOutroComEsseIsbn) {
+        if (jaExisteOutroComEsseIsbn) {
+            throw new RegraDeNegocioException("já existe um livro com o ISBN '" + isbn.valor() + "'");
+        }
+    }
+
     public void atualizarDados(String titulo, String editora, Integer anoPublicacao, Long categoriaId,
             Clock relogio) {
         validarTitulo(titulo);

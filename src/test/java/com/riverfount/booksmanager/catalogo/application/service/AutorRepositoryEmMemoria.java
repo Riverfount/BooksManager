@@ -3,8 +3,11 @@ package com.riverfount.booksmanager.catalogo.application.service;
 import com.riverfount.booksmanager.catalogo.application.port.out.AutorRepository;
 import com.riverfount.booksmanager.catalogo.domain.Autor;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Implementação em memória de AutorRepository, usada só nos testes
@@ -30,5 +33,10 @@ class AutorRepositoryEmMemoria implements AutorRepository {
             throw new IllegalArgumentException("o id não pode ser nulo");
         }
         return Optional.ofNullable(autores.get(id));
+    }
+
+    @Override
+    public List<Autor> buscarTodosPorIds(Set<Long> ids) {
+        return ids.stream().map(autores::get).filter(Objects::nonNull).toList();
     }
 }
