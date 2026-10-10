@@ -33,13 +33,24 @@ Bibliotecários, que operam o sistema no dia a dia, e o administrador, que geren
 
 ## 2. Status do projeto
 
-Fase 1 · Catálogo **concluída**, incluindo o ciclo de ponta a ponta das quatro entidades: `Category`, `Author`, `Book` e `Copy` já têm caso de uso e endpoint REST de cadastro e consulta por id (`POST`/`GET /api/v1/categories`, `/authors`, `/books` e `/copies` — ainda não é um CRUD completo: não há listagem, atualização nem exclusão). Cadastrar um livro valida que a categoria e os autores informados existem e estão ativos; cadastrar um exemplar valida o mesmo para o livro. Os endpoints de empréstimo/devolução de exemplar ficam para a Fase 3, que depende de Leitor. Os módulos de empréstimo, usuário e segurança ainda não foram implementados. Os requisitos, as histórias de usuário e o modelo de dados completos estão em `docs/projeto.md`. Os identificadores do código (classes, pacotes, banco e rotas) estão em inglês; os requisitos deste repositório e as mensagens ao usuário final continuam em português.
+Fase 1 · Catálogo **concluída**, incluindo o ciclo de ponta a ponta das quatro entidades: `Category`, `Author`, `Book` e `Copy` já têm caso de uso e endpoint REST de cadastro e consulta por id (`POST`/`GET /api/v1/categories`, `/authors`, `/books` e `/copies` — ainda não é um CRUD completo: não há listagem, atualização nem exclusão). Cadastrar um livro valida que a categoria e os autores informados existem e estão ativos; cadastrar um exemplar valida o mesmo para o livro. Os endpoints de empréstimo/devolução de exemplar ficam para a Fase 3, que depende de Leitor. Os módulos de empréstimo, usuário e segurança ainda não foram implementados. Os identificadores do código (classes, pacotes, banco e rotas) estão em inglês; os requisitos deste repositório e as mensagens ao usuário final continuam em português.
 
 O controle de acesso por login será implementado em uma etapa posterior; até lá, a configuração de segurança é provisória.
 
 ---
 
-## 3. Arquitetura
+## 3. Documentação
+
+| Documento | Conteúdo |
+|---|---|
+| `docs/projeto.md` | Visão geral, atores, arquitetura, stack tecnológica, modelo de domínio, banco de dados, estratégia de testes, plano de desenvolvimento, rastreamento com o GitHub e decisões tomadas. |
+| `docs/requisitos.md` | Requisitos funcionais (RF), regras de negócio (RN) e requisitos não funcionais (RNF), com prioridade MoSCoW. |
+| `docs/diagramas.md` | Diagrama de classes das entidades e seus relacionamentos, com as enumerações e o estado de implementação de cada uma. |
+| `docs/use-case.md` | Histórias de usuário com critérios de aceite, organizadas por módulo. |
+
+---
+
+## 4. Arquitetura
 
 O projeto vai seguir a **arquitetura hexagonal** (portas e adaptadores), organizado como um monólito modular dividido nos módulos `catalog`, `loan`, `user`, `security` e `shared`. As regras de negócio ficarão em um domínio escrito em Java puro, sem dependência de Spring ou JPA. Banco de dados, adaptador web (API REST) e serviços externos vão se conectar ao domínio por meio de portas, implementadas por adaptadores. O `ArchitectureTest` (ArchUnit) já verifica essa separação a cada build: o domínio não pode depender de Spring, JPA/Hibernate, da aplicação nem dos adaptadores, e a aplicação não pode depender dos adaptadores.
 
@@ -47,7 +58,7 @@ O front-end (React + Tailwind CSS) é um projeto separado que consome esta API a
 
 ---
 
-## 4. Como executar
+## 5. Como executar
 
 ### Requisitos
 - JDK 25
@@ -83,7 +94,7 @@ O PostgreSQL é executado em um container Docker, definido no arquivo **compose.
 
 ---
 
-## 5. Tecnologias
+## 6. Tecnologias
 
 As versões abaixo refletem o que está declarado no **pom.xml** e no **compose.yaml** nesta versão do projeto.
 
@@ -102,5 +113,5 @@ As versões abaixo refletem o que está declarado no **pom.xml** e no **compose.
 
 O front-end (React + Tailwind CSS) é um projeto separado deste back-end; suas ferramentas (build, TypeScript/JavaScript, roteamento, cliente HTTP) e se ficará no mesmo repositório ou em um repositório próprio ainda não foram definidos.
 
-## 6. Uso de inteligência artificial
+## 7. Uso de inteligência artificial
 Utilizei o Claude (Anthropic) como apoio no planejamento inicial do projeto, para discutir a arquitetura, definir a stack tecnológica e organizar as ideias deste documento. As decisões e a implementação são de minha responsabilidade.
