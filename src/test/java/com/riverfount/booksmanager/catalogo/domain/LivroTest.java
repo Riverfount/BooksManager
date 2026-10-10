@@ -38,6 +38,15 @@ class LivroTest {
     }
 
     @Test
+    void naoDeveReconstituirComAutorIdsNulo() {
+        // autorIds nulo aqui só pode vir de um bug no adaptador de
+        // persistência, não de uma entrada do usuário — por isso é
+        // NullPointerException, não RegraDeNegocioException
+        assertThatThrownBy(() -> Livro.reconstituir(1L, ISBN, "Dom Casmurro", "Editora X", 1899, 1L, null, true))
+                .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
     void deveAceitarAnoDePublicacaoNulo() {
         var livro = Livro.novo(ISBN, "Dom Casmurro", "Editora X", null, 1L, Set.of(10L), RELOGIO_FIXO);
 
@@ -67,6 +76,31 @@ class LivroTest {
     void naoDeveCriarLivroComTituloEmBranco() {
         assertThatThrownBy(() -> Livro.novo(ISBN, "  ", "Editora X", 1899, 1L, Set.of(10L), RELOGIO_FIXO))
                 .isInstanceOf(RegraDeNegocioException.class);
+    }
+
+    @Test
+    void naoDeveCriarLivroComTituloComEspacoNaPonta() {
+        assertThatThrownBy(() -> Livro.novo(ISBN, " Dom Casmurro", "Editora X", 1899, 1L, Set.of(10L), RELOGIO_FIXO))
+                .isInstanceOf(RegraDeNegocioException.class);
+    }
+
+    @Test
+    void naoDeveCriarLivroComTituloMaiorQueDuzentosECinquentaECincoCaracteres() {
+        var tituloComDuzentosECinquentaESeisCaracteres = "A".repeat(256);
+
+        assertThatThrownBy(() -> Livro.novo(ISBN, tituloComDuzentosECinquentaESeisCaracteres, "Editora X", 1899, 1L,
+                Set.of(10L), RELOGIO_FIXO))
+                .isInstanceOf(RegraDeNegocioException.class);
+    }
+
+    @Test
+    void deveAceitarTituloComExatamenteDuzentosECinquentaECincoCaracteres() {
+        var tituloComDuzentosECinquentaECincoCaracteres = "A".repeat(255);
+
+        var livro = Livro.novo(ISBN, tituloComDuzentosECinquentaECincoCaracteres, "Editora X", 1899, 1L,
+                Set.of(10L), RELOGIO_FIXO);
+
+        assertThat(livro.getTitulo()).isEqualTo(tituloComDuzentosECinquentaECincoCaracteres);
     }
 
     @Test
@@ -137,6 +171,24 @@ class LivroTest {
         var livro = Livro.novo(ISBN, "Dom Casmurro", "Editora X", 1899, 1L, Set.of(10L), RELOGIO_FIXO);
 
         assertThatThrownBy(() -> livro.adicionarAutor(null)).isInstanceOf(RegraDeNegocioException.class);
+    }
+
+    @Test
+    void naoDeveRemoverAutorNulo() {
+        var livro = Livro.novo(ISBN, "Dom Casmurro", "Editora X", 1899, 1L, Set.of(10L, 20L), RELOGIO_FIXO);
+
+        assertThatThrownBy(() -> livro.removerAutor(null)).isInstanceOf(RegraDeNegocioException.class);
+    }
+
+    @Test
+    void removerAutorQueNaoEstaNoLivroDeveSerNoOp() {
+        // semântica igual à de Set.remove: remover algo que já não está
+        // presente não é erro, o estado final já é o desejado
+        var livro = Livro.novo(ISBN, "Dom Casmurro", "Editora X", 1899, 1L, Set.of(10L, 20L), RELOGIO_FIXO);
+
+        livro.removerAutor(999L);
+
+        assertThat(livro.getAutorIds()).containsExactlyInAnyOrder(10L, 20L);
     }
 
     @Test

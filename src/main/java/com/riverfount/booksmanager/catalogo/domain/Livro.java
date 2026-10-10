@@ -4,6 +4,7 @@ import com.riverfount.booksmanager.compartilhado.domain.RegraDeNegocioException;
 import java.time.Clock;
 import java.time.Year;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -13,6 +14,8 @@ import java.util.Set;
  * (RN14).
  */
 public class Livro {
+
+    public static final int TAMANHO_MAXIMO_TITULO = 255;
 
     private final Long id;
     private Isbn isbn;
@@ -31,7 +34,7 @@ public class Livro {
         this.editora = editora;
         this.anoPublicacao = anoPublicacao;
         this.categoriaId = categoriaId;
-        this.autorIds = new HashSet<>(autorIds);
+        this.autorIds = new HashSet<>(Objects.requireNonNull(autorIds, "autorIds não pode ser nulo"));
         this.ativo = ativo;
     }
 
@@ -69,6 +72,9 @@ public class Livro {
     }
 
     public void removerAutor(Long autorId) {
+        if (autorId == null) {
+            throw new RegraDeNegocioException("o id do autor é obrigatório");
+        }
         if (autorIds.size() == 1 && autorIds.contains(autorId)) {
             throw new RegraDeNegocioException("o livro precisa ter ao menos um autor");
         }
@@ -88,6 +94,13 @@ public class Livro {
     private static void validarTitulo(String titulo) {
         if (titulo == null || titulo.isBlank()) {
             throw new RegraDeNegocioException("o título do livro é obrigatório");
+        }
+        if (!titulo.equals(titulo.strip())) {
+            throw new RegraDeNegocioException("o título do livro não pode ter espaços nas pontas");
+        }
+        if (titulo.length() > TAMANHO_MAXIMO_TITULO) {
+            throw new RegraDeNegocioException(
+                    "o título do livro deve ter até " + TAMANHO_MAXIMO_TITULO + " caracteres");
         }
     }
 
