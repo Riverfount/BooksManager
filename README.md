@@ -33,7 +33,7 @@ Bibliotecários, que operam o sistema no dia a dia, e o administrador, que geren
 
 ## 2. Status do projeto
 
-Fase 1 · Catálogo **concluída** (domínio e persistência das quatro entidades) e em extensão para fechar o ciclo de ponta a ponta de todas elas. `Categoria`, `Autor` e `Livro` já têm caso de uso e endpoint REST de cadastro e consulta por id (`POST`/`GET /api/v1/categorias`, `/autores` e `/livros` — ainda não é um CRUD completo: não há listagem, atualização nem exclusão); cadastrar um livro valida que a categoria e os autores informados existem antes de persistir. `Exemplar` ainda tem só domínio e persistência, sem API. Os módulos de empréstimo, usuário e segurança ainda não foram implementados. Os requisitos, as histórias de usuário e o modelo de dados completos estão em `docs/projeto.md`.
+Fase 1 · Catálogo **concluída**, incluindo o ciclo de ponta a ponta das quatro entidades: `Categoria`, `Autor`, `Livro` e `Exemplar` já têm caso de uso e endpoint REST de cadastro e consulta por id (`POST`/`GET /api/v1/categorias`, `/autores`, `/livros` e `/exemplares` — ainda não é um CRUD completo: não há listagem, atualização nem exclusão). Cadastrar um livro valida que a categoria e os autores informados existem e estão ativos; cadastrar um exemplar valida o mesmo para o livro. Os endpoints de empréstimo/devolução de exemplar ficam para a Fase 3, que depende de Leitor. Os módulos de empréstimo, usuário e segurança ainda não foram implementados. Os requisitos, as histórias de usuário e o modelo de dados completos estão em `docs/projeto.md`.
 
 O controle de acesso por login será implementado em uma etapa posterior; até lá, a configuração de segurança é provisória.
 
