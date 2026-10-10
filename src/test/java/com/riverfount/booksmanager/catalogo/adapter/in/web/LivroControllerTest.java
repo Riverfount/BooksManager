@@ -100,6 +100,22 @@ class LivroControllerTest {
 
     @Test
     @WithMockUser
+    void deveDevolver400ParaAutorIdNuloDentroDoConjunto() throws Exception {
+        // autorIds:[null] passa por Jackson (Set<Long> aceita elemento nulo
+        // em tempo de execução), e sem essa validação ia quebrar lá na
+        // frente com 500 em vez de um 400 limpo
+        mockMvc.perform(post("/api/v1/livros")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"isbn":"9788533302273","titulo":"Dom Casmurro","categoriaId":1,"autorIds":[null]}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+    }
+
+    @Test
+    @WithMockUser
     void deveDevolver422ParaCategoriaOuAutorInexistente() throws Exception {
         given(cadastrarLivroUseCase.cadastrar(any()))
                 .willThrow(new RegraDeNegocioException("categoria não encontrada: 999999"));

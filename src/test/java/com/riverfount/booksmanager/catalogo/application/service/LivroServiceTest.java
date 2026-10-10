@@ -20,14 +20,16 @@ class LivroServiceTest {
     private static final Clock RELOGIO_FIXO = Clock.fixed(Instant.parse("2026-10-10T00:00:00Z"), ZoneOffset.UTC);
 
     private LivroService service;
+    private CategoriaRepositoryEmMemoria categoriaRepository;
+    private AutorRepositoryEmMemoria autorRepository;
     private Long categoriaId;
     private Long autorId;
 
     @BeforeEach
     void preparar() {
         var livroRepository = new LivroRepositoryEmMemoria();
-        var categoriaRepository = new CategoriaRepositoryEmMemoria();
-        var autorRepository = new AutorRepositoryEmMemoria();
+        categoriaRepository = new CategoriaRepositoryEmMemoria();
+        autorRepository = new AutorRepositoryEmMemoria();
         service = new LivroService(livroRepository, categoriaRepository, autorRepository, RELOGIO_FIXO);
 
         categoriaId = categoriaRepository.salvar(Categoria.novo("Ficção")).getId();
@@ -57,6 +59,26 @@ class LivroServiceTest {
     void naoDeveCadastrarComAutorInexistente() {
         assertThatThrownBy(() -> service.cadastrar(new CadastrarLivroCommand("9788533302273", "Dom Casmurro",
                 "Editora X", 1899, categoriaId, Set.of(999999L))))
+                .isInstanceOf(RegraDeNegocioException.class);
+    }
+
+    @Test
+    void naoDeveCadastrarComCategoriaInativa() {
+        var categoriaInativaId = 500L;
+        categoriaRepository.salvar(Categoria.reconstituir(categoriaInativaId, "Categoria inativa", false));
+
+        assertThatThrownBy(() -> service.cadastrar(new CadastrarLivroCommand("9788533302273", "Dom Casmurro",
+                "Editora X", 1899, categoriaInativaId, Set.of(autorId))))
+                .isInstanceOf(RegraDeNegocioException.class);
+    }
+
+    @Test
+    void naoDeveCadastrarComAutorInativo() {
+        var autorInativoId = 500L;
+        autorRepository.salvar(Autor.reconstituir(autorInativoId, "Autor inativo", false));
+
+        assertThatThrownBy(() -> service.cadastrar(new CadastrarLivroCommand("9788533302273", "Dom Casmurro",
+                "Editora X", 1899, categoriaId, Set.of(autorInativoId))))
                 .isInstanceOf(RegraDeNegocioException.class);
     }
 

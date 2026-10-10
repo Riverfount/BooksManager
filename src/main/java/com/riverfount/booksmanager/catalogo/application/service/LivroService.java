@@ -6,11 +6,14 @@ import com.riverfount.booksmanager.catalogo.application.port.in.ConsultarLivroUs
 import com.riverfount.booksmanager.catalogo.application.port.out.AutorRepository;
 import com.riverfount.booksmanager.catalogo.application.port.out.CategoriaRepository;
 import com.riverfount.booksmanager.catalogo.application.port.out.LivroRepository;
+import com.riverfount.booksmanager.catalogo.domain.Autor;
 import com.riverfount.booksmanager.catalogo.domain.Isbn;
 import com.riverfount.booksmanager.catalogo.domain.Livro;
 import com.riverfount.booksmanager.compartilhado.domain.RegraDeNegocioException;
 import java.time.Clock;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -58,15 +61,27 @@ class LivroService implements CadastrarLivroUseCase, ConsultarLivroUseCase {
     }
 
     private void validarCategoriaExiste(Long categoriaId) {
-        if (categoriaRepository.buscarPorId(categoriaId).isEmpty()) {
+        var categoria = categoriaRepository.buscarPorId(categoriaId);
+        if (categoria.isEmpty()) {
             throw new RegraDeNegocioException("categoria não encontrada: " + categoriaId);
+        }
+        if (!categoria.get().isAtivo()) {
+            throw new RegraDeNegocioException("categoria inativa: " + categoriaId);
         }
     }
 
-    private void validarAutoresExistem(Iterable<Long> autorIds) {
+    private void validarAutoresExistem(Set<Long> autorIds) {
+        // uma única consulta em lote, em vez de uma por autorId
+        var encontrados = autorRepository.buscarTodosPorIds(autorIds);
+        var idsEncontrados = encontrados.stream().map(Autor::getId).collect(Collectors.toSet());
         for (var autorId : autorIds) {
-            if (autorRepository.buscarPorId(autorId).isEmpty()) {
+            if (!idsEncontrados.contains(autorId)) {
                 throw new RegraDeNegocioException("autor não encontrado: " + autorId);
+            }
+        }
+        for (var autor : encontrados) {
+            if (!autor.isAtivo()) {
+                throw new RegraDeNegocioException("autor inativo: " + autor.getId());
             }
         }
     }

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.riverfount.booksmanager.TestcontainersConfiguration;
 import com.riverfount.booksmanager.catalogo.domain.Autor;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -49,5 +50,15 @@ class AutorPersistenceAdapterTest {
         var segundo = adaptador.salvar(Autor.novo("José Silva"));
 
         assertThat(primeiro.getId()).isNotEqualTo(segundo.getId());
+    }
+
+    @Test
+    void deveBuscarTodosPorIdsIgnorandoIdsInexistentes() {
+        var autor1 = adaptador.salvar(Autor.novo("Autor Um"));
+        var autor2 = adaptador.salvar(Autor.novo("Autor Dois"));
+
+        var encontrados = adaptador.buscarTodosPorIds(Set.of(autor1.getId(), autor2.getId(), 999999L));
+
+        assertThat(encontrados).extracting(Autor::getId).containsExactlyInAnyOrder(autor1.getId(), autor2.getId());
     }
 }

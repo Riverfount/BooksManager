@@ -21,5 +21,5 @@ record CadastrarLivroRequest(
         @NotNull(message = "a categoria é obrigatória")
         Long categoriaId,
         @NotEmpty(message = "é preciso informar ao menos um autor")
-        Set<Long> autorIds) {
+        Set<@NotNull(message = "o id do autor não pode ser nulo") Long> autorIds) {
 }
