@@ -2,6 +2,7 @@ package com.riverfount.booksmanager.catalogo.adapter.out.persistence;
 
 import com.riverfount.booksmanager.catalogo.application.port.out.ExemplarRepository;
 import com.riverfount.booksmanager.catalogo.domain.Exemplar;
+import com.riverfount.booksmanager.compartilhado.adapter.out.persistence.ViolacoesDeRestricao;
 import com.riverfount.booksmanager.compartilhado.domain.RegraDeNegocioException;
 import java.util.Optional;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -27,7 +28,7 @@ class ExemplarPersistenceAdapter implements ExemplarRepository {
             var salvo = jpaRepository.saveAndFlush(entidade);
             return paraDominio(salvo);
         } catch (DataIntegrityViolationException e) {
-            if (violaRestricaoUnicaDoCodigoPatrimonio(e)) {
+            if (ViolacoesDeRestricao.viola(e, "exemplar_codigo_patrimonio_key")) {
                 throw new RegraDeNegocioException(
                         "já existe um exemplar com o código de patrimônio '" + exemplar.getCodigoPatrimonio()
                                 + "'");
@@ -44,12 +45,6 @@ class ExemplarPersistenceAdapter implements ExemplarRepository {
     @Override
     public boolean existeCodigoPatrimonio(String codigoPatrimonio) {
         return jpaRepository.existsByCodigoPatrimonio(codigoPatrimonio);
-    }
-
-    private static boolean violaRestricaoUnicaDoCodigoPatrimonio(DataIntegrityViolationException excecao) {
-        var causaMaisEspecifica = excecao.getMostSpecificCause();
-        var mensagem = causaMaisEspecifica == null ? null : causaMaisEspecifica.getMessage();
-        return mensagem != null && mensagem.contains("exemplar_codigo_patrimonio_key");
     }
 
     private Exemplar paraDominio(ExemplarJpaEntity entidade) {
