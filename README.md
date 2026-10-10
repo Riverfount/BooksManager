@@ -33,7 +33,7 @@ Bibliotecários, que operam o sistema no dia a dia, e o administrador, que geren
 
 ## 2. Status do projeto
 
-Projeto em fase inicial. Até o momento, foram configurados o esqueleto da aplicação Spring Boot, as dependências do projeto (web, persistência, segurança, Flyway, documentação da API, mapeamento e testes) e o container do PostgreSQL via Docker Compose. A conexão efetiva com o banco, os scripts de migração do Flyway, o domínio, os pacotes de arquitetura e os endpoints ainda não foram implementados. Os requisitos, as histórias de usuário e o modelo de dados serão detalhados nas próximas etapas e acrescentados a este documento.
+Projeto em andamento (Fase 1 · Catálogo). A estrutura de pacotes da arquitetura hexagonal, os testes de arquitetura (ArchUnit), a primeira entidade de domínio (`Categoria`) e a primeira migração do Flyway (`V1__criar_catalogo.sql`, com as tabelas do catálogo) já estão implementados. Os endpoints da API, as demais entidades do catálogo e os módulos de empréstimo/usuário/segurança ainda não foram implementados. Os requisitos, as histórias de usuário e o modelo de dados completos estão em `docs/projeto.md`.
 
 O controle de acesso por login será implementado em uma etapa posterior; até lá, a configuração de segurança é provisória.
 
@@ -67,7 +67,7 @@ Abra o projeto na IDE e execute a classe principal **BooksManagerApplication**, 
 A API é um back-end puro, sem páginas HTML; não há nada para visualizar na raiz **http://localhost:8080**. Com a aplicação em execução, a documentação Swagger fica em http://localhost:8080/swagger-ui.html, e as requisições à API usam o prefixo **/api/v1**.
 
 ### Banco de dados
-O PostgreSQL é executado em um container Docker, definido no arquivo **compose.yaml** na raiz do projeto. As tabelas serão criadas e atualizadas por scripts do Flyway, na pasta **src/main/resources/db/migration**; essa pasta e as migrações ainda serão adicionadas nas próximas etapas.
+O PostgreSQL é executado em um container Docker, definido no arquivo **compose.yaml** na raiz do projeto. As tabelas são criadas e atualizadas por scripts do Flyway, na pasta **src/main/resources/db/migration**; a primeira migração (**V1__criar_catalogo.sql**) já cria as tabelas do catálogo (`categoria`, `autor`, `livro`, `livro_autor`, `exemplar`).
 
 ---
 
