@@ -1,0 +1,59 @@
+package com.riverfount.booksmanager.catalog.adapter.out.persistence;
+
+import com.riverfount.booksmanager.catalog.application.port.out.BookRepository;
+import com.riverfount.booksmanager.catalog.domain.Book;
+import com.riverfount.booksmanager.catalog.domain.Isbn;
+import com.riverfount.booksmanager.shared.adapter.out.persistence.ConstraintViolations;
+import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
+import java.util.Optional;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.stereotype.Component;
+
+@Component
+class BookPersistenceAdapter implements BookRepository {
+
+    private final BookJpaRepository jpaRepository;
+
+    BookPersistenceAdapter(BookJpaRepository jpaRepository) {
+        this.jpaRepository = jpaRepository;
+    }
+
+    @Override
+    public Book save(Book book) {
+        var entity = new BookJpaEntity(book.getId(), book.getIsbn().value(), book.getTitle(),
+                book.getPublisher(), book.getPublicationYear(), book.getCategoryId(), book.getAuthorIds(),
+                book.isActive());
+        try {
+            var saved = jpaRepository.save(entity);
+            return toDomain(saved);
+        } catch (DataIntegrityViolationException e) {
+            // defense against the race between the future service's
+            // existsByIsbn() and this save(): the database's unique
+            // constraint is what actually enforces RN01; here we only
+            // translate it into the domain exception when the violation is
+            // really the ISBN's — other violations (FK on a nonexistent
+            // categoryId or authorId, for example) must not be confused
+            // with a duplicate ISBN.
+            if (ConstraintViolations.violates(e, "book_isbn_key")) {
+                throw new BusinessRuleException("já existe um livro com o ISBN '" + book.getIsbn().value() + "'");
+            }
+            throw e;
+        }
+    }
+
+    @Override
+    public Optional<Book> findById(Long id) {
+        return jpaRepository.findById(id).map(this::toDomain);
+    }
+
+    @Override
+    public boolean existsByIsbn(Isbn isbn) {
+        return jpaRepository.existsByIsbn(isbn.value());
+    }
+
+    private Book toDomain(BookJpaEntity entity) {
+        return Book.reconstitute(entity.getId(), new Isbn(entity.getIsbn()), entity.getTitle(),
+                entity.getPublisher(), entity.getPublicationYear(), entity.getCategoryId(),
+                entity.getAuthorIds(), entity.isActive());
+    }
+}

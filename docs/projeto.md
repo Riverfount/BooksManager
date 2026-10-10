@@ -210,23 +210,23 @@ O sistema segue a arquitetura hexagonal (portas e adaptadores) em um monólito m
 
 ```
 com.riverfount.booksmanager
-├── catalogo        (livros, autores, categorias, exemplares)
+├── catalog     (livros, autores, categorias, exemplares)
 │   ├── domain
 │   ├── application   (portas de entrada e saída, serviços)
 │   └── adapter       (in.web, out.persistence)
-├── emprestimo      (empréstimos, multas, reservas)
+├── loan        (empréstimos, multas, reservas)
 │   ├── domain
 │   ├── application
 │   └── adapter
-├── usuario         (leitores e usuários do sistema)
+├── user        (leitores e usuários do sistema)
 │   ├── domain
 │   ├── application
 │   └── adapter
-├── seguranca       (autenticação e autorização)
-└── compartilhado   (exceções, configuração e utilitários)
+├── security    (autenticação e autorização)
+└── shared      (exceções, configuração e utilitários)
 ```
 
-**Estado atual** (issue #1, concluída): `catalogo.domain`, `catalogo.application.port.in`, `catalogo.application.port.out`, `catalogo.application.service`, `catalogo.adapter.in.web`, `catalogo.adapter.out.persistence` e `compartilhado.domain` já existem no código (vazios, com `package-info.java` documentando cada um). Os pacotes de `emprestimo`, `usuario`, `seguranca` e os subpacotes `application`/`adapter` de `compartilhado` ainda não foram criados.
+**Estado atual** (issue #41, concluída): `catalog.domain`, `catalog.application.port.in`, `catalog.application.port.out`, `catalog.application.service`, `catalog.adapter.in.web`, `catalog.adapter.out.persistence`, `shared.domain`, `shared.adapter.in.web`, `shared.adapter.out.persistence` e `shared.configuration` já existem no código, com as quatro entidades do catálogo (Book, Author, Category, Copy) implementadas em inglês (issue #41 traduziu os identificadores de português para inglês em todo o código — classes, pacotes, banco e rotas; mensagens ao usuário e os requisitos deste documento continuam em português). Os pacotes de `loan`, `user` e `security` ainda não foram criados.
 
 ### Diretrizes
 
@@ -249,7 +249,7 @@ A interface é uma aplicação React separada do backend, em repositório própr
 
 ### Verificação automática
 
-Testes com ArchUnit garantem no build que o domínio não importa Spring nem JPA, que a aplicação não depende dos adaptadores e que o domínio não depende da aplicação. **Implementado** (issue #4): `ArquiteturaTest`, com as três regras via `archunit-junit5` (o `pom.xml` tinha o artefato `archunit` core, sem o módulo de integração com JUnit 5 — trocado por `archunit-junit5`). Validado também por sabotagem: um import real do Spring usado em `RegraDeNegocioException` faz a regra falhar; revertido depois.
+Testes com ArchUnit garantem no build que o domínio não importa Spring nem JPA, que a aplicação não depende dos adaptadores e que o domínio não depende da aplicação. **Implementado** (issue #4): `ArchitectureTest` (renomeada de `ArquiteturaTest` na issue #41), com as três regras via `archunit-junit5` (o `pom.xml` tinha o artefato `archunit` core, sem o módulo de integração com JUnit 5 — trocado por `archunit-junit5`). Validado também por sabotagem: um import real do Spring usado na exceção de regra de negócio do domínio (`BusinessRuleException`) faz a regra falhar; revertido depois.
 
 ## Modelo de domínio
 
@@ -293,7 +293,7 @@ O diagrama de classes em Mermaid deve ser acrescentado quando o curso exigir ess
 - O Hibernate roda com `ddl-auto=validate`, apenas conferindo o esquema, e com `open-in-view` desativado.
 - Ordem sugerida das migrações: catálogo (livro, autor, categoria, exemplar), leitores e usuários, configuração da biblioteca, empréstimos e multas, reservas.
 - Restrições no banco reforçam as regras de negócio: ISBN único, código de patrimônio único e controle de versão otimista na tabela de exemplares.
-- **Estado atual**: `V1__criar_catalogo.sql` (issue #6) já cria as tabelas `categoria`, `autor`, `livro`, `livro_autor` e `exemplar`, com as restrições de RN01 (ISBN único) e RN02 (código de patrimônio único), e a coluna `versao` em `exemplar` para o lock otimista de RNF17. O `@Version` da entidade JPA que a usa de fato veio na issue #16, com teste de concorrência determinístico (duas cópias do mesmo exemplar, a segunda a salvar falha com `ObjectOptimisticLockingFailureException`). Aplicada e verificada tanto por Testcontainers quanto contra o PostgreSQL real do `compose.yaml`.
+- **Estado atual**: `V1__create_catalog.sql` (issue #6; nomes de tabela e coluna traduzidos para inglês na issue #41, já que o banco ainda não tinha dados reais) cria as tabelas `category`, `author`, `book`, `book_author` e `copy`, com as restrições de RN01 (ISBN único) e RN02 (código de patrimônio único), e a coluna `version` em `copy` para o lock otimista de RNF17. O `@Version` da entidade JPA que a usa de fato veio na issue #16, com teste de concorrência determinístico (duas cópias do mesmo exemplar, a segunda a salvar falha com `ObjectOptimisticLockingFailureException`). Aplicada e verificada tanto por Testcontainers quanto contra o PostgreSQL real do `compose.yaml`.
 
 ## Estratégia de testes
 

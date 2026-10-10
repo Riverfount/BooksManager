@@ -33,7 +33,7 @@ Bibliotecários, que operam o sistema no dia a dia, e o administrador, que geren
 
 ## 2. Status do projeto
 
-Fase 1 · Catálogo **concluída**, incluindo o ciclo de ponta a ponta das quatro entidades: `Categoria`, `Autor`, `Livro` e `Exemplar` já têm caso de uso e endpoint REST de cadastro e consulta por id (`POST`/`GET /api/v1/categorias`, `/autores`, `/livros` e `/exemplares` — ainda não é um CRUD completo: não há listagem, atualização nem exclusão). Cadastrar um livro valida que a categoria e os autores informados existem e estão ativos; cadastrar um exemplar valida o mesmo para o livro. Os endpoints de empréstimo/devolução de exemplar ficam para a Fase 3, que depende de Leitor. Os módulos de empréstimo, usuário e segurança ainda não foram implementados. Os requisitos, as histórias de usuário e o modelo de dados completos estão em `docs/projeto.md`.
+Fase 1 · Catálogo **concluída**, incluindo o ciclo de ponta a ponta das quatro entidades: `Category`, `Author`, `Book` e `Copy` já têm caso de uso e endpoint REST de cadastro e consulta por id (`POST`/`GET /api/v1/categories`, `/authors`, `/books` e `/copies` — ainda não é um CRUD completo: não há listagem, atualização nem exclusão). Cadastrar um livro valida que a categoria e os autores informados existem e estão ativos; cadastrar um exemplar valida o mesmo para o livro. Os endpoints de empréstimo/devolução de exemplar ficam para a Fase 3, que depende de Leitor. Os módulos de empréstimo, usuário e segurança ainda não foram implementados. Os requisitos, as histórias de usuário e o modelo de dados completos estão em `docs/projeto.md`. Os identificadores do código (classes, pacotes, banco e rotas) estão em inglês; os requisitos deste repositório e as mensagens ao usuário final continuam em português.
 
 O controle de acesso por login será implementado em uma etapa posterior; até lá, a configuração de segurança é provisória.
 
@@ -41,7 +41,7 @@ O controle de acesso por login será implementado em uma etapa posterior; até l
 
 ## 3. Arquitetura
 
-O projeto vai seguir a **arquitetura hexagonal** (portas e adaptadores), organizado como um monólito modular dividido nos módulos `catalogo`, `emprestimo`, `usuario`, `seguranca` e `compartilhado`. As regras de negócio ficarão em um domínio escrito em Java puro, sem dependência de Spring ou JPA. Banco de dados, adaptador web (API REST) e serviços externos vão se conectar ao domínio por meio de portas, implementadas por adaptadores. O `ArquiteturaTest` (ArchUnit) já verifica essa separação a cada build: o domínio não pode depender de Spring, JPA/Hibernate, da aplicação nem dos adaptadores, e a aplicação não pode depender dos adaptadores.
+O projeto vai seguir a **arquitetura hexagonal** (portas e adaptadores), organizado como um monólito modular dividido nos módulos `catalog`, `loan`, `user`, `security` e `shared`. As regras de negócio ficarão em um domínio escrito em Java puro, sem dependência de Spring ou JPA. Banco de dados, adaptador web (API REST) e serviços externos vão se conectar ao domínio por meio de portas, implementadas por adaptadores. O `ArchitectureTest` (ArchUnit) já verifica essa separação a cada build: o domínio não pode depender de Spring, JPA/Hibernate, da aplicação nem dos adaptadores, e a aplicação não pode depender dos adaptadores.
 
 O front-end (React + Tailwind CSS) é um projeto separado que consome esta API apenas por HTTP/JSON; nenhuma regra de negócio vive nele.
 
@@ -79,7 +79,7 @@ Os comandos mais usados do dia a dia também estão disponíveis como alvos do `
 A API é um back-end puro, sem páginas HTML; não há nada para visualizar na raiz **http://localhost:8080**. Com a aplicação em execução, a documentação Swagger fica em http://localhost:8080/swagger-ui.html, e as requisições à API usam o prefixo **/api/v1**.
 
 ### Banco de dados
-O PostgreSQL é executado em um container Docker, definido no arquivo **compose.yaml** na raiz do projeto. As tabelas são criadas e atualizadas por scripts do Flyway, na pasta **src/main/resources/db/migration**; a primeira migração (**V1__criar_catalogo.sql**) já cria as tabelas do catálogo (`categoria`, `autor`, `livro`, `livro_autor`, `exemplar`).
+O PostgreSQL é executado em um container Docker, definido no arquivo **compose.yaml** na raiz do projeto. As tabelas são criadas e atualizadas por scripts do Flyway, na pasta **src/main/resources/db/migration**; a primeira migração (**V1__create_catalog.sql**) já cria as tabelas do catálogo (`category`, `author`, `book`, `book_author`, `copy`).
 
 ---
 
