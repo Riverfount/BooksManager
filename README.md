@@ -58,7 +58,7 @@ O front-end (React + Tailwind CSS) é um projeto separado que consome esta API a
 1. No repositório, clique em **Code → Codespaces → Create codespace on main** (ou abra o Codespace existente).
 2. Aguarde a preparação do ambiente.
 3. No terminal, execute o comando **mvn spring-boot:run**. O Spring Boot sobe o container do PostgreSQL automaticamente a partir do arquivo **compose.yaml**.
-4. Quando aparecer o aviso da porta **8080**, clique em **Abrir no navegador** para acessar a documentação Swagger.
+4. Quando aparecer o aviso da porta **8080**, clique em **Abrir no navegador**. Isso abre a raiz da API (sem nada para visualizar); para a documentação, acesse **/swagger-ui.html** (veja a seção "Documentação da API" abaixo).
 
 ### No computador (ferramentas instaladas)
 Abra o projeto na IDE e execute a classe principal **BooksManagerApplication**, ou use o comando **./mvnw spring-boot:run** na raiz do projeto. Com o Docker em execução, o banco sobe sozinho. A API fica disponível em http://localhost:8080.
