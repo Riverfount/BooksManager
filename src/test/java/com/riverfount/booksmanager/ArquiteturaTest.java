@@ -18,7 +18,7 @@ class ArquiteturaTest {
     static final ArchRule dominioNaoDependeDeFrameworks = noClasses()
             .that().resideInAPackage("..domain..")
             .should().dependOnClassesThat().resideInAnyPackage(
-                    "org.springframework..", "jakarta.persistence..", "org.hibernate..")
+                    "org.springframework..", "jakarta.persistence..", "org.hibernate..", "lombok..")
             .allowEmptyShould(true);
 
     @ArchTest
