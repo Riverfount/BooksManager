@@ -3,6 +3,7 @@ package com.riverfount.booksmanager.catalogo.adapter.out.persistence;
 import com.riverfount.booksmanager.catalogo.application.port.out.LivroRepository;
 import com.riverfount.booksmanager.catalogo.domain.Isbn;
 import com.riverfount.booksmanager.catalogo.domain.Livro;
+import com.riverfount.booksmanager.compartilhado.adapter.out.persistence.ViolacoesDeRestricao;
 import com.riverfount.booksmanager.compartilhado.domain.RegraDeNegocioException;
 import java.util.Optional;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -32,17 +33,11 @@ class LivroPersistenceAdapter implements LivroRepository {
             // domínio quando a violação for mesmo a do ISBN — outras
             // violações (FK de categoria_id ou autor_id inexistente, por
             // exemplo) não devem ser confundidas com ISBN duplicado.
-            if (violaRestricaoUnicaDoIsbn(e)) {
+            if (ViolacoesDeRestricao.viola(e, "livro_isbn_key")) {
                 throw new RegraDeNegocioException("já existe um livro com o ISBN '" + livro.getIsbn().valor() + "'");
             }
             throw e;
         }
-    }
-
-    private static boolean violaRestricaoUnicaDoIsbn(DataIntegrityViolationException excecao) {
-        var causaMaisEspecifica = excecao.getMostSpecificCause();
-        var mensagem = causaMaisEspecifica == null ? null : causaMaisEspecifica.getMessage();
-        return mensagem != null && mensagem.contains("livro_isbn_key");
     }
 
     @Override
