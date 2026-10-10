@@ -63,6 +63,18 @@ O front-end (React + Tailwind CSS) é um projeto separado que consome esta API a
 ### No computador (ferramentas instaladas)
 Abra o projeto na IDE e execute a classe principal **BooksManagerApplication**, ou use o comando **./mvnw spring-boot:run** na raiz do projeto. Com o Docker em execução, o banco sobe sozinho. A API fica disponível em http://localhost:8080.
 
+### Atalhos com Makefile
+Os comandos mais usados do dia a dia também estão disponíveis como alvos do `make` (`make` ou `make help` lista todos):
+
+| Alvo | Equivalente |
+|---|---|
+| `make run` | `./mvnw spring-boot:run` |
+| `make test` | `./mvnw test` |
+| `make verify` | `./mvnw verify` |
+| `make up` | `docker compose up -d` |
+| `make down` | `docker compose down` |
+| `make clean` | `./mvnw clean` |
+
 ### Documentação da API
 A API é um back-end puro, sem páginas HTML; não há nada para visualizar na raiz **http://localhost:8080**. Com a aplicação em execução, a documentação Swagger fica em http://localhost:8080/swagger-ui.html, e as requisições à API usam o prefixo **/api/v1**.
 
