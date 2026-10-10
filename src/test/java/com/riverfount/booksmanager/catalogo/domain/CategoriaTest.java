@@ -1,12 +1,24 @@
 package com.riverfount.booksmanager.catalogo.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.riverfount.booksmanager.compartilhado.domain.RegraDeNegocioException;
 import org.junit.jupiter.api.Test;
 
 class CategoriaTest {
+
+    @Test
+    void naoDeveValidarNomeUnicoQuandoJaExisteOutraComOMesmoNome() {
+        assertThatThrownBy(() -> Categoria.validarNomeUnico("Ficção", true))
+                .isInstanceOf(RegraDeNegocioException.class);
+    }
+
+    @Test
+    void deveValidarNomeUnicoQuandoNaoExisteOutraComOMesmoNome() {
+        assertThatCode(() -> Categoria.validarNomeUnico("Ficção", false)).doesNotThrowAnyException();
+    }
 
     @Test
     void deveCriarCategoriaNovaAtivaComONomeInformado() {

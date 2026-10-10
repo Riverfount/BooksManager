@@ -29,6 +29,17 @@ public class Categoria {
         return new Categoria(id, nome, ativo);
     }
 
+    /**
+     * Decide se o nome pode ser usado, dado se já existe outra categoria com
+     * ele. Quem busca essa informação (a aplicação, via o repositório) não
+     * decide; só traz o fato para o domínio decidir.
+     */
+    public static void validarNomeUnico(String nome, boolean jaExisteOutraComEsseNome) {
+        if (jaExisteOutraComEsseNome) {
+            throw new RegraDeNegocioException("já existe uma categoria com o nome '" + nome + "'");
+        }
+    }
+
     public void renomear(String novoNome) {
         validarNome(novoNome);
         this.nome = novoNome;

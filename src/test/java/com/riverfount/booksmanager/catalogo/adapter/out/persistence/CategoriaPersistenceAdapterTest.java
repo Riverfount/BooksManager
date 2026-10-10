@@ -5,13 +5,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.riverfount.booksmanager.TestcontainersConfiguration;
 import com.riverfount.booksmanager.catalogo.domain.Categoria;
+import com.riverfount.booksmanager.compartilhado.domain.RegraDeNegocioException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase.Replace;
 import org.springframework.context.annotation.Import;
-import org.springframework.dao.DataIntegrityViolationException;
 
 /**
  * Testa o adaptador de persistência de Categoria contra um PostgreSQL real
@@ -52,10 +52,14 @@ class CategoriaPersistenceAdapterTest {
     }
 
     @Test
-    void nomeDuplicadoDeveViolarARestricaoUnicaDoBanco() {
+    void deveTraduzirAViolacaoDaRestricaoUnicaDoBancoParaRegraDeNegocioException() {
+        // simula a corrida: duas chamadas a salvar() sem passar pela validação
+        // de Categoria.validarNomeUnico (quem faz essa checagem é o serviço,
+        // não o adaptador) — a porta nunca deve deixar escapar a exceção
+        // de persistência crua.
         adaptador.salvar(Categoria.novo("Terror"));
 
         assertThatThrownBy(() -> adaptador.salvar(Categoria.novo("Terror")))
-                .isInstanceOf(DataIntegrityViolationException.class);
+                .isInstanceOf(RegraDeNegocioException.class);
     }
 }

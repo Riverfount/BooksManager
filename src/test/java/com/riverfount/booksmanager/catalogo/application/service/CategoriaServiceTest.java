@@ -48,4 +48,13 @@ class CategoriaServiceTest {
     void deveRetornarVazioAoConsultarIdInexistente() {
         assertThat(service.buscarPorId(-1L)).isEmpty();
     }
+
+    @Test
+    void deveRejeitarIdNuloAoConsultar() {
+        // o fake precisa se comportar como o adaptador JPA real
+        // (JpaRepository.findById rejeita id nulo), senão esse cenário
+        // passaria aqui e só quebraria em produção.
+        assertThatThrownBy(() -> service.buscarPorId(null))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
 }

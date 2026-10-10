@@ -26,6 +26,11 @@ class CategoriaRepositoryEmMemoria implements CategoriaRepository {
 
     @Override
     public Optional<Categoria> buscarPorId(Long id) {
+        // mesma restrição do JpaRepository.findById real, para que este
+        // fake não deixe passar um cenário que quebraria em produção
+        if (id == null) {
+            throw new IllegalArgumentException("o id não pode ser nulo");
+        }
         return Optional.ofNullable(categorias.get(id));
     }
 

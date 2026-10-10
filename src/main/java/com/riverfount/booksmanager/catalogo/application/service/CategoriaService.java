@@ -5,15 +5,14 @@ import com.riverfount.booksmanager.catalogo.application.port.in.CadastrarCategor
 import com.riverfount.booksmanager.catalogo.application.port.in.ConsultarCategoriaUseCase;
 import com.riverfount.booksmanager.catalogo.application.port.out.CategoriaRepository;
 import com.riverfount.booksmanager.catalogo.domain.Categoria;
-import com.riverfount.booksmanager.compartilhado.domain.RegraDeNegocioException;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Orquestra o cadastro e a consulta de Categoria: carrega, chama o
- * domínio e persiste. Nenhuma regra de negócio própria (RN14 e a
- * validação de nome ficam em Categoria).
+ * Orquestra o cadastro e a consulta de Categoria: busca o que o domínio
+ * precisa para decidir, chama o domínio e persiste. A decisão de negócio
+ * em si (nome único, validações, RN14) fica inteira em Categoria.
  */
 @Service
 @Transactional
@@ -27,9 +26,7 @@ class CategoriaService implements CadastrarCategoriaUseCase, ConsultarCategoriaU
 
     @Override
     public Categoria cadastrar(CadastrarCategoriaCommand command) {
-        if (categoriaRepository.existeComNome(command.nome())) {
-            throw new RegraDeNegocioException("já existe uma categoria com o nome '" + command.nome() + "'");
-        }
+        Categoria.validarNomeUnico(command.nome(), categoriaRepository.existeComNome(command.nome()));
         return categoriaRepository.salvar(Categoria.novo(command.nome()));
     }
 
