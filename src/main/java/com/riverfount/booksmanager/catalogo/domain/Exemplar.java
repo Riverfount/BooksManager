@@ -10,6 +10,8 @@ import com.riverfount.booksmanager.compartilhado.domain.RegraDeNegocioException;
  */
 public class Exemplar {
 
+    public static final int TAMANHO_MAXIMO_CODIGO_PATRIMONIO = 50;
+
     private final Long id;
     private final Long livroId;
     private final String codigoPatrimonio;
@@ -76,6 +78,26 @@ public class Exemplar {
     private static void validarCodigoPatrimonio(String codigoPatrimonio) {
         if (codigoPatrimonio == null || codigoPatrimonio.isBlank()) {
             throw new RegraDeNegocioException("o código de patrimônio é obrigatório");
+        }
+        if (!codigoPatrimonio.equals(codigoPatrimonio.strip())) {
+            throw new RegraDeNegocioException("o código de patrimônio não pode ter espaços nas pontas");
+        }
+        if (codigoPatrimonio.length() > TAMANHO_MAXIMO_CODIGO_PATRIMONIO) {
+            throw new RegraDeNegocioException(
+                    "o código de patrimônio deve ter até " + TAMANHO_MAXIMO_CODIGO_PATRIMONIO + " caracteres");
+        }
+    }
+
+    /**
+     * Decide se o código de patrimônio pode ser usado, dado se já existe
+     * outro exemplar com ele. Quem busca essa informação (a aplicação,
+     * via o repositório) não decide; só traz o fato para o domínio
+     * decidir.
+     */
+    public static void validarCodigoPatrimonioUnico(String codigoPatrimonio, boolean jaExisteOutroComEsseCodigo) {
+        if (jaExisteOutroComEsseCodigo) {
+            throw new RegraDeNegocioException(
+                    "já existe um exemplar com o código de patrimônio '" + codigoPatrimonio + "'");
         }
     }
 

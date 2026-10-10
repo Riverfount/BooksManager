@@ -41,6 +41,40 @@ class ExemplarTest {
     }
 
     @Test
+    void naoDeveCriarExemplarComCodigoPatrimonioComEspacoNaPonta() {
+        assertThatThrownBy(() -> Exemplar.novo(1L, " PAT-1")).isInstanceOf(RegraDeNegocioException.class);
+    }
+
+    @Test
+    void naoDeveCriarExemplarComCodigoPatrimonioMaiorQueCinquentaCaracteres() {
+        var codigoComCinquentaEUmCaracteres = "A".repeat(51);
+
+        assertThatThrownBy(() -> Exemplar.novo(1L, codigoComCinquentaEUmCaracteres))
+                .isInstanceOf(RegraDeNegocioException.class);
+    }
+
+    @Test
+    void deveAceitarCodigoPatrimonioComExatamenteCinquentaCaracteres() {
+        var codigoComCinquentaCaracteres = "A".repeat(50);
+
+        var exemplar = Exemplar.novo(1L, codigoComCinquentaCaracteres);
+
+        assertThat(exemplar.getCodigoPatrimonio()).isEqualTo(codigoComCinquentaCaracteres);
+    }
+
+    @Test
+    void naoDeveValidarCodigoPatrimonioUnicoQuandoJaExisteOutroComOMesmoCodigo() {
+        assertThatThrownBy(() -> Exemplar.validarCodigoPatrimonioUnico("PAT-1", true))
+                .isInstanceOf(RegraDeNegocioException.class);
+    }
+
+    @Test
+    void deveValidarCodigoPatrimonioUnicoQuandoNaoExisteOutroComOMesmoCodigo() {
+        org.assertj.core.api.Assertions.assertThatCode(() -> Exemplar.validarCodigoPatrimonioUnico("PAT-1", false))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
     void deveEmprestarExemplarDisponivelEAtivo() {
         var exemplar = Exemplar.novo(1L, "PAT-1");
 
