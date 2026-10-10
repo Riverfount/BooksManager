@@ -40,4 +40,6 @@ create table exemplar (
 );
 
 create index idx_livro_titulo on livro (titulo);
+create index idx_livro_categoria_id on livro (categoria_id);
+create index idx_livro_autor_autor_id on livro_autor (autor_id);
 create index idx_exemplar_livro_id on exemplar (livro_id);

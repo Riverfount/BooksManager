@@ -6,7 +6,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.riverfount.booksmanager.TestcontainersConfiguration;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase.Replace;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -16,7 +18,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * as tabelas e as restrições que reforçam as regras de negócio do catálogo.
  */
 @Import(TestcontainersConfiguration.class)
-@SpringBootTest
+@DataJpaTest
+@AutoConfigureTestDatabase(replace = Replace.NONE)
 class MigracaoCatalogoTest {
 
     @Autowired
@@ -96,6 +99,9 @@ class MigracaoCatalogoTest {
 
     @Test
     void exemplarDeveRejeitarStatusForaDosCincoValoresValidos() {
+        // confirma que o @DataJpaTest fez rollback de qualquer inserção de outro teste
+        assertThat(jdbcTemplate.queryForObject("select count(*) from categoria", Integer.class)).isZero();
+
         jdbcTemplate.update(
                 "insert into categoria (nome, ativo) values ('Ficção', true)");
         jdbcTemplate.update(
@@ -114,9 +120,11 @@ class MigracaoCatalogoTest {
     }
 
     @Test
-    void deveTerIndiceEmLivroTituloEEmExemplarLivroId() {
+    void deveTerIndiceNasColunasMaisConsultadasEChavesEstrangeiras() {
         assertThat(contaIndice("livro", "titulo")).isGreaterThanOrEqualTo(1);
         assertThat(contaIndice("exemplar", "livro_id")).isGreaterThanOrEqualTo(1);
+        assertThat(contaIndice("livro", "categoria_id")).isGreaterThanOrEqualTo(1);
+        assertThat(contaIndice("livro_autor", "autor_id")).isGreaterThanOrEqualTo(1);
     }
 
     private int contaTabela(String tabela) {
