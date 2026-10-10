@@ -69,6 +69,21 @@ class CategoriaControllerTest {
 
     @Test
     @WithMockUser
+    void deveDevolver400ParaNomeMaiorQueOLimiteDoDominio() throws Exception {
+        // o limite do DTO precisa ser o mesmo da regra de negócio
+        // (Categoria.TAMANHO_MAXIMO_NOME), não um número duplicado à parte
+        var nomeUmCaractereAcimaDoLimite = "A".repeat(Categoria.TAMANHO_MAXIMO_NOME + 1);
+
+        mockMvc.perform(post("/api/v1/categorias")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nome\":\"" + nomeUmCaractereAcimaDoLimite + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+    }
+
+    @Test
+    @WithMockUser
     void deveDevolver422ComMensagemClaraParaNomeDuplicado() throws Exception {
         given(cadastrarCategoriaUseCase.cadastrar(any()))
                 .willThrow(new RegraDeNegocioException("já existe uma categoria com o nome 'Ficção'"));
