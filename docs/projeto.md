@@ -360,7 +360,7 @@ As fases 2 a 5 do plano (leitores/acesso, empréstimos, complementos, evolução
 Conferido issue a issue contra as seções deste documento, quando essas issues ainda estavam pendentes — mantido aqui como registro da checagem, já que a Fase 0 e a Fase 1 completas confirmaram que a spec realmente bastava para cada uma:
 
 - **#2** (JPA `ddl-auto=validate`, `open-in-view=false`) — coberto pela seção "Banco de dados e migrações".
-- **#3** (`RegraDeNegocioException`) — coberto implicitamente pela regra "domínio em Java puro" e por RNF04; a classe em si é detalhe de implementação, não precisa estar na spec.
+- **#3** (`BusinessRuleException`, renomeada de `RegraDeNegocioException` na issue #41) — coberto implicitamente pela regra "domínio em Java puro" e por RNF04; a classe em si é detalhe de implementação, não precisa estar na spec.
 - **#4** (testes ArchUnit) — coberto por RNF01 e pela seção "Verificação automática".
 - **#5** (Categoria: nome até 100 caracteres, sem espaços nas pontas) — a spec cobre a existência da entidade (RF03) e a regra de inativação (RN14), mas **não** a restrição de tamanho/formatação do nome — isso é detalhe de validação que só está na própria issue.
 - **#6** (migração `V1`, colunas e constraints exatas) — a spec cobre o requisito (RNF03) e as regras que a migração reforça (RN01, RN02), mas os nomes exatos de coluna/tabela são detalhe de implementação, não de spec.

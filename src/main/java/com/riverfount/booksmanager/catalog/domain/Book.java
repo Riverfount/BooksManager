@@ -34,7 +34,7 @@ public class Book {
         this.publisher = publisher;
         this.publicationYear = publicationYear;
         this.categoryId = categoryId;
-        this.authorIds = new HashSet<>(Objects.requireNonNull(authorIds, "autorIds não pode ser nulo"));
+        this.authorIds = new HashSet<>(Objects.requireNonNull(authorIds, "authorIds não pode ser nulo"));
         this.active = active;
     }
 
