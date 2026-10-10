@@ -5,20 +5,20 @@ import com.riverfount.booksmanager.catalogo.domain.Autor;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Implementação em memória de AutorRepository, usada só nos testes
- * unitários dos serviços de aplicação (sem Spring, sem banco).
+ * unitários dos serviços de aplicação (sem Spring, sem banco). Não
+ * precisa ser thread-safe: é um fake de teste, usado de um só thread.
  */
 class AutorRepositoryEmMemoria implements AutorRepository {
 
     private final Map<Long, Autor> autores = new HashMap<>();
-    private final AtomicLong proximoId = new AtomicLong(1);
+    private long proximoId = 1;
 
     @Override
     public Autor salvar(Autor autor) {
-        var id = autor.getId() != null ? autor.getId() : proximoId.getAndIncrement();
+        var id = autor.getId() != null ? autor.getId() : proximoId++;
         var salvo = Autor.reconstituir(id, autor.getNome(), autor.isAtivo());
         autores.put(id, salvo);
         return salvo;

@@ -69,6 +69,19 @@ class CategoriaControllerTest {
 
     @Test
     @WithMockUser
+    void deveDevolver400ParaNomeComEspacoNaPonta() throws Exception {
+        // o DTO precisa pegar isso como erro de formato (400), e não deixar
+        // cair no domínio como regra de negócio (422)
+        mockMvc.perform(post("/api/v1/categorias")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nome\":\" Ficção\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+    }
+
+    @Test
+    @WithMockUser
     void deveDevolver400ParaNomeMaiorQueOLimiteDoDominio() throws Exception {
         // o limite do DTO precisa ser o mesmo da regra de negócio
         // (Categoria.TAMANHO_MAXIMO_NOME), não um número duplicado à parte

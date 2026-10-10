@@ -68,6 +68,32 @@ class AutorControllerTest {
 
     @Test
     @WithMockUser
+    void deveDevolver400ParaNomeComEspacoNaPonta() throws Exception {
+        // o DTO precisa pegar isso como erro de formato (400), e não deixar
+        // cair no domínio como regra de negócio (422)
+        mockMvc.perform(post("/api/v1/autores")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nome\":\" Machado de Assis\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+    }
+
+    @Test
+    @WithMockUser
+    void deveDevolver400ParaNomeMaiorQueOLimiteDoDominio() throws Exception {
+        var nomeUmCaractereAcimaDoLimite = "A".repeat(Autor.TAMANHO_MAXIMO_NOME + 1);
+
+        mockMvc.perform(post("/api/v1/autores")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nome\":\"" + nomeUmCaractereAcimaDoLimite + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+    }
+
+    @Test
+    @WithMockUser
     void deveBuscarAutorExistentePorId() throws Exception {
         given(consultarAutorUseCase.buscarPorId(eq(1L)))
                 .willReturn(Optional.of(Autor.reconstituir(1L, "Machado de Assis", true)));

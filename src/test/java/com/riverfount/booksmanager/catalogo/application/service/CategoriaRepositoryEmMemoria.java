@@ -5,20 +5,20 @@ import com.riverfount.booksmanager.catalogo.domain.Categoria;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Implementação em memória de CategoriaRepository, usada só nos testes
- * unitários dos serviços de aplicação (sem Spring, sem banco).
+ * unitários dos serviços de aplicação (sem Spring, sem banco). Não
+ * precisa ser thread-safe: é um fake de teste, usado de um só thread.
  */
 class CategoriaRepositoryEmMemoria implements CategoriaRepository {
 
     private final Map<Long, Categoria> categorias = new HashMap<>();
-    private final AtomicLong proximoId = new AtomicLong(1);
+    private long proximoId = 1;
 
     @Override
     public Categoria salvar(Categoria categoria) {
-        var id = categoria.getId() != null ? categoria.getId() : proximoId.getAndIncrement();
+        var id = categoria.getId() != null ? categoria.getId() : proximoId++;
         var salva = Categoria.reconstituir(id, categoria.getNome(), categoria.isAtivo());
         categorias.put(id, salva);
         return salva;
