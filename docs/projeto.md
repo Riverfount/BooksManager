@@ -293,7 +293,7 @@ O diagrama de classes em Mermaid deve ser acrescentado quando o curso exigir ess
 - O Hibernate roda com `ddl-auto=validate`, apenas conferindo o esquema, e com `open-in-view` desativado.
 - Ordem sugerida das migrações: catálogo (livro, autor, categoria, exemplar), leitores e usuários, configuração da biblioteca, empréstimos e multas, reservas.
 - Restrições no banco reforçam as regras de negócio: ISBN único, código de patrimônio único e controle de versão otimista na tabela de exemplares.
-- **Estado atual**: `V1__criar_catalogo.sql` (issue #6) já cria as tabelas `categoria`, `autor`, `livro`, `livro_autor` e `exemplar`, com as restrições de RN01 (ISBN único) e RN02 (código de patrimônio único), e a coluna `versao` em `exemplar` para o lock otimista de RNF17 (o `@Version` da entidade JPA que a usa vem só na issue #16). Aplicada e verificada tanto por Testcontainers quanto contra o PostgreSQL real do `compose.yaml`.
+- **Estado atual**: `V1__criar_catalogo.sql` (issue #6) já cria as tabelas `categoria`, `autor`, `livro`, `livro_autor` e `exemplar`, com as restrições de RN01 (ISBN único) e RN02 (código de patrimônio único), e a coluna `versao` em `exemplar` para o lock otimista de RNF17. O `@Version` da entidade JPA que a usa de fato veio na issue #16, com teste de concorrência determinístico (duas cópias do mesmo exemplar, a segunda a salvar falha com `ObjectOptimisticLockingFailureException`). Aplicada e verificada tanto por Testcontainers quanto contra o PostgreSQL real do `compose.yaml`.
 
 ## Estratégia de testes
 
@@ -351,13 +351,13 @@ O plano acima é a visão por fase de produto; o GitHub Projects (projeto "Books
 | Milestone no GitHub | Corresponde à fase do plano | Entrega até | Issues | Situação |
 | --- | --- | --- | --- | --- |
 | Fase 0 · Base | 0. Base | 30/11/2026 | #1–#4 | #1 mergeada (PR #17); #2 mergeada (PR #18); #3 mergeada (PR #19); #4 concluída nesta PR |
-| Fase 1 · Catálogo | 1. Catálogo | 30/11/2026 | #5–#16 | #5 mergeada (PR #22); #6 mergeada (PR #23); #7 mergeada (PR #24); #8 mergeada (PR #25); #9 mergeada (PR #26, primeiro ciclo de ponta a ponta completo); #10 mergeada (PR #27); #11 mergeada (PR #28); #12 mergeada (PR #29); #13 mergeada (PR #30); #14 mergeada (PR #31); #15 concluída nesta PR; #16 com status "Ready" (última da Fase 1) |
+| Fase 1 · Catálogo | 1. Catálogo | 30/11/2026 | #5–#16 | **Completa.** #5 mergeada (PR #22); #6 mergeada (PR #23); #7 mergeada (PR #24); #8 mergeada (PR #25); #9 mergeada (PR #26, primeiro ciclo de ponta a ponta completo); #10 mergeada (PR #27); #11 mergeada (PR #28); #12 mergeada (PR #29); #13 mergeada (PR #30); #14 mergeada (PR #31); #15 mergeada (PR #32); #16 concluída nesta PR |
 
 As fases 2 a 5 do plano (leitores/acesso, empréstimos, complementos, evolução) **ainda não têm milestone nem issues no GitHub** — só existem como linhas da tabela "Plano de desenvolvimento" acima.
 
-### O que a especificação já cobre para as issues #2–#16 (ainda não feitas)
+### O que a especificação cobre para as issues #2–#16 (todas concluídas)
 
-Conferido issue a issue contra as seções deste documento:
+Conferido issue a issue contra as seções deste documento, quando essas issues ainda estavam pendentes — mantido aqui como registro da checagem, já que a Fase 0 e a Fase 1 completas confirmaram que a spec realmente bastava para cada uma:
 
 - **#2** (JPA `ddl-auto=validate`, `open-in-view=false`) — coberto pela seção "Banco de dados e migrações".
 - **#3** (`RegraDeNegocioException`) — coberto implicitamente pela regra "domínio em Java puro" e por RNF04; a classe em si é detalhe de implementação, não precisa estar na spec.
