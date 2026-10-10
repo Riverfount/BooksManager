@@ -5,13 +5,13 @@
 | **Aluno(a)** | Vicente Eduardo Ribeiro Marçal |
 | **Turma** | TEC-N-001788/2026 |
 | **Opção escolhida** | Proposta própria: controle de acervo e empréstimos de uma biblioteca |
-| **Versão atual** | 0.1.0 |
+| **Versão atual** | 0.0.1-SNAPSHOT |
 
 ---
 
 ## 1. Sobre o projeto
 
-O Books Manager é uma aplicação web para organizar o acervo e os empréstimos de uma biblioteca escolar ou comunitária de pequeno porte.
+O Books Manager é uma **API REST** para organizar o acervo e os empréstimos de uma biblioteca escolar ou comunitária de pequeno porte. Este repositório contém o back-end (Java + Spring Boot); o front-end será um projeto separado em React + Tailwind CSS, que consome essa API.
 
 ### 1.1 Problema
 Bibliotecas desse porte costumam controlar livros e empréstimos em cadernos, planilhas ou mensagens de WhatsApp. Com isso, é difícil saber quais livros estão disponíveis, quem está com cada exemplar e quais devoluções estão atrasadas. As multas são calculadas à mão e não há histórico confiável do que foi emprestado.
@@ -33,7 +33,7 @@ Bibliotecários, que operam o sistema no dia a dia, e o administrador, que geren
 
 ## 2. Status do projeto
 
-Projeto em fase inicial. A estrutura base da aplicação, a conexão com o banco PostgreSQL e o controle de versão do esquema (Flyway) já estão configurados. Os requisitos, as histórias de usuário e o modelo de dados serão detalhados nas próximas etapas e acrescentados a este documento.
+Projeto em fase inicial. Até o momento, foram configurados o esqueleto da aplicação Spring Boot, as dependências do projeto (web, persistência, segurança, Flyway, documentação da API, mapeamento e testes) e o container do PostgreSQL via Docker Compose. A conexão efetiva com o banco, os scripts de migração do Flyway, o domínio, os pacotes de arquitetura e os endpoints ainda não foram implementados. Os requisitos, as histórias de usuário e o modelo de dados serão detalhados nas próximas etapas e acrescentados a este documento.
 
 O controle de acesso por login será implementado em uma etapa posterior; até lá, a configuração de segurança é provisória.
 
@@ -41,7 +41,9 @@ O controle de acesso por login será implementado em uma etapa posterior; até l
 
 ## 3. Arquitetura
 
-O projeto segue a **arquitetura hexagonal** (portas e adaptadores), organizado como um monólito modular. As regras de negócio ficam em um domínio escrito em Java puro, sem dependência de Spring ou JPA. Banco de dados, interface web e serviços externos se conectam ao domínio por meio de portas e são implementados por adaptadores. Testes com ArchUnit verificam essa separação durante o build.
+O projeto vai seguir a **arquitetura hexagonal** (portas e adaptadores), organizado como um monólito modular dividido nos módulos `catalogo`, `emprestimo`, `usuario`, `seguranca` e `compartilhado`. As regras de negócio ficarão em um domínio escrito em Java puro, sem dependência de Spring ou JPA. Banco de dados, adaptador web (API REST) e serviços externos vão se conectar ao domínio por meio de portas, implementadas por adaptadores. A dependência do ArchUnit já está no projeto para, nas próximas etapas, verificar essa separação durante o build; os pacotes do domínio e as regras de arquitetura ainda não foram escritos.
+
+O front-end (React + Tailwind CSS) é um projeto separado que consome esta API apenas por HTTP/JSON; nenhuma regra de negócio vive nele.
 
 ---
 
@@ -56,31 +58,37 @@ O projeto segue a **arquitetura hexagonal** (portas e adaptadores), organizado c
 1. No repositório, clique em **Code → Codespaces → Create codespace on main** (ou abra o Codespace existente).
 2. Aguarde a preparação do ambiente.
 3. No terminal, execute o comando **mvn spring-boot:run**. O Spring Boot sobe o container do PostgreSQL automaticamente a partir do arquivo **compose.yaml**.
-4. Quando aparecer o aviso da porta **8080**, clique em **Abrir no navegador**.
+4. Quando aparecer o aviso da porta **8080**, clique em **Abrir no navegador** para acessar a documentação Swagger.
 
 ### No computador (ferramentas instaladas)
-Abra o projeto na IDE e execute a classe principal **BooksManagerApplication**, ou use o comando **./mvnw spring-boot:run** na raiz do projeto. Com o Docker em execução, o banco sobe sozinho. Acesse http://localhost:8080 no navegador.
+Abra o projeto na IDE e execute a classe principal **BooksManagerApplication**, ou use o comando **./mvnw spring-boot:run** na raiz do projeto. Com o Docker em execução, o banco sobe sozinho. A API fica disponível em http://localhost:8080.
 
 ### Documentação da API
-Com a aplicação em execução, a documentação Swagger fica em http://localhost:8080/swagger-ui.html.
+A API é um back-end puro, sem páginas HTML; não há nada para visualizar na raiz **http://localhost:8080**. Com a aplicação em execução, a documentação Swagger fica em http://localhost:8080/swagger-ui.html, e as requisições à API usam o prefixo **/api/v1**.
 
 ### Banco de dados
-O PostgreSQL é executado em um container Docker, definido no arquivo **compose.yaml** na raiz do projeto. As tabelas são criadas e atualizadas por scripts do Flyway, na pasta **src/main/resources/db/migration**.
+O PostgreSQL é executado em um container Docker, definido no arquivo **compose.yaml** na raiz do projeto. As tabelas serão criadas e atualizadas por scripts do Flyway, na pasta **src/main/resources/db/migration**; essa pasta e as migrações ainda serão adicionadas nas próximas etapas.
 
 ---
 
 ## 5. Tecnologias
 
+As versões abaixo refletem o que está declarado no **pom.xml** e no **compose.yaml** nesta versão do projeto.
+
 | Área | Tecnologias |
 |---|---|
-| Linguagem e framework | Java 25 · Spring Boot 4.1 |
-| Web | Spring MVC · Thymeleaf · Bootstrap 5 |
-| Persistência | Spring Data JPA · PostgreSQL · Flyway |
+| Linguagem e framework | Java 25 · Spring Boot 4.1.1 |
+| Web | Spring MVC (API REST) |
+| Persistência | Spring Data JPA (Hibernate) · PostgreSQL 17 · Flyway |
 | Segurança e validação | Spring Security · Bean Validation |
-| Documentação da API | SpringDoc OpenAPI (Swagger UI) |
-| Mapeamento | MapStruct |
-| Testes | JUnit 5 · Testcontainers · ArchUnit |
-| Ambiente | Docker Compose · Maven · Git/GitHub |
+| Documentação da API | SpringDoc OpenAPI 3.1.0 (Swagger UI) |
+| Mapeamento | MapStruct 1.6.3 |
+| Monitoramento | Spring Boot Actuator |
+| Testes | JUnit 5 · Mockito · Spring Boot Test (fatias de web, JPA e segurança) · Testcontainers (PostgreSQL) · ArchUnit 1.4.1 |
+| Apoio ao desenvolvimento | Spring Boot DevTools · Spring Boot Docker Compose |
+| Ambiente | Docker Compose · Maven 3.9.16 (wrapper) · Git/GitHub |
+
+O front-end (React + Tailwind CSS) é um projeto separado deste back-end; suas ferramentas (build, TypeScript/JavaScript, roteamento, cliente HTTP) e se ficará no mesmo repositório ou em um repositório próprio ainda não foram definidos.
 
 ## 6. Uso de inteligência artificial
 Utilizei o Claude (Anthropic) como apoio no planejamento inicial do projeto, para discutir a arquitetura, definir a stack tecnológica e organizar as ideias deste documento. As decisões e a implementação são de minha responsabilidade.
