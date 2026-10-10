@@ -293,7 +293,7 @@ O diagrama de classes em Mermaid deve ser acrescentado quando o curso exigir ess
 - O Hibernate roda com `ddl-auto=validate`, apenas conferindo o esquema, e com `open-in-view` desativado.
 - Ordem sugerida das migrações: catálogo (livro, autor, categoria, exemplar), leitores e usuários, configuração da biblioteca, empréstimos e multas, reservas.
 - Restrições no banco reforçam as regras de negócio: ISBN único, código de patrimônio único e controle de versão otimista na tabela de exemplares.
-- **Estado atual**: nenhuma migração foi criada ainda. A `V1__criar_catalogo.sql` (issue #6, status "Ready") definirá as tabelas `categoria`, `autor`, `livro`, `livro_autor` e `exemplar`.
+- **Estado atual**: `V1__criar_catalogo.sql` (issue #6) já cria as tabelas `categoria`, `autor`, `livro`, `livro_autor` e `exemplar`, com as restrições de RN01 (ISBN único) e RN02 (código de patrimônio único), e a coluna `versao` em `exemplar` para o lock otimista de RNF17 (o `@Version` da entidade JPA que a usa vem só na issue #16). Aplicada e verificada tanto por Testcontainers quanto contra o PostgreSQL real do `compose.yaml`.
 
 ## Estratégia de testes
 
@@ -351,7 +351,7 @@ O plano acima é a visão por fase de produto; o GitHub Projects (projeto "Books
 | Milestone no GitHub | Corresponde à fase do plano | Entrega até | Issues | Situação |
 | --- | --- | --- | --- | --- |
 | Fase 0 · Base | 0. Base | 30/11/2026 | #1–#4 | #1 mergeada (PR #17); #2 mergeada (PR #18); #3 mergeada (PR #19); #4 concluída nesta PR |
-| Fase 1 · Catálogo | 1. Catálogo | 30/11/2026 | #5–#16 | #5 concluída nesta PR; #6–#16 com status "Ready" |
+| Fase 1 · Catálogo | 1. Catálogo | 30/11/2026 | #5–#16 | #5 mergeada (PR #22); #6 concluída nesta PR; #7–#16 com status "Ready" |
 
 As fases 2 a 5 do plano (leitores/acesso, empréstimos, complementos, evolução) **ainda não têm milestone nem issues no GitHub** — só existem como linhas da tabela "Plano de desenvolvimento" acima.
 
