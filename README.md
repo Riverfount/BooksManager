@@ -41,7 +41,7 @@ O controle de acesso por login será implementado em uma etapa posterior; até l
 
 ## 3. Arquitetura
 
-O projeto vai seguir a **arquitetura hexagonal** (portas e adaptadores), organizado como um monólito modular dividido nos módulos `catalogo`, `emprestimo`, `usuario`, `seguranca` e `compartilhado`. As regras de negócio ficarão em um domínio escrito em Java puro, sem dependência de Spring ou JPA. Banco de dados, adaptador web (API REST) e serviços externos vão se conectar ao domínio por meio de portas, implementadas por adaptadores. A dependência do ArchUnit já está no projeto para, nas próximas etapas, verificar essa separação durante o build; os pacotes do domínio e as regras de arquitetura ainda não foram escritos.
+O projeto vai seguir a **arquitetura hexagonal** (portas e adaptadores), organizado como um monólito modular dividido nos módulos `catalogo`, `emprestimo`, `usuario`, `seguranca` e `compartilhado`. As regras de negócio ficarão em um domínio escrito em Java puro, sem dependência de Spring ou JPA. Banco de dados, adaptador web (API REST) e serviços externos vão se conectar ao domínio por meio de portas, implementadas por adaptadores. O `ArquiteturaTest` (ArchUnit) já verifica essa separação a cada build: o domínio não pode depender de Spring, JPA/Hibernate, da aplicação nem dos adaptadores, e a aplicação não pode depender dos adaptadores.
 
 O front-end (React + Tailwind CSS) é um projeto separado que consome esta API apenas por HTTP/JSON; nenhuma regra de negócio vive nele.
 
