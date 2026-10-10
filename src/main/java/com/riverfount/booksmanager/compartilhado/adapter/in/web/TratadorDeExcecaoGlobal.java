@@ -18,7 +18,7 @@ public class TratadorDeExcecaoGlobal {
 
     @ExceptionHandler(RegraDeNegocioException.class)
     ProblemDetail tratarRegraDeNegocio(RegraDeNegocioException excecao) {
-        return ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_ENTITY, excecao.getMessage());
+        return ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_CONTENT, excecao.getMessage());
     }
 
     @ExceptionHandler(RecursoNaoEncontradoException.class)
