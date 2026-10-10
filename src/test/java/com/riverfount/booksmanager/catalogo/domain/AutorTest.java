@@ -37,6 +37,12 @@ class AutorTest {
     }
 
     @Test
+    void naoDeveCriarAutorComNomeComEspacoNaPonta() {
+        assertThatThrownBy(() -> Autor.novo(" Machado de Assis"))
+                .isInstanceOf(RegraDeNegocioException.class);
+    }
+
+    @Test
     void naoDeveCriarAutorComNomeMaiorQueCentoECinquentaCaracteres() {
         var nomeComCentoECinquentaECincoCaracteres = "A".repeat(155);
 

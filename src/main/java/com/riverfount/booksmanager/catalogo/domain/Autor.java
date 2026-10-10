@@ -42,6 +42,9 @@ public class Autor {
         if (nome == null || nome.isBlank()) {
             throw new RegraDeNegocioException("o nome do autor é obrigatório");
         }
+        if (!nome.equals(nome.strip())) {
+            throw new RegraDeNegocioException("o nome do autor não pode ter espaços nas pontas");
+        }
         if (nome.length() > TAMANHO_MAXIMO_NOME) {
             throw new RegraDeNegocioException(
                     "o nome do autor deve ter até " + TAMANHO_MAXIMO_NOME + " caracteres");
