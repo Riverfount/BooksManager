@@ -350,7 +350,7 @@ O plano acima é a visão por fase de produto; o GitHub Projects (projeto "Books
 
 | Milestone no GitHub | Corresponde à fase do plano | Entrega até | Issues | Situação |
 | --- | --- | --- | --- | --- |
-| Fase 0 · Base | 0. Base | 30/11/2026 | #1–#4 | #1 concluída e commitada (PR #17); #2, #3, #4 com status "Ready" |
+| Fase 0 · Base | 0. Base | 30/11/2026 | #1–#4 | #1 mergeada (PR #17); #2 mergeada (PR #18); #3 concluída nesta PR; #4 com status "Ready" |
 | Fase 1 · Catálogo | 1. Catálogo | 30/11/2026 | #5–#16 | Todas com status "Ready" |
 
 As fases 2 a 5 do plano (leitores/acesso, empréstimos, complementos, evolução) **ainda não têm milestone nem issues no GitHub** — só existem como linhas da tabela "Plano de desenvolvimento" acima.
