@@ -1,0 +1,12 @@
+package com.riverfount.booksmanager.catalogo.adapter.in.web;
+
+import com.riverfount.booksmanager.catalogo.domain.Autor;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+record CadastrarAutorRequest(
+        @NotBlank(message = "o nome é obrigatório")
+        @Size(max = Autor.TAMANHO_MAXIMO_NOME, message = "o nome deve ter até " + Autor.TAMANHO_MAXIMO_NOME
+                + " caracteres")
+        String nome) {
+}

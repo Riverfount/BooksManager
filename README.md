@@ -33,7 +33,7 @@ Bibliotecários, que operam o sistema no dia a dia, e o administrador, que geren
 
 ## 2. Status do projeto
 
-Fase 1 · Catálogo **concluída**. As quatro entidades do catálogo (`Categoria`, `Autor`, `Livro`, `Exemplar`) estão modeladas no domínio e persistidas (incluindo a associação N:N de autores e o lock otimista do exemplar via `@Version`), mas só `Categoria` tem casos de uso e endpoints REST completos (`POST`/`GET /api/v1/categorias`) — as outras três ainda não têm API nem serviço de aplicação, só domínio e persistência. Os módulos de empréstimo, usuário e segurança ainda não foram implementados. Os requisitos, as histórias de usuário e o modelo de dados completos estão em `docs/projeto.md`.
+Fase 1 · Catálogo **concluída** (domínio e persistência das quatro entidades) e em extensão para fechar o ciclo de ponta a ponta de todas elas. `Categoria` e `Autor` já têm casos de uso e endpoints REST completos (`POST`/`GET /api/v1/categorias` e `/autores`); `Livro` e `Exemplar` ainda têm só domínio e persistência, sem API. Os módulos de empréstimo, usuário e segurança ainda não foram implementados. Os requisitos, as histórias de usuário e o modelo de dados completos estão em `docs/projeto.md`.
 
 O controle de acesso por login será implementado em uma etapa posterior; até lá, a configuração de segurança é provisória.
 

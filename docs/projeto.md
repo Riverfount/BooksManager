@@ -351,7 +351,7 @@ O plano acima é a visão por fase de produto; o GitHub Projects (projeto "Books
 | Milestone no GitHub | Corresponde à fase do plano | Entrega até | Issues | Situação |
 | --- | --- | --- | --- | --- |
 | Fase 0 · Base | 0. Base | 30/11/2026 | #1–#4, #20 | **Completa.** #1 mergeada (PR #17); #2 mergeada (PR #18); #3 mergeada (PR #19); #4 mergeada (PR #21); #20 (Makefile, adicionada depois à milestone) concluída nesta PR |
-| Fase 1 · Catálogo | 1. Catálogo | 30/11/2026 | #5–#16 | **Completa.** #5 mergeada (PR #22); #6 mergeada (PR #23); #7 mergeada (PR #24); #8 mergeada (PR #25); #9 mergeada (PR #26, primeiro ciclo de ponta a ponta completo); #10 mergeada (PR #27); #11 mergeada (PR #28); #12 mergeada (PR #29); #13 mergeada (PR #30); #14 mergeada (PR #31); #15 mergeada (PR #32); #16 concluída nesta PR |
+| Fase 1 · Catálogo | 1. Catálogo | 30/11/2026 | #5–#16, #35–#37 | #5–#16 completas (ver PRs #22–#33). Extensão para fechar o ciclo de ponta a ponta de todas as entidades: #35 (Autor) concluída nesta PR; #36 (Livro) e #37 (Exemplar) com status "Ready" |
 
 As fases 2 a 5 do plano (leitores/acesso, empréstimos, complementos, evolução) **ainda não têm milestone nem issues no GitHub** — só existem como linhas da tabela "Plano de desenvolvimento" acima.
 
