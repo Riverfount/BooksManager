@@ -33,7 +33,7 @@ Bibliotecários, que operam o sistema no dia a dia, e o administrador, que geren
 
 ## 2. Status do projeto
 
-Projeto em andamento (Fase 1 · Catálogo). A estrutura de pacotes da arquitetura hexagonal, os testes de arquitetura (ArchUnit), a primeira entidade de domínio (`Categoria`) e a primeira migração do Flyway (`V1__criar_catalogo.sql`, com as tabelas do catálogo) já estão implementados. Os endpoints da API, as demais entidades do catálogo e os módulos de empréstimo/usuário/segurança ainda não foram implementados. Os requisitos, as histórias de usuário e o modelo de dados completos estão em `docs/projeto.md`.
+Projeto em andamento (Fase 1 · Catálogo). O primeiro ciclo de ponta a ponta de uma entidade (domínio, aplicação, persistência e API) já está completo para `Categoria`: `POST /api/v1/categorias` e `GET /api/v1/categorias/{id}`, com erros no formato ProblemDetail. As demais entidades do catálogo (Livro, Autor, Exemplar) e os módulos de empréstimo/usuário/segurança ainda não foram implementados. Os requisitos, as histórias de usuário e o modelo de dados completos estão em `docs/projeto.md`.
 
 O controle de acesso por login será implementado em uma etapa posterior; até lá, a configuração de segurança é provisória.
 

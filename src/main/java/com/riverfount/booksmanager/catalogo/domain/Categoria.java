@@ -8,7 +8,7 @@ import com.riverfount.booksmanager.compartilhado.domain.RegraDeNegocioException;
  */
 public class Categoria {
 
-    private static final int TAMANHO_MAXIMO_NOME = 100;
+    public static final int TAMANHO_MAXIMO_NOME = 100;
 
     private final Long id;
     private String nome;
