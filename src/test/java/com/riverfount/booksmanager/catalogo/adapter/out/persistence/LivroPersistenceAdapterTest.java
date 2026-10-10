@@ -19,6 +19,7 @@ import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabas
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase.Replace;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
@@ -85,6 +86,16 @@ class LivroPersistenceAdapterTest {
         var totalLinhas = jdbcTemplate.queryForObject(
                 "select count(*) from livro_autor where livro_id = ?", Integer.class, salvo.getId());
         assertThat(totalLinhas).isEqualTo(2);
+    }
+
+    @Test
+    void violacaoDeChaveEstrangeiraNaoDeveSerConfundidaComIsbnDuplicado() {
+        var livroComCategoriaInexistente = Livro.novo(new Isbn("9788533302273"), "Dom Casmurro", "Editora X", 1899,
+                999999L, Set.of(autorId1), RELOGIO_FIXO);
+
+        assertThatThrownBy(() -> adaptador.salvar(livroComCategoriaInexistente))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .isNotInstanceOf(RegraDeNegocioException.class);
     }
 
     @Test

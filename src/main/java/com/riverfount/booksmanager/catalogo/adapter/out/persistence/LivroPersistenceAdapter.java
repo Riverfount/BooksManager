@@ -29,9 +29,20 @@ class LivroPersistenceAdapter implements LivroRepository {
             // defesa contra a corrida entre o existeComIsbn() do futuro
             // serviço e este salvar(): a restrição única do banco é quem
             // garante RN01 de fato; aqui só traduzimos para a exceção do
-            // domínio.
-            throw new RegraDeNegocioException("já existe um livro com o ISBN '" + livro.getIsbn().valor() + "'");
+            // domínio quando a violação for mesmo a do ISBN — outras
+            // violações (FK de categoria_id ou autor_id inexistente, por
+            // exemplo) não devem ser confundidas com ISBN duplicado.
+            if (violaRestricaoUnicaDoIsbn(e)) {
+                throw new RegraDeNegocioException("já existe um livro com o ISBN '" + livro.getIsbn().valor() + "'");
+            }
+            throw e;
         }
+    }
+
+    private static boolean violaRestricaoUnicaDoIsbn(DataIntegrityViolationException excecao) {
+        var causaMaisEspecifica = excecao.getMostSpecificCause();
+        var mensagem = causaMaisEspecifica == null ? null : causaMaisEspecifica.getMessage();
+        return mensagem != null && mensagem.contains("livro_isbn_key");
     }
 
     @Override
