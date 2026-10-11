@@ -1,6 +1,6 @@
 # Books Manager: Diagramas
 
-> Diagrama de classes das entidades de domínio e seus relacionamentos. Baseado no diagrama da entrega AVA 1 (`.claude/README-AVA.md`), atualizado para os identificadores em inglês já usados no código (issue #41) e para o estado atual de implementação.
+> Diagrama de classes das entidades de domínio e seus relacionamentos.
 
 ## Diagrama de classes
 

@@ -1,6 +1,6 @@
 # Books Manager: Requisitos
 
-> Requisitos funcionais, regras de negócio e requisitos não funcionais do projeto, extraídos de `docs/projeto.md` na reorganização da documentação (issue #44). Continua em português — é a referência de negócio do projeto; cite o ID (ex.: `RN05`, `RF12`) em commits e testes.
+> Requisitos funcionais, regras de negócio e requisitos não funcionais do projeto, extraídos de `docs/projeto.md` na reorganização da documentação. Continua em português — é a referência de negócio do projeto; cite o ID (ex.: `RN05`, `RF12`) em commits e testes.
 
 ## Requisitos funcionais
 

@@ -1,6 +1,6 @@
 # Books Manager: Histórias de Usuário
 
-> Histórias de usuário dos requisitos funcionais essenciais (prioridade M), revisadas a partir da entrega AVA 1 (`.claude/README-AVA.md`) e ampliadas para cobrir os módulos ainda não detalhados ali. Formato: **Como** *[papel]*, **quero** *[ação]*, **para** *[benefício]*. IDs entre parênteses referem `docs/requisitos.md`.
+> Histórias de usuário dos requisitos funcionais essenciais (prioridade M). Formato: **Como** *[papel]*, **quero** *[ação]*, **para** *[benefício]*. IDs entre parênteses referem `docs/requisitos.md`.
 
 ## Catálogo
 

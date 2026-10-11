@@ -2,9 +2,9 @@
 
 Versão 0.1.0 · Outubro de 2026
 
-Este documento reúne a visão, a arquitetura e a stack tecnológica do Books Manager. Ele é baseado em `.claude/spec.md` (07/10/2026), com as decisões tomadas em 10/10/2026 já incorporadas, algumas inconsistências corrigidas contra o estado real do repositório, e uma seção nova de rastreamento com as issues do GitHub.
+Este documento reúne a visão, a arquitetura e a stack tecnológica do Books Manager. 
 
-Desde a reorganização da documentação (issue #44), requisitos funcionais, regras de negócio e requisitos não funcionais estão em `docs/requisitos.md`; o diagrama de classes, em `docs/diagramas.md`; e as histórias de usuário, em `docs/use-case.md`. Este documento continua sendo a referência de visão, arquitetura e plano — consulte-o junto com `docs/requisitos.md` quando a tarefa envolver uma regra de negócio ou requisito específico, e cite o ID (ex.: `RN05`, `RF12`) em commits e testes.
+Fizemos a reorganização da documentação assim requisitos funcionais, regras de negócio e requisitos não funcionais foram para `docs/requisitos.md`; o diagrama de classes, para `docs/diagramas.md`; e as histórias de usuário, para `docs/use-case.md`. Este documento continua sendo a referência de visão, arquitetura e plano — consulte-o junto com `docs/requisitos.md` quando a tarefa envolver uma regra de negócio ou requisito específico, e cite o ID (ex.: `RN05`, `RF12`).
 
 ## Visão geral
 
@@ -85,8 +85,6 @@ com.riverfount.booksmanager
 └── shared      (exceções, configuração e utilitários)
 ```
 
-**Estado atual** (issue #41, concluída): `catalog.domain`, `catalog.application.port.in`, `catalog.application.port.out`, `catalog.application.service`, `catalog.adapter.in.web`, `catalog.adapter.out.persistence`, `shared.domain`, `shared.adapter.in.web`, `shared.adapter.out.persistence` e `shared.configuration` já existem no código, com as quatro entidades do catálogo (Book, Author, Category, Copy) implementadas em inglês (issue #41 traduziu os identificadores de português para inglês em todo o código — classes, pacotes, banco e rotas; mensagens ao usuário e os requisitos deste documento continuam em português). Os pacotes de `loan`, `user` e `security` ainda não foram criados.
-
 ### Diretrizes
 
 - **Domínio em Java puro.** Sem anotações de Spring ou JPA. As regras de negócio (prazos, multas, limites) ficam nas entidades e em políticas do domínio.
@@ -128,8 +126,6 @@ O livro (a obra) é separado do exemplar (a cópia física), o que permite vári
 | Reserva | id, data da reserva, status (ATIVA, ATENDIDA, CANCELADA, EXPIRADA) |
 | Usuário | id, login, hash da senha, perfil (ADMINISTRADOR, OPERADOR), ativo |
 | Configuração | id, política de penalidade (MULTA, SUSPENSÃO, AMBAS, NENHUMA), valor diário da multa, teto da multa, dias de suspensão por dia de atraso, teto da suspensão, prazo de empréstimo, limite de empréstimos simultâneos, limite de renovações, prazo de retirada de reservas |
-
-> Correção desta revisão: a versão anterior deste documento (derivada do `.claude/spec.md` de 07/10) listava Categoria e Autor sem o campo `ativo`, e Exemplar sem `livroId` nem `versão` — mas RN14 (inativação, não exclusão) e RNF17 (lock otimista) exigem esses campos, e as issues #5, #11 e #13, que já modelam essas entidades em detalhe, os incluem. Corrigido aqui para bater com o que está (ou vai ser) implementado.
 
 ### Relacionamentos
 
@@ -203,32 +199,6 @@ Marcos sugeridos:
 
 Se no fim de dezembro a fase 3 ainda não estiver encaminhada, a fase 4 sai do plano e o escopo é reduzido antes de avançar, adiando primeiro os itens S (como o relatório de livros mais emprestados) e, se necessário, os M de menor impacto.
 
-## Rastreamento com o GitHub
-
-O plano acima é a visão por fase de produto; o GitHub Projects (projeto "BooksManager", #5) é quem controla o trabalho dia a dia, com milestones e issues.
-
-| Milestone no GitHub | Corresponde à fase do plano | Entrega até | Issues | Situação |
-| --- | --- | --- | --- | --- |
-| Fase 0 · Base | 0. Base | 30/11/2026 | #1–#4, #20 | **Completa.** #1 mergeada (PR #17); #2 mergeada (PR #18); #3 mergeada (PR #19); #4 mergeada (PR #21); #20 (Makefile, adicionada depois à milestone) concluída nesta PR |
-| Fase 1 · Catálogo | 1. Catálogo | 30/11/2026 | #5–#16, #35–#37 | **Completa.** #5–#16 (ver PRs #22–#33); #35 (Autor, PR #38); #36 (Livro, PR #39); #37 (Exemplar) concluída nesta PR — ciclo de ponta a ponta das quatro entidades do catálogo |
-
-As fases 2 a 5 do plano (leitores/acesso, empréstimos, complementos, evolução) **ainda não têm milestone nem issues no GitHub** — só existem como linhas da tabela "Plano de desenvolvimento" acima.
-
-### O que a especificação cobre para as issues #2–#16 (todas concluídas)
-
-Conferido issue a issue contra as seções deste documento, quando essas issues ainda estavam pendentes — mantido aqui como registro da checagem, já que a Fase 0 e a Fase 1 completas confirmaram que a spec realmente bastava para cada uma:
-
-- **#2** (JPA `ddl-auto=validate`, `open-in-view=false`) — coberto pela seção "Banco de dados e migrações".
-- **#3** (`BusinessRuleException`, renomeada de `RegraDeNegocioException` na issue #41) — coberto implicitamente pela regra "domínio em Java puro" e por RNF04; a classe em si é detalhe de implementação, não precisa estar na spec.
-- **#4** (testes ArchUnit) — coberto por RNF01 e pela seção "Verificação automática".
-- **#5** (Categoria: nome até 100 caracteres, sem espaços nas pontas) — a spec cobre a existência da entidade (RF03) e a regra de inativação (RN14), mas **não** a restrição de tamanho/formatação do nome — isso é detalhe de validação que só está na própria issue.
-- **#6** (migração `V1`, colunas e constraints exatas) — a spec cobre o requisito (RNF03) e as regras que a migração reforça (RN01, RN02), mas os nomes exatos de coluna/tabela são detalhe de implementação, não de spec.
-- **#7–#9** (persistência, casos de uso e endpoints de Categoria) — cobertos pelas diretrizes de arquitetura (porta/adaptador, um caso de uso por interface, `ProblemDetail`).
-- **#10** (algoritmo de dígito verificador do ISBN) — RN01 exige ISBN válido, mas não descreve o algoritmo; fica a cargo da issue.
-- **#11–#13, #14–#16** (Autor, Livro, Exemplar/StatusExemplar e suas persistências) — cobertos pelo modelo de domínio (já corrigido nesta revisão) e por RN01–RN03, RN10, RN14, RNF17.
-
-Em resumo: a especificação cobre bem o **requisito e a regra** de cada issue pendente; o que ela não cobre (e não precisa cobrir) são detalhes de implementação como algoritmos específicos, nomes de colunas e limites de validação — esses continuam só nas issues.
-
 ## Decisões tomadas
 
 - **Java 25.** Versão confirmada para o projeto.
@@ -236,9 +206,3 @@ Em resumo: a especificação cobre bem o **requisito e a regra** de cada issue p
 - **Autenticação por JWT com refresh token** (decidido em 10/10/2026; descartada sessão com cookie).
 - **Penalidade por atraso configurável.** A biblioteca escolhe, em configuração, entre multa, suspensão, ambas ou nenhuma (RF20, RF26, RN08 e RN16). O sistema não fixa essa escolha.
 - **Valores iniciais da política de penalidade** (decidido em 10/10/2026): multa de R$ 1,00 por dia de atraso com teto de R$ 10,00; suspensão de 1 dia por dia de atraso com teto de 1 ano (ver nota em RN08 sobre o modelo de acúmulo assumido).
-
-## Pontos em aberto
-
-1. **Banco de dados.** O modelo do curso previa MySQL em produção. Confirmar se o PostgreSQL é aceito.
-2. **Ferramentas do front-end.** Definir o build (por exemplo, Vite), a linguagem (TypeScript ou JavaScript), o roteamento e a forma de consumir a API. (O framework — React + Tailwind — e a separação em repositório próprio já estão decididos.)
-3. **Prioridades da v1.0.** Definir, de acordo com o prazo de 24/02/2027, quais requisitos de prioridade S entram na primeira entrega.
