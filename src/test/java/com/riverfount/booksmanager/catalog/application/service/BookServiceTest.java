@@ -73,6 +73,17 @@ class BookServiceTest {
     }
 
     @Test
+    void shouldNotRegisterWithCategoryDeactivatedThroughItsUseCase() {
+        // HU21: once deactivated, the category can no longer be used in new books
+        new CategoryService(categoryRepository).deactivate(categoryId);
+
+        assertThatThrownBy(() -> service.register(new RegisterBookCommand("9788533302273", "Dom Casmurro",
+                "Editora X", 1899, categoryId, Set.of(authorId))))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("categoria inativa");
+    }
+
+    @Test
     void shouldNotRegisterWithInactiveAuthor() {
         var inactiveAuthorId = 500L;
         authorRepository.save(Author.reconstitute(inactiveAuthorId, "Autor inativo", false));

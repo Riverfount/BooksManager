@@ -13,6 +13,7 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase.Replace;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
  * Tests the Category persistence adapter against a real PostgreSQL
@@ -28,6 +29,9 @@ class CategoryPersistenceAdapterTest {
     @Autowired
     private CategoryPersistenceAdapter adapter;
 
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
     @Test
     void shouldSaveAndFindCategoryWithTheSameState() {
         var saved = adapter.save(Category.create("Ficção"));
@@ -38,6 +42,25 @@ class CategoryPersistenceAdapterTest {
         assertThat(found.get().getId()).isEqualTo(saved.getId());
         assertThat(found.get().getName()).isEqualTo("Ficção");
         assertThat(found.get().isActive()).isTrue();
+    }
+
+    @Test
+    void shouldPersistDeactivationKeepingTheRowAndTheBooksThatUseIt() {
+        // RN14: deactivating is an update, never a physical delete
+        var category = adapter.save(Category.create("Romance"));
+        var bookId = jdbcTemplate.queryForObject("""
+                insert into book (isbn, title, publisher, publication_year, category_id, active)
+                values ('9788533302273', 'Dom Casmurro', 'Editora X', 1899, ?, true) returning id
+                """, Long.class, category.getId());
+
+        category.deactivate();
+        adapter.save(category);
+
+        var found = adapter.findById(category.getId());
+        assertThat(found).isPresent();
+        assertThat(found.get().isActive()).isFalse();
+        assertThat(jdbcTemplate.queryForObject("select category_id from book where id = ?", Long.class, bookId))
+                .isEqualTo(category.getId());
     }
 
     @Test

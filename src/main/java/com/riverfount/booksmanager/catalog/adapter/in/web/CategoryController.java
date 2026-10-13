@@ -1,5 +1,6 @@
 package com.riverfount.booksmanager.catalog.adapter.in.web;
 
+import com.riverfount.booksmanager.catalog.application.port.in.DeactivateCategoryUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.GetCategoryUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ListCategoriesQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.ListCategoriesUseCase;
@@ -18,8 +19,10 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,26 +30,29 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @RestController
 @RequestMapping("/api/v1/categories")
-@Tag(name = "Categories", description = "Cadastro, consulta, listagem e edição de categorias do acervo (RF03).")
+@Tag(name = "Categories", description = "Cadastro, consulta, listagem, edição e inativação de categorias do acervo (RF03).")
 class CategoryController {
 
     private final RegisterCategoryUseCase registerCategoryUseCase;
     private final GetCategoryUseCase getCategoryUseCase;
     private final ListCategoriesUseCase listCategoriesUseCase;
     private final UpdateCategoryUseCase updateCategoryUseCase;
+    private final DeactivateCategoryUseCase deactivateCategoryUseCase;
 
     CategoryController(RegisterCategoryUseCase registerCategoryUseCase,
             GetCategoryUseCase getCategoryUseCase, ListCategoriesUseCase listCategoriesUseCase,
-            UpdateCategoryUseCase updateCategoryUseCase) {
+            UpdateCategoryUseCase updateCategoryUseCase, DeactivateCategoryUseCase deactivateCategoryUseCase) {
         this.registerCategoryUseCase = registerCategoryUseCase;
         this.getCategoryUseCase = getCategoryUseCase;
         this.listCategoriesUseCase = listCategoriesUseCase;
         this.updateCategoryUseCase = updateCategoryUseCase;
+        this.deactivateCategoryUseCase = deactivateCategoryUseCase;
     }
 
     @PostMapping
@@ -129,5 +135,21 @@ class CategoryController {
     CategoryResponse update(@PathVariable Long id, @Valid @RequestBody UpdateCategoryRequest request) {
         var category = updateCategoryUseCase.update(new UpdateCategoryCommand(id, request.name()));
         return CategoryResponse.from(category);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Inativar categoria",
+            description = "Inativa a categoria, sem excluí-la fisicamente (RN14). Os livros já cadastrados "
+                    + "continuam com ela, mas a categoria inativa não pode ser usada em livros novos. Inativar "
+                    + "uma categoria já inativa não tem efeito.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Categoria inativada"),
+            @ApiResponse(responseCode = "404", description = "Categoria não encontrada",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    void deactivate(@PathVariable Long id) {
+        deactivateCategoryUseCase.deactivate(id);
     }
 }

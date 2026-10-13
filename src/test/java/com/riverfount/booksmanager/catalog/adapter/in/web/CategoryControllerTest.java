@@ -5,9 +5,11 @@ import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -16,6 +18,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.riverfount.booksmanager.catalog.application.port.in.DeactivateCategoryUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.GetCategoryUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ListCategoriesQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.ListCategoriesUseCase;
@@ -58,6 +61,9 @@ class CategoryControllerTest {
 
     @MockitoBean
     private UpdateCategoryUseCase updateCategoryUseCase;
+
+    @MockitoBean
+    private DeactivateCategoryUseCase deactivateCategoryUseCase;
 
     @Test
     @WithMockUser
@@ -348,6 +354,37 @@ class CategoryControllerTest {
                         .content("{\"name\":"))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldDeactivateCategoryAndReturn204WithoutBody() throws Exception {
+        mockMvc.perform(delete("/api/v1/categories/1").with(csrf()))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+
+        then(deactivateCategoryUseCase).should().deactivate(1L);
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn404WhenDeactivatingNonExistentCategory() throws Exception {
+        willThrow(new ResourceNotFoundException("categoria não encontrada: 99"))
+                .given(deactivateCategoryUseCase).deactivate(99L);
+
+        mockMvc.perform(delete("/api/v1/categories/99").with(csrf()))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn400WhenDeactivatingWithNonNumericId() throws Exception {
+        mockMvc.perform(delete("/api/v1/categories/abc").with(csrf()))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+
+        then(deactivateCategoryUseCase).should(never()).deactivate(any());
     }
 
     private ListCategoriesQuery capturedQuery() {

@@ -98,4 +98,14 @@ class CategoryTest {
 
         assertThat(category.isActive()).isFalse();
     }
+
+    @Test
+    void shouldKeepCategoryInactiveWhenDeactivatingTwice() {
+        var category = Category.reconstitute(1L, "Ficção", false);
+
+        category.deactivate();
+
+        assertThat(category.isActive()).isFalse();
+        assertThat(category.getName()).isEqualTo("Ficção");
+    }
 }
