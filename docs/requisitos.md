@@ -10,10 +10,10 @@ Prioridade pelo método MoSCoW: **M** (deve, essencial na v1.0), **S** (deveria,
 
 | ID | Requisito | Prioridade |
 | --- | --- | --- |
-| RF01 | Cadastrar, listar, editar e inativar livros (ISBN, título, editora, ano e categoria). | M |
-| RF02 | Cadastrar, listar, editar e inativar autores e associá-los aos livros (relação N:N). | M |
-| RF03 | Cadastrar, listar, editar e inativar categorias. | M |
-| RF04 | Cadastrar exemplares de um livro com código de patrimônio único e status, e alterar o status (disponível, emprestado, reservado, danificado, extraviado). | M |
+| RF01 | Cadastrar, listar, consultar, editar e inativar livros (ISBN, título, editora, ano e categoria). O ISBN não pode ser alterado depois do cadastro. | M |
+| RF02 | Cadastrar, listar, consultar, editar e inativar autores e associá-los aos livros (relação N:N). | M |
+| RF03 | Cadastrar, listar, consultar, editar e inativar categorias. | M |
+| RF04 | Cadastrar, listar, consultar e inativar exemplares de um livro, com código de patrimônio único e status, e alterar o status (disponível, emprestado, reservado, danificado, extraviado). | M |
 | RF05 | Pesquisar livros por título, autor, ISBN e categoria, informando quantos exemplares estão disponíveis, com paginação e ordenação. | M |
 | RF06 | Importar os dados de um livro automaticamente a partir do ISBN, por meio de API externa. | C |
 
@@ -21,9 +21,9 @@ Prioridade pelo método MoSCoW: **M** (deve, essencial na v1.0), **S** (deveria,
 
 | ID | Requisito | Prioridade |
 | --- | --- | --- |
-| RF07 | Cadastrar, listar, editar e inativar leitores (nome, documento, e-mail e telefone). | M |
+| RF07 | Cadastrar, listar, consultar, editar e inativar leitores (nome, documento, e-mail e telefone). | M |
 | RF08 | Autenticar usuários por login e senha e controlar o acesso por perfil (administrador e operador). | M |
-| RF09 | Gerenciar os usuários do sistema (criar, editar, inativar e redefinir senha), restrito ao administrador. | M |
+| RF09 | Gerenciar os usuários do sistema (criar, listar, consultar, editar, inativar e redefinir senha), restrito ao administrador. | M |
 | RF10 | Bloquear e desbloquear leitores manualmente. | M |
 
 ### Empréstimos
