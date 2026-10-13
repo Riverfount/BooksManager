@@ -5,9 +5,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.riverfount.booksmanager.catalog.application.port.in.ListAuthorsQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterAuthorCommand;
+import com.riverfount.booksmanager.catalog.application.port.in.UpdateAuthorCommand;
 import com.riverfount.booksmanager.catalog.domain.Author;
 import com.riverfount.booksmanager.shared.domain.InvalidQueryException;
+import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
+import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -129,6 +132,53 @@ class AuthorServiceTest {
         assertThatThrownBy(() -> new ListAuthorsQuery(null, true, PageQuery.of(0, 20, "birthDate")))
                 .isInstanceOf(InvalidQueryException.class)
                 .hasMessageContaining("birthDate");
+    }
+
+    @Test
+    void shouldRenameExistingAuthorAndPersistTheChange() {
+        var registered = service.register(new RegisterAuthorCommand("Machado de Asis"));
+
+        var updated = service.update(new UpdateAuthorCommand(registered.getId(), "Machado de Assis"));
+
+        assertThat(updated.getId()).isEqualTo(registered.getId());
+        assertThat(updated.getName()).isEqualTo("Machado de Assis");
+        assertThat(repository.findById(registered.getId()).orElseThrow().getName()).isEqualTo("Machado de Assis");
+    }
+
+    @Test
+    void shouldKeepNameWhenItIsNotSent() {
+        var registered = service.register(new RegisterAuthorCommand("Machado de Assis"));
+
+        var updated = service.update(new UpdateAuthorCommand(registered.getId(), null));
+
+        assertThat(updated.getName()).isEqualTo("Machado de Assis");
+    }
+
+    @Test
+    void shouldKeepActiveFlagWhenUpdating() {
+        var author = service.register(new RegisterAuthorCommand("Autor Inativo"));
+        author.deactivate();
+        repository.save(author);
+
+        var updated = service.update(new UpdateAuthorCommand(author.getId(), "Autor Renomeado"));
+
+        assertThat(updated.isActive()).isFalse();
+    }
+
+    @Test
+    void shouldRejectUpdateOfNonExistentAuthor() {
+        assertThatThrownBy(() -> service.update(new UpdateAuthorCommand(99L, "Qualquer Nome")))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("99");
+    }
+
+    @Test
+    void shouldRejectBlankNameWhenUpdating() {
+        var registered = service.register(new RegisterAuthorCommand("Machado de Assis"));
+
+        assertThatThrownBy(() -> service.update(new UpdateAuthorCommand(registered.getId(), " ")))
+                .isInstanceOf(BusinessRuleException.class);
+        assertThat(repository.findById(registered.getId()).orElseThrow().getName()).isEqualTo("Machado de Assis");
     }
 
     private void deactivated(String name) {

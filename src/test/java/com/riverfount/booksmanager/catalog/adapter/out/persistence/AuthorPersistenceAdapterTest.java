@@ -39,6 +39,18 @@ class AuthorPersistenceAdapterTest {
     }
 
     @Test
+    void shouldUpdateExistingAuthorInsteadOfInsertingANewOne() {
+        var saved = adapter.save(Author.create("Machado de Asis"));
+        saved.rename("Machado de Assis");
+
+        var updated = adapter.save(saved);
+
+        assertThat(updated.getId()).isEqualTo(saved.getId());
+        assertThat(adapter.findById(saved.getId()).orElseThrow().getName()).isEqualTo("Machado de Assis");
+        assertThat(adapter.findAll(null, true, PageQuery.of(0, 20, "name")).totalItems()).isEqualTo(1);
+    }
+
+    @Test
     void shouldReturnEmptyForNonExistentId() {
         assertThat(adapter.findById(-1L)).isEmpty();
     }

@@ -5,20 +5,24 @@ import com.riverfount.booksmanager.catalog.application.port.in.ListAuthorsQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.ListAuthorsUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterAuthorCommand;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterAuthorUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.UpdateAuthorCommand;
+import com.riverfount.booksmanager.catalog.application.port.in.UpdateAuthorUseCase;
 import com.riverfount.booksmanager.catalog.application.port.out.AuthorRepository;
 import com.riverfount.booksmanager.catalog.domain.Author;
 import com.riverfount.booksmanager.shared.domain.PageResult;
+import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Orchestrates registering, querying and listing Author: calls the domain and
+ * Orchestrates registering, querying, listing and updating Author: calls the domain and
  * persists. No unique-name check — author.name has no such restriction.
  */
 @Service
 @Transactional
-class AuthorService implements RegisterAuthorUseCase, GetAuthorUseCase, ListAuthorsUseCase {
+class AuthorService implements RegisterAuthorUseCase, GetAuthorUseCase, ListAuthorsUseCase,
+        UpdateAuthorUseCase {
 
     private final AuthorRepository authorRepository;
 
@@ -41,5 +45,15 @@ class AuthorService implements RegisterAuthorUseCase, GetAuthorUseCase, ListAuth
     @Transactional(readOnly = true)
     public PageResult<Author> list(ListAuthorsQuery query) {
         return authorRepository.findAll(query.name(), query.active(), query.page());
+    }
+
+    @Override
+    public Author update(UpdateAuthorCommand command) {
+        var author = authorRepository.findById(command.id())
+                .orElseThrow(() -> new ResourceNotFoundException("autor não encontrado: " + command.id()));
+        if (command.name() != null) {
+            author.rename(command.name());
+        }
+        return authorRepository.save(author);
     }
 }
