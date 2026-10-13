@@ -1,5 +1,6 @@
 package com.riverfount.booksmanager.catalog.adapter.out.persistence;
 
+import com.riverfount.booksmanager.shared.domain.PageQuery;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
@@ -11,6 +12,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Table;
 import java.util.HashSet;
 import java.util.Set;
+import org.hibernate.annotations.BatchSize;
 
 /**
  * Book JPA entity, mapped to the table created by migration
@@ -41,7 +43,11 @@ class BookJpaEntity {
     @Column(name = "category_id", nullable = false)
     private Long categoryId;
 
+    // loads the authors of up to a whole page (max 100 books, RNF14) in a
+    // single query, avoiding one query per book in listings (N+1); a
+    // fetch join would make Hibernate paginate in memory
     @ElementCollection
+    @BatchSize(size = PageQuery.MAX_SIZE)
     @CollectionTable(name = "book_author", joinColumns = @JoinColumn(name = "book_id"))
     @Column(name = "author_id")
     private Set<Long> authorIds = new HashSet<>();

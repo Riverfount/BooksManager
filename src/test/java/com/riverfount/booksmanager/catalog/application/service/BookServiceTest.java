@@ -3,11 +3,15 @@ package com.riverfount.booksmanager.catalog.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.riverfount.booksmanager.catalog.application.port.in.ListBooksQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterBookCommand;
+import com.riverfount.booksmanager.catalog.domain.Book;
 import com.riverfount.booksmanager.catalog.domain.Author;
 import com.riverfount.booksmanager.catalog.domain.Category;
 import com.riverfount.booksmanager.catalog.domain.Isbn;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
+import com.riverfount.booksmanager.shared.domain.InvalidQueryException;
+import com.riverfount.booksmanager.shared.domain.PageQuery;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -20,6 +24,7 @@ class BookServiceTest {
     private static final Clock FIXED_CLOCK = Clock.fixed(Instant.parse("2026-10-10T00:00:00Z"), ZoneOffset.UTC);
 
     private BookService service;
+    private InMemoryBookRepository bookRepository;
     private InMemoryCategoryRepository categoryRepository;
     private InMemoryAuthorRepository authorRepository;
     private Long categoryId;
@@ -27,7 +32,7 @@ class BookServiceTest {
 
     @BeforeEach
     void setUp() {
-        var bookRepository = new InMemoryBookRepository();
+        bookRepository = new InMemoryBookRepository();
         categoryRepository = new InMemoryCategoryRepository();
         authorRepository = new InMemoryAuthorRepository();
         service = new BookService(bookRepository, categoryRepository, authorRepository, FIXED_CLOCK);
@@ -124,5 +129,76 @@ class BookServiceTest {
     @Test
     void shouldReturnEmptyWhenFindingNonExistentId() {
         assertThat(service.findById(-1L)).isEmpty();
+    }
+
+    @Test
+    void shouldListOnlyActiveBooksByDefault() {
+        register("9788533302273", "Dom Casmurro", 1899);
+        deactivated(register("9788535914849", "Livro Inativo", 2000));
+
+        var result = service.list(new ListBooksQuery(true, PageQuery.of(0, 20, "title")));
+
+        assertThat(result.items()).extracting(Book::getTitle).containsExactly("Dom Casmurro");
+    }
+
+    @Test
+    void shouldListInactiveBooksWhenRequested() {
+        register("9788533302273", "Dom Casmurro", 1899);
+        deactivated(register("9788535914849", "Livro Inativo", 2000));
+
+        var result = service.list(new ListBooksQuery(false, PageQuery.of(0, 20, "title")));
+
+        assertThat(result.items()).extracting(Book::getTitle).containsExactly("Livro Inativo");
+    }
+
+    @Test
+    void shouldReturnRequestedPageWithPaginationMetadata() {
+        register("9788533302273", "Livro A", 1899);
+        register("9788535914849", "Livro B", 2000);
+        register("9788525406958", "Livro C", 2010);
+
+        var result = service.list(new ListBooksQuery(true, PageQuery.of(1, 2, "title")));
+
+        assertThat(result.items()).extracting(Book::getTitle).containsExactly("Livro C");
+        assertThat(result.totalItems()).isEqualTo(3);
+        assertThat(result.totalPages()).isEqualTo(2);
+    }
+
+    @Test
+    void shouldSortByPublicationYearDescending() {
+        register("9788533302273", "Mais Antigo", 1899);
+        register("9788535914849", "Mais Novo", 2010);
+
+        var result = service.list(new ListBooksQuery(true, PageQuery.of(0, 20, "publicationYear,desc")));
+
+        assertThat(result.items()).extracting(Book::getTitle).containsExactly("Mais Novo", "Mais Antigo");
+    }
+
+    @Test
+    void shouldSortByIsbn() {
+        register("9788535914849", "Livro B", 2000);
+        register("9788533302273", "Livro A", 1899);
+
+        var result = service.list(new ListBooksQuery(true, PageQuery.of(0, 20, "isbn")));
+
+        assertThat(result.items()).extracting(book -> book.getIsbn().value())
+                .containsExactly("9788533302273", "9788535914849");
+    }
+
+    @Test
+    void shouldRejectUnknownSortField() {
+        assertThatThrownBy(() -> new ListBooksQuery(true, PageQuery.of(0, 20, "publisher")))
+                .isInstanceOf(InvalidQueryException.class)
+                .hasMessageContaining("publisher");
+    }
+
+    private Book register(String isbn, String title, Integer publicationYear) {
+        return service.register(new RegisterBookCommand(isbn, title, "Editora X", publicationYear, categoryId,
+                Set.of(authorId)));
+    }
+
+    private void deactivated(Book book) {
+        book.deactivate();
+        bookRepository.save(book);
     }
 }

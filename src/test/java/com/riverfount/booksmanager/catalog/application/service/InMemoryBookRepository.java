@@ -3,6 +3,9 @@ package com.riverfount.booksmanager.catalog.application.service;
 import com.riverfount.booksmanager.catalog.application.port.out.BookRepository;
 import com.riverfount.booksmanager.catalog.domain.Book;
 import com.riverfount.booksmanager.catalog.domain.Isbn;
+import com.riverfount.booksmanager.shared.domain.PageQuery;
+import com.riverfount.booksmanager.shared.domain.PageResult;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -37,5 +40,18 @@ class InMemoryBookRepository implements BookRepository {
     @Override
     public boolean existsByIsbn(Isbn isbn) {
         return books.values().stream().anyMatch(book -> book.getIsbn().equals(isbn));
+    }
+
+    @Override
+    public PageResult<Book> findAll(boolean active, PageQuery page) {
+        var matching = books.values().stream().filter(book -> book.isActive() == active);
+        return InMemoryPagination.page(matching, page, Map.of(
+                "id", Comparator.comparing(Book::getId),
+                "title", Comparator.comparing(Book::getTitle),
+                "isbn", Comparator.comparing((Book book) -> book.getIsbn().value()),
+                // like PostgreSQL: nulls last ascending, first descending
+                "publicationYear", Comparator.comparing(Book::getPublicationYear,
+                        Comparator.nullsLast(Comparator.naturalOrder()))),
+                Comparator.comparing(Book::getId));
     }
 }

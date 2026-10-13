@@ -4,7 +4,10 @@ import com.riverfount.booksmanager.catalog.application.port.out.BookRepository;
 import com.riverfount.booksmanager.catalog.domain.Book;
 import com.riverfount.booksmanager.catalog.domain.Isbn;
 import com.riverfount.booksmanager.shared.adapter.out.persistence.ConstraintViolations;
+import com.riverfount.booksmanager.shared.adapter.out.persistence.SpringDataPages;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
+import com.riverfount.booksmanager.shared.domain.PageQuery;
+import com.riverfount.booksmanager.shared.domain.PageResult;
 import java.util.Optional;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
@@ -49,6 +52,12 @@ class BookPersistenceAdapter implements BookRepository {
     @Override
     public boolean existsByIsbn(Isbn isbn) {
         return jpaRepository.existsByIsbn(isbn.value());
+    }
+
+    @Override
+    public PageResult<Book> findAll(boolean active, PageQuery page) {
+        var result = jpaRepository.findByActive(active, SpringDataPages.toPageable(page));
+        return SpringDataPages.toPageResult(result, this::toDomain);
     }
 
     private Book toDomain(BookJpaEntity entity) {
