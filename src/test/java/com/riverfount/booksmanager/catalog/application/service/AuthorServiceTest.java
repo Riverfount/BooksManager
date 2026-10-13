@@ -181,6 +181,35 @@ class AuthorServiceTest {
         assertThat(repository.findById(registered.getId()).orElseThrow().getName()).isEqualTo("Machado de Assis");
     }
 
+    @Test
+    void shouldDeactivateExistingAuthorKeepingItStored() {
+        var registered = service.register(new RegisterAuthorCommand("Machado de Assis"));
+
+        service.deactivate(registered.getId());
+
+        var stored = repository.findById(registered.getId());
+        assertThat(stored).isPresent();
+        assertThat(stored.get().isActive()).isFalse();
+        assertThat(stored.get().getName()).isEqualTo("Machado de Assis");
+    }
+
+    @Test
+    void shouldBeIdempotentWhenDeactivatingAnAlreadyInactiveAuthor() {
+        var registered = service.register(new RegisterAuthorCommand("Machado de Assis"));
+        service.deactivate(registered.getId());
+
+        service.deactivate(registered.getId());
+
+        assertThat(repository.findById(registered.getId()).orElseThrow().isActive()).isFalse();
+    }
+
+    @Test
+    void shouldRejectDeactivationOfNonExistentAuthor() {
+        assertThatThrownBy(() -> service.deactivate(99L))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("99");
+    }
+
     private void deactivated(String name) {
         var author = service.register(new RegisterAuthorCommand(name));
         author.deactivate();

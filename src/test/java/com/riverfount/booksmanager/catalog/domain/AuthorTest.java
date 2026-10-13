@@ -83,4 +83,14 @@ class AuthorTest {
 
         assertThat(author.isActive()).isFalse();
     }
+
+    @Test
+    void shouldKeepAuthorInactiveWhenDeactivatingTwice() {
+        var author = Author.reconstitute(1L, "Machado de Assis", false);
+
+        author.deactivate();
+
+        assertThat(author.isActive()).isFalse();
+        assertThat(author.getName()).isEqualTo("Machado de Assis");
+    }
 }
