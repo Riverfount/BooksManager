@@ -1,9 +1,14 @@
 package com.riverfount.booksmanager.catalog.adapter.in.web;
 
 import com.riverfount.booksmanager.catalog.application.port.in.GetAuthorUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.ListAuthorsQuery;
+import com.riverfount.booksmanager.catalog.application.port.in.ListAuthorsUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterAuthorCommand;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterAuthorUseCase;
+import com.riverfount.booksmanager.shared.adapter.in.web.PageResponse;
+import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -18,20 +23,24 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @RestController
 @RequestMapping("/api/v1/authors")
-@Tag(name = "Authors", description = "Cadastro e consulta de autores do acervo (RF02).")
+@Tag(name = "Authors", description = "Cadastro, consulta e listagem de autores do acervo (RF02).")
 class AuthorController {
 
     private final RegisterAuthorUseCase registerAuthorUseCase;
     private final GetAuthorUseCase getAuthorUseCase;
+    private final ListAuthorsUseCase listAuthorsUseCase;
 
-    AuthorController(RegisterAuthorUseCase registerAuthorUseCase, GetAuthorUseCase getAuthorUseCase) {
+    AuthorController(RegisterAuthorUseCase registerAuthorUseCase, GetAuthorUseCase getAuthorUseCase,
+            ListAuthorsUseCase listAuthorsUseCase) {
         this.registerAuthorUseCase = registerAuthorUseCase;
         this.getAuthorUseCase = getAuthorUseCase;
+        this.listAuthorsUseCase = listAuthorsUseCase;
     }
 
     @PostMapping
@@ -49,6 +58,33 @@ class AuthorController {
                 .buildAndExpand(author.getId())
                 .toUri();
         return ResponseEntity.created(location).body(AuthorResponse.from(author));
+    }
+
+    @GetMapping
+    @Operation(summary = "Listar autores",
+            description = "Lista os autores de forma paginada (máximo de 100 por página), com filtro opcional "
+                    + "por nome. Por padrão, só os ativos e em ordem de nome.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Página de autores"),
+            @ApiResponse(responseCode = "400",
+                    description = "Paginação, ordenação ou filtro inválidos (inclusive tamanho acima de 100)",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    PageResponse<AuthorResponse> list(
+            @Parameter(description = "Trecho do nome, sem diferenciar maiúsculas", example = "assis")
+            @RequestParam(required = false) String name,
+            @Parameter(description = "Listar ativos (true) ou inativos (false)")
+            @RequestParam(defaultValue = "true") boolean active,
+            @Parameter(description = "Número da página, a partir de 0")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Tamanho da página, de 1 a 100")
+            @RequestParam(defaultValue = "" + PageQuery.DEFAULT_SIZE) int size,
+            @Parameter(description = "Ordenação no formato campo[,asc|desc]; campos: id, name",
+                    example = "name,asc")
+            @RequestParam(defaultValue = ListAuthorsQuery.DEFAULT_SORT) String sort) {
+        var query = new ListAuthorsQuery(name, active, PageQuery.of(page, size, sort));
+        return PageResponse.from(listAuthorsUseCase.list(query), AuthorResponse::from);
     }
 
     @GetMapping("/{id}")

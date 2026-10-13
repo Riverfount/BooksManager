@@ -2,8 +2,13 @@ package com.riverfount.booksmanager.catalog.application.service;
 
 import com.riverfount.booksmanager.catalog.application.port.out.AuthorRepository;
 import com.riverfount.booksmanager.catalog.domain.Author;
+import com.riverfount.booksmanager.shared.domain.PageQuery;
+import com.riverfount.booksmanager.shared.domain.PageResult;
+import com.riverfount.booksmanager.shared.domain.SortDirection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -38,5 +43,28 @@ class InMemoryAuthorRepository implements AuthorRepository {
     @Override
     public List<Author> findAllByIds(Set<Long> ids) {
         return ids.stream().map(authors::get).filter(Objects::nonNull).toList();
+    }
+
+    @Override
+    public PageResult<Author> findAll(String nameContains, boolean active, PageQuery page) {
+        Comparator<Author> comparator = switch (page.sortBy()) {
+            case "id" -> Comparator.comparing(Author::getId);
+            case "name" -> Comparator.comparing(Author::getName).thenComparing(Author::getId);
+            default -> throw new IllegalArgumentException("campo de ordenação não suportado: " + page.sortBy());
+        };
+        if (page.direction() == SortDirection.DESC) {
+            comparator = comparator.reversed();
+        }
+        var matching = authors.values().stream()
+                .filter(author -> author.isActive() == active)
+                .filter(author -> nameContains == null || author.getName().toLowerCase(Locale.ROOT)
+                        .contains(nameContains.toLowerCase(Locale.ROOT)))
+                .sorted(comparator)
+                .toList();
+        var items = matching.stream()
+                .skip((long) page.page() * page.size())
+                .limit(page.size())
+                .toList();
+        return new PageResult<>(items, page.page(), page.size(), matching.size());
     }
 }
