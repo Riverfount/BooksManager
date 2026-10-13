@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.riverfount.booksmanager.TestcontainersConfiguration;
 import com.riverfount.booksmanager.catalog.domain.Category;
+import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -62,5 +63,61 @@ class CategoryPersistenceAdapterTest {
 
         assertThatThrownBy(() -> adapter.save(Category.create("Terror")))
                 .isInstanceOf(BusinessRuleException.class);
+    }
+
+    @Test
+    void shouldListActiveCategoriesPaginatedAndSortedByName() {
+        adapter.save(Category.create("Categoria C"));
+        adapter.save(Category.create("Categoria A"));
+        adapter.save(Category.create("Categoria B"));
+        adapter.save(Category.reconstitute(null, "Categoria Inativa", false));
+
+        var firstPage = adapter.findAll(null, true, PageQuery.of(0, 2, "name"));
+        var secondPage = adapter.findAll(null, true, PageQuery.of(1, 2, "name"));
+
+        assertThat(firstPage.items()).extracting(Category::getName).containsExactly("Categoria A", "Categoria B");
+        assertThat(secondPage.items()).extracting(Category::getName).containsExactly("Categoria C");
+        assertThat(firstPage.totalItems()).isEqualTo(3);
+        assertThat(firstPage.totalPages()).isEqualTo(2);
+    }
+
+    @Test
+    void shouldListInactiveCategoriesWhenRequested() {
+        adapter.save(Category.create("Categoria Ativa"));
+        adapter.save(Category.reconstitute(null, "Categoria Inativa", false));
+
+        var result = adapter.findAll(null, false, PageQuery.of(0, 20, "name"));
+
+        assertThat(result.items()).extracting(Category::getName).containsExactly("Categoria Inativa");
+    }
+
+    @Test
+    void shouldFilterByNameContainingIgnoringCase() {
+        adapter.save(Category.create("Ficção Científica"));
+        adapter.save(Category.create("Romance"));
+
+        var result = adapter.findAll("CIENT", true, PageQuery.of(0, 20, "name"));
+
+        assertThat(result.items()).extracting(Category::getName).containsExactly("Ficção Científica");
+    }
+
+    @Test
+    void shouldTreatLikeWildcardsInNameFilterLiterally() {
+        adapter.save(Category.create("Infantil_Juvenil"));
+        adapter.save(Category.create("InfantilXJuvenil"));
+
+        var result = adapter.findAll("_", true, PageQuery.of(0, 20, "name"));
+
+        assertThat(result.items()).extracting(Category::getName).containsExactly("Infantil_Juvenil");
+    }
+
+    @Test
+    void shouldSortByIdDescending() {
+        var first = adapter.save(Category.create("Categoria A"));
+        var second = adapter.save(Category.create("Categoria B"));
+
+        var result = adapter.findAll(null, true, PageQuery.of(0, 20, "id,desc"));
+
+        assertThat(result.items()).extracting(Category::getId).containsExactly(second.getId(), first.getId());
     }
 }

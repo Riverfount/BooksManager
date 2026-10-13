@@ -3,18 +3,24 @@ package com.riverfount.booksmanager.catalog.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.riverfount.booksmanager.catalog.application.port.in.ListCategoriesQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterCategoryCommand;
+import com.riverfount.booksmanager.catalog.domain.Category;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
+import com.riverfount.booksmanager.shared.domain.InvalidQueryException;
+import com.riverfount.booksmanager.shared.domain.PageQuery;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class CategoryServiceTest {
 
+    private InMemoryCategoryRepository repository;
     private CategoryService service;
 
     @BeforeEach
     void setUp() {
-        service = new CategoryService(new InMemoryCategoryRepository());
+        repository = new InMemoryCategoryRepository();
+        service = new CategoryService(repository);
     }
 
     @Test
@@ -56,5 +62,83 @@ class CategoryServiceTest {
         // scenario would pass here and only break in production.
         assertThatThrownBy(() -> service.findById(null))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void shouldListOnlyActiveCategoriesByDefault() {
+        service.register(new RegisterCategoryCommand("Ficção"));
+        deactivated("Categoria Inativa");
+
+        var result = service.list(new ListCategoriesQuery(null, true, PageQuery.of(0, 20, "name")));
+
+        assertThat(result.items()).extracting(Category::getName).containsExactly("Ficção");
+    }
+
+    @Test
+    void shouldListInactiveCategoriesWhenRequested() {
+        service.register(new RegisterCategoryCommand("Ficção"));
+        deactivated("Categoria Inativa");
+
+        var result = service.list(new ListCategoriesQuery(null, false, PageQuery.of(0, 20, "name")));
+
+        assertThat(result.items()).extracting(Category::getName).containsExactly("Categoria Inativa");
+    }
+
+    @Test
+    void shouldFilterByNameContainingIgnoringCase() {
+        service.register(new RegisterCategoryCommand("Ficção Científica"));
+        service.register(new RegisterCategoryCommand("Romance"));
+
+        var result = service.list(new ListCategoriesQuery("CIENT", true, PageQuery.of(0, 20, "name")));
+
+        assertThat(result.items()).extracting(Category::getName).containsExactly("Ficção Científica");
+    }
+
+    @Test
+    void shouldIgnoreBlankNameFilter() {
+        service.register(new RegisterCategoryCommand("Ficção"));
+        service.register(new RegisterCategoryCommand("Romance"));
+
+        var result = service.list(new ListCategoriesQuery("  ", true, PageQuery.of(0, 20, "name")));
+
+        assertThat(result.totalItems()).isEqualTo(2);
+    }
+
+    @Test
+    void shouldReturnRequestedPageWithPaginationMetadata() {
+        service.register(new RegisterCategoryCommand("Categoria A"));
+        service.register(new RegisterCategoryCommand("Categoria B"));
+        service.register(new RegisterCategoryCommand("Categoria C"));
+
+        var result = service.list(new ListCategoriesQuery(null, true, PageQuery.of(1, 2, "name")));
+
+        assertThat(result.items()).extracting(Category::getName).containsExactly("Categoria C");
+        assertThat(result.page()).isEqualTo(1);
+        assertThat(result.size()).isEqualTo(2);
+        assertThat(result.totalItems()).isEqualTo(3);
+        assertThat(result.totalPages()).isEqualTo(2);
+    }
+
+    @Test
+    void shouldSortByNameDescending() {
+        service.register(new RegisterCategoryCommand("Categoria A"));
+        service.register(new RegisterCategoryCommand("Categoria B"));
+
+        var result = service.list(new ListCategoriesQuery(null, true, PageQuery.of(0, 20, "name,desc")));
+
+        assertThat(result.items()).extracting(Category::getName).containsExactly("Categoria B", "Categoria A");
+    }
+
+    @Test
+    void shouldRejectUnknownSortField() {
+        assertThatThrownBy(() -> new ListCategoriesQuery(null, true, PageQuery.of(0, 20, "createdAt")))
+                .isInstanceOf(InvalidQueryException.class)
+                .hasMessageContaining("createdAt");
+    }
+
+    private void deactivated(String name) {
+        var category = service.register(new RegisterCategoryCommand(name));
+        category.deactivate();
+        repository.save(category);
     }
 }

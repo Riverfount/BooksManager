@@ -4,7 +4,6 @@ import com.riverfount.booksmanager.catalog.application.port.out.AuthorRepository
 import com.riverfount.booksmanager.catalog.domain.Author;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.PageResult;
-import com.riverfount.booksmanager.shared.domain.SortDirection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -47,24 +46,12 @@ class InMemoryAuthorRepository implements AuthorRepository {
 
     @Override
     public PageResult<Author> findAll(String nameContains, boolean active, PageQuery page) {
-        Comparator<Author> comparator = switch (page.sortBy()) {
-            case "id" -> Comparator.comparing(Author::getId);
-            case "name" -> Comparator.comparing(Author::getName).thenComparing(Author::getId);
-            default -> throw new IllegalArgumentException("campo de ordenação não suportado: " + page.sortBy());
-        };
-        if (page.direction() == SortDirection.DESC) {
-            comparator = comparator.reversed();
-        }
         var matching = authors.values().stream()
                 .filter(author -> author.isActive() == active)
                 .filter(author -> nameContains == null || author.getName().toLowerCase(Locale.ROOT)
-                        .contains(nameContains.toLowerCase(Locale.ROOT)))
-                .sorted(comparator)
-                .toList();
-        var items = matching.stream()
-                .skip((long) page.page() * page.size())
-                .limit(page.size())
-                .toList();
-        return new PageResult<>(items, page.page(), page.size(), matching.size());
+                        .contains(nameContains.toLowerCase(Locale.ROOT)));
+        return InMemoryPagination.page(matching, page, Map.of(
+                "id", Comparator.comparing(Author::getId),
+                "name", Comparator.comparing(Author::getName)), Comparator.comparing(Author::getId));
     }
 }
