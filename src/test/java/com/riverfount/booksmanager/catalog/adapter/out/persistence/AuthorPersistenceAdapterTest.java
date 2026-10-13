@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.riverfount.booksmanager.TestcontainersConfiguration;
 import com.riverfount.booksmanager.catalog.domain.Author;
+import com.riverfount.booksmanager.shared.domain.PageQuery;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -60,5 +61,61 @@ class AuthorPersistenceAdapterTest {
         var found = adapter.findAllByIds(Set.of(author1.getId(), author2.getId(), 999999L));
 
         assertThat(found).extracting(Author::getId).containsExactlyInAnyOrder(author1.getId(), author2.getId());
+    }
+
+    @Test
+    void shouldListActiveAuthorsPaginatedAndSortedByName() {
+        adapter.save(Author.create("Autor C"));
+        adapter.save(Author.create("Autor A"));
+        adapter.save(Author.create("Autor B"));
+        adapter.save(Author.reconstitute(null, "Autor Inativo", false));
+
+        var firstPage = adapter.findAll(null, true, PageQuery.of(0, 2, "name"));
+        var secondPage = adapter.findAll(null, true, PageQuery.of(1, 2, "name"));
+
+        assertThat(firstPage.items()).extracting(Author::getName).containsExactly("Autor A", "Autor B");
+        assertThat(secondPage.items()).extracting(Author::getName).containsExactly("Autor C");
+        assertThat(firstPage.totalItems()).isEqualTo(3);
+        assertThat(firstPage.totalPages()).isEqualTo(2);
+    }
+
+    @Test
+    void shouldListInactiveAuthorsWhenRequested() {
+        adapter.save(Author.create("Autor Ativo"));
+        adapter.save(Author.reconstitute(null, "Autor Inativo", false));
+
+        var result = adapter.findAll(null, false, PageQuery.of(0, 20, "name"));
+
+        assertThat(result.items()).extracting(Author::getName).containsExactly("Autor Inativo");
+    }
+
+    @Test
+    void shouldFilterByNameContainingIgnoringCase() {
+        adapter.save(Author.create("Machado de Assis"));
+        adapter.save(Author.create("Clarice Lispector"));
+
+        var result = adapter.findAll("ASSIS", true, PageQuery.of(0, 20, "name"));
+
+        assertThat(result.items()).extracting(Author::getName).containsExactly("Machado de Assis");
+    }
+
+    @Test
+    void shouldTreatLikeWildcardsInNameFilterLiterally() {
+        adapter.save(Author.create("Autor 100% Real"));
+        adapter.save(Author.create("Autor Comum"));
+
+        var result = adapter.findAll("%", true, PageQuery.of(0, 20, "name"));
+
+        assertThat(result.items()).extracting(Author::getName).containsExactly("Autor 100% Real");
+    }
+
+    @Test
+    void shouldSortByIdDescending() {
+        var first = adapter.save(Author.create("Autor A"));
+        var second = adapter.save(Author.create("Autor B"));
+
+        var result = adapter.findAll(null, true, PageQuery.of(0, 20, "id,desc"));
+
+        assertThat(result.items()).extracting(Author::getId).containsExactly(second.getId(), first.getId());
     }
 }
