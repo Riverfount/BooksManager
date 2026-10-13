@@ -5,6 +5,8 @@ import com.riverfount.booksmanager.catalog.application.port.in.ListAuthorsQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.ListAuthorsUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterAuthorCommand;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterAuthorUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.UpdateAuthorCommand;
+import com.riverfount.booksmanager.catalog.application.port.in.UpdateAuthorUseCase;
 import com.riverfount.booksmanager.shared.adapter.in.web.PageResponse;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
@@ -19,6 +21,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -29,18 +32,20 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @RestController
 @RequestMapping("/api/v1/authors")
-@Tag(name = "Authors", description = "Cadastro, consulta e listagem de autores do acervo (RF02).")
+@Tag(name = "Authors", description = "Cadastro, consulta, listagem e edição de autores do acervo (RF02).")
 class AuthorController {
 
     private final RegisterAuthorUseCase registerAuthorUseCase;
     private final GetAuthorUseCase getAuthorUseCase;
     private final ListAuthorsUseCase listAuthorsUseCase;
+    private final UpdateAuthorUseCase updateAuthorUseCase;
 
     AuthorController(RegisterAuthorUseCase registerAuthorUseCase, GetAuthorUseCase getAuthorUseCase,
-            ListAuthorsUseCase listAuthorsUseCase) {
+            ListAuthorsUseCase listAuthorsUseCase, UpdateAuthorUseCase updateAuthorUseCase) {
         this.registerAuthorUseCase = registerAuthorUseCase;
         this.getAuthorUseCase = getAuthorUseCase;
         this.listAuthorsUseCase = listAuthorsUseCase;
+        this.updateAuthorUseCase = updateAuthorUseCase;
     }
 
     @PostMapping
@@ -99,5 +104,22 @@ class AuthorController {
         return getAuthorUseCase.findById(id)
                 .map(AuthorResponse::from)
                 .orElseThrow(() -> new ResourceNotFoundException("autor não encontrado: " + id));
+    }
+
+    @PatchMapping("/{id}")
+    @Operation(summary = "Editar autor",
+            description = "Altera só os campos enviados; os omitidos mantêm o valor atual.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Autor atualizado"),
+            @ApiResponse(responseCode = "400", description = "Requisição inválida",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "404", description = "Autor não encontrado",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    AuthorResponse update(@PathVariable Long id, @Valid @RequestBody UpdateAuthorRequest request) {
+        var author = updateAuthorUseCase.update(new UpdateAuthorCommand(id, request.name()));
+        return AuthorResponse.from(author);
     }
 }

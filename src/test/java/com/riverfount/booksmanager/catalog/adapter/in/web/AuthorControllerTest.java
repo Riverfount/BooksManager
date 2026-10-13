@@ -6,8 +6,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -18,9 +20,12 @@ import com.riverfount.booksmanager.catalog.application.port.in.GetAuthorUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ListAuthorsQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.ListAuthorsUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterAuthorUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.UpdateAuthorCommand;
+import com.riverfount.booksmanager.catalog.application.port.in.UpdateAuthorUseCase;
 import com.riverfount.booksmanager.catalog.domain.Author;
 import com.riverfount.booksmanager.shared.adapter.in.web.GlobalExceptionHandler;
 import com.riverfount.booksmanager.shared.domain.PageResult;
+import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
 import com.riverfount.booksmanager.shared.domain.SortDirection;
 import java.util.List;
 import java.util.Optional;
@@ -49,6 +54,9 @@ class AuthorControllerTest {
 
     @MockitoBean
     private ListAuthorsUseCase listAuthorsUseCase;
+
+    @MockitoBean
+    private UpdateAuthorUseCase updateAuthorUseCase;
 
     @Test
     @WithMockUser
@@ -213,6 +221,98 @@ class AuthorControllerTest {
     @WithMockUser
     void shouldReturn400ForInvalidActiveValue() throws Exception {
         mockMvc.perform(get("/api/v1/authors").param("active", "maybe"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldUpdateAuthorNameAndReturn200() throws Exception {
+        given(updateAuthorUseCase.update(any())).willReturn(Author.reconstitute(1L, "Machado de Assis", true));
+
+        mockMvc.perform(patch("/api/v1/authors/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Machado de Assis\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.name").value("Machado de Assis"))
+                .andExpect(jsonPath("$.active").value(true));
+
+        then(updateAuthorUseCase).should().update(new UpdateAuthorCommand(1L, "Machado de Assis"));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldSendNullNameWhenItIsOmitted() throws Exception {
+        given(updateAuthorUseCase.update(any())).willReturn(Author.reconstitute(1L, "Machado de Assis", true));
+
+        mockMvc.perform(patch("/api/v1/authors/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk());
+
+        then(updateAuthorUseCase).should().update(new UpdateAuthorCommand(1L, null));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn404WhenUpdatingNonExistentAuthor() throws Exception {
+        given(updateAuthorUseCase.update(any())).willThrow(new ResourceNotFoundException("autor não encontrado: 99"));
+
+        mockMvc.perform(patch("/api/v1/authors/99")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Machado de Assis\"}"))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn400WhenUpdatingWithBlankName() throws Exception {
+        mockMvc.perform(patch("/api/v1/authors/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"  \"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+
+        then(updateAuthorUseCase).should(never()).update(any());
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn400WhenUpdatingWithEmptyName() throws Exception {
+        mockMvc.perform(patch("/api/v1/authors/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn400WhenUpdatingWithNameLongerThanDomainLimit() throws Exception {
+        var nameOneCharacterAboveTheLimit = "A".repeat(Author.MAX_NAME_LENGTH + 1);
+
+        mockMvc.perform(patch("/api/v1/authors/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"" + nameOneCharacterAboveTheLimit + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn400WhenUpdatingWithMalformedJson() throws Exception {
+        mockMvc.perform(patch("/api/v1/authors/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":"))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
     }
