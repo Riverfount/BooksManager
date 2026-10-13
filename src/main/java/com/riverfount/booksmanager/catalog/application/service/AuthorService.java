@@ -1,5 +1,6 @@
 package com.riverfount.booksmanager.catalog.application.service;
 
+import com.riverfount.booksmanager.catalog.application.port.in.DeactivateAuthorUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.GetAuthorUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ListAuthorsQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.ListAuthorsUseCase;
@@ -16,13 +17,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Orchestrates registering, querying, listing and updating Author: calls the domain and
+ * Orchestrates registering, querying, listing, updating and deactivating Author: calls the domain and
  * persists. No unique-name check — author.name has no such restriction.
  */
 @Service
 @Transactional
 class AuthorService implements RegisterAuthorUseCase, GetAuthorUseCase, ListAuthorsUseCase,
-        UpdateAuthorUseCase {
+        UpdateAuthorUseCase, DeactivateAuthorUseCase {
 
     private final AuthorRepository authorRepository;
 
@@ -49,11 +50,22 @@ class AuthorService implements RegisterAuthorUseCase, GetAuthorUseCase, ListAuth
 
     @Override
     public Author update(UpdateAuthorCommand command) {
-        var author = authorRepository.findById(command.id())
-                .orElseThrow(() -> new ResourceNotFoundException("autor não encontrado: " + command.id()));
+        var author = loadExisting(command.id());
         if (command.name() != null) {
             author.rename(command.name());
         }
         return authorRepository.save(author);
+    }
+
+    @Override
+    public void deactivate(Long id) {
+        var author = loadExisting(id);
+        author.deactivate();
+        authorRepository.save(author);
+    }
+
+    private Author loadExisting(Long id) {
+        return authorRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("autor não encontrado: " + id));
     }
 }

@@ -5,9 +5,11 @@ import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -16,6 +18,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.riverfount.booksmanager.catalog.application.port.in.DeactivateAuthorUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.GetAuthorUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ListAuthorsQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.ListAuthorsUseCase;
@@ -57,6 +60,9 @@ class AuthorControllerTest {
 
     @MockitoBean
     private UpdateAuthorUseCase updateAuthorUseCase;
+
+    @MockitoBean
+    private DeactivateAuthorUseCase deactivateAuthorUseCase;
 
     @Test
     @WithMockUser
@@ -315,6 +321,37 @@ class AuthorControllerTest {
                         .content("{\"name\":"))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldDeactivateAuthorAndReturn204WithoutBody() throws Exception {
+        mockMvc.perform(delete("/api/v1/authors/1").with(csrf()))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+
+        then(deactivateAuthorUseCase).should().deactivate(1L);
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn404WhenDeactivatingNonExistentAuthor() throws Exception {
+        willThrow(new ResourceNotFoundException("autor não encontrado: 99"))
+                .given(deactivateAuthorUseCase).deactivate(99L);
+
+        mockMvc.perform(delete("/api/v1/authors/99").with(csrf()))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn400WhenDeactivatingWithNonNumericId() throws Exception {
+        mockMvc.perform(delete("/api/v1/authors/abc").with(csrf()))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+
+        then(deactivateAuthorUseCase).should(never()).deactivate(any());
     }
 
     private ListAuthorsQuery capturedQuery() {

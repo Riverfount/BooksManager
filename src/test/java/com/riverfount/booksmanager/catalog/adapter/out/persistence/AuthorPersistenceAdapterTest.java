@@ -12,6 +12,7 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase.Replace;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
  * Tests the Author persistence adapter against a real PostgreSQL
@@ -25,6 +26,9 @@ class AuthorPersistenceAdapterTest {
 
     @Autowired
     private AuthorPersistenceAdapter adapter;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Test
     void shouldSaveAndFindAuthorWithTheSameState() {
@@ -48,6 +52,29 @@ class AuthorPersistenceAdapterTest {
         assertThat(updated.getId()).isEqualTo(saved.getId());
         assertThat(adapter.findById(saved.getId()).orElseThrow().getName()).isEqualTo("Machado de Assis");
         assertThat(adapter.findAll(null, true, PageQuery.of(0, 20, "name")).totalItems()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldPersistDeactivationKeepingTheRowAndTheBookAssociation() {
+        // RN14: deactivating is an update, never a physical delete
+        var author = adapter.save(Author.create("Machado de Assis"));
+        var categoryId = jdbcTemplate.queryForObject(
+                "insert into category (name, active) values ('Romance', true) returning id", Long.class);
+        var bookId = jdbcTemplate.queryForObject("""
+                insert into book (isbn, title, publisher, publication_year, category_id, active)
+                values ('9788533302273', 'Dom Casmurro', 'Editora X', 1899, ?, true) returning id
+                """, Long.class, categoryId);
+        jdbcTemplate.update("insert into book_author (book_id, author_id) values (?, ?)", bookId, author.getId());
+
+        author.deactivate();
+        adapter.save(author);
+
+        var found = adapter.findById(author.getId());
+        assertThat(found).isPresent();
+        assertThat(found.get().isActive()).isFalse();
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from book_author where book_id = ? and author_id = ?",
+                Long.class, bookId, author.getId())).isEqualTo(1);
     }
 
     @Test
