@@ -1,6 +1,8 @@
 package com.riverfount.booksmanager.catalog.application.service;
 
 import com.riverfount.booksmanager.catalog.application.port.in.GetBookUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.ListBooksQuery;
+import com.riverfount.booksmanager.catalog.application.port.in.ListBooksUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterBookCommand;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterBookUseCase;
 import com.riverfount.booksmanager.catalog.application.port.out.AuthorRepository;
@@ -10,6 +12,7 @@ import com.riverfount.booksmanager.catalog.domain.Author;
 import com.riverfount.booksmanager.catalog.domain.Book;
 import com.riverfount.booksmanager.catalog.domain.Isbn;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
+import com.riverfount.booksmanager.shared.domain.PageResult;
 import java.time.Clock;
 import java.util.Optional;
 import java.util.Set;
@@ -18,14 +21,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Orchestrates registering and querying Book: fetches what the domain
+ * Orchestrates registering, querying and listing Book: fetches what the domain
  * needs to decide (do the category and authors exist? does the ISBN
  * already exist?), calls the domain and persists. The business decision
  * itself lives in the domain (Book.create, Book.validateUniqueIsbn).
  */
 @Service
 @Transactional
-class BookService implements RegisterBookUseCase, GetBookUseCase {
+class BookService implements RegisterBookUseCase, GetBookUseCase, ListBooksUseCase {
 
     private final BookRepository bookRepository;
     private final CategoryRepository categoryRepository;
@@ -58,6 +61,12 @@ class BookService implements RegisterBookUseCase, GetBookUseCase {
     @Transactional(readOnly = true)
     public Optional<Book> findById(Long id) {
         return bookRepository.findById(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResult<Book> list(ListBooksQuery query) {
+        return bookRepository.findAll(query.active(), query.page());
     }
 
     private void validateCategoryExists(Long categoryId) {

@@ -1,9 +1,11 @@
 package com.riverfount.booksmanager.catalog.adapter.in.web;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -13,17 +15,23 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.riverfount.booksmanager.catalog.application.port.in.GetBookUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.ListBooksQuery;
+import com.riverfount.booksmanager.catalog.application.port.in.ListBooksUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterBookUseCase;
 import com.riverfount.booksmanager.catalog.domain.Book;
 import com.riverfount.booksmanager.catalog.domain.Isbn;
 import com.riverfount.booksmanager.shared.adapter.in.web.GlobalExceptionHandler;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
+import com.riverfount.booksmanager.shared.domain.PageResult;
+import com.riverfount.booksmanager.shared.domain.SortDirection;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -46,6 +54,9 @@ class BookControllerTest {
 
     @MockitoBean
     private GetBookUseCase getBookUseCase;
+
+    @MockitoBean
+    private ListBooksUseCase listBooksUseCase;
 
     private Book sampleBook() {
         return Book.create(new Isbn("9788533302273"), "Dom Casmurro", "Editora X", 1899, 1L, Set.of(10L),
@@ -164,5 +175,102 @@ class BookControllerTest {
         mockMvc.perform(get("/api/v1/books/99"))
                 .andExpect(status().isNotFound())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldListBooksWithPaginationMetadata() throws Exception {
+        given(listBooksUseCase.list(any())).willReturn(new PageResult<>(List.of(
+                Book.reconstitute(1L, new Isbn("9788533302273"), "Dom Casmurro", "Garnier", 1899, 3L, Set.of(7L),
+                        true)), 0, 1, 2));
+
+        mockMvc.perform(get("/api/v1/books").param("size", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].id").value(1))
+                .andExpect(jsonPath("$.items[0].isbn").value("9788533302273"))
+                .andExpect(jsonPath("$.items[0].title").value("Dom Casmurro"))
+                .andExpect(jsonPath("$.items[0].categoryId").value(3))
+                .andExpect(jsonPath("$.items[0].authorIds[0]").value(7))
+                .andExpect(jsonPath("$.items[0].active").value(true))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(1))
+                .andExpect(jsonPath("$.totalItems").value(2))
+                .andExpect(jsonPath("$.totalPages").value(2));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldListOnlyActiveBooksSortedByTitleByDefault() throws Exception {
+        given(listBooksUseCase.list(any())).willReturn(new PageResult<>(List.of(), 0, 20, 0));
+
+        mockMvc.perform(get("/api/v1/books")).andExpect(status().isOk());
+
+        var query = capturedQuery();
+        assertThat(query.active()).isTrue();
+        assertThat(query.page().page()).isZero();
+        assertThat(query.page().size()).isEqualTo(20);
+        assertThat(query.page().sortBy()).isEqualTo("title");
+        assertThat(query.page().direction()).isEqualTo(SortDirection.ASC);
+    }
+
+    @Test
+    @WithMockUser
+    void shouldPassActiveFlagPaginationAndSortToTheUseCase() throws Exception {
+        given(listBooksUseCase.list(any())).willReturn(new PageResult<>(List.of(), 2, 10, 0));
+
+        mockMvc.perform(get("/api/v1/books")
+                        .param("active", "false")
+                        .param("page", "2")
+                        .param("size", "10")
+                        .param("sort", "publicationYear,desc"))
+                .andExpect(status().isOk());
+
+        var query = capturedQuery();
+        assertThat(query.active()).isFalse();
+        assertThat(query.page().page()).isEqualTo(2);
+        assertThat(query.page().size()).isEqualTo(10);
+        assertThat(query.page().sortBy()).isEqualTo("publicationYear");
+        assertThat(query.page().direction()).isEqualTo(SortDirection.DESC);
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn400ForPageSizeAbove100() throws Exception {
+        mockMvc.perform(get("/api/v1/books").param("size", "101"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")))
+                .andExpect(jsonPath("$.detail").value(containsString("100")));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn400ForNegativePage() throws Exception {
+        mockMvc.perform(get("/api/v1/books").param("page", "-1"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn400ForUnknownSortField() throws Exception {
+        mockMvc.perform(get("/api/v1/books").param("sort", "publisher,asc"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")))
+                .andExpect(jsonPath("$.detail").value(containsString("publisher")));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn400ForInvalidActiveValue() throws Exception {
+        mockMvc.perform(get("/api/v1/books").param("active", "maybe"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+    }
+
+    private ListBooksQuery capturedQuery() {
+        var captor = ArgumentCaptor.forClass(ListBooksQuery.class);
+        then(listBooksUseCase).should().list(captor.capture());
+        return captor.getValue();
     }
 }
