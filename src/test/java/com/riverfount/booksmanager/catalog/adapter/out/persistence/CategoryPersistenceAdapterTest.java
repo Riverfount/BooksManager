@@ -66,6 +66,41 @@ class CategoryPersistenceAdapterTest {
     }
 
     @Test
+    void shouldTranslateTheUniqueConstraintViolationOnRenameIntoBusinessRuleException() {
+        // same race as above, but on update: the UPDATE must reach the
+        // database inside save(), otherwise the violation would only show
+        // up at commit time, outside the translation
+        adapter.save(Category.create("Terror"));
+        var other = adapter.save(Category.create("Suspense"));
+        other.rename("Terror");
+
+        assertThatThrownBy(() -> adapter.save(other))
+                .isInstanceOf(BusinessRuleException.class);
+    }
+
+    @Test
+    void shouldUpdateExistingCategoryInsteadOfInsertingANewOne() {
+        var saved = adapter.save(Category.create("Ficcão"));
+        saved.rename("Ficção");
+
+        var updated = adapter.save(saved);
+
+        assertThat(updated.getId()).isEqualTo(saved.getId());
+        assertThat(adapter.findById(saved.getId()).orElseThrow().getName()).isEqualTo("Ficção");
+        assertThat(adapter.findAll(null, true, PageQuery.of(0, 20, "name")).totalItems()).isEqualTo(1);
+    }
+
+    @Test
+    void existsByNameAndIdNotShouldIgnoreTheCategoryItself() {
+        var fiction = adapter.save(Category.create("Ficção"));
+        var romance = adapter.save(Category.create("Romance"));
+
+        assertThat(adapter.existsByNameAndIdNot("Ficção", fiction.getId())).isFalse();
+        assertThat(adapter.existsByNameAndIdNot("Ficção", romance.getId())).isTrue();
+        assertThat(adapter.existsByNameAndIdNot("Nome inexistente", romance.getId())).isFalse();
+    }
+
+    @Test
     void shouldListActiveCategoriesPaginatedAndSortedByName() {
         adapter.save(Category.create("Categoria C"));
         adapter.save(Category.create("Categoria A"));

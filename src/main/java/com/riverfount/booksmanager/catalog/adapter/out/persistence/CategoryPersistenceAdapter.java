@@ -23,13 +23,15 @@ class CategoryPersistenceAdapter implements CategoryRepository {
     public Category save(Category category) {
         var entity = new CategoryJpaEntity(category.getId(), category.getName(), category.isActive());
         try {
-            var saved = jpaRepository.save(entity);
+            // flush so that an UPDATE (rename) also hits the unique
+            // constraint here, not only later at commit time
+            var saved = jpaRepository.saveAndFlush(entity);
             return toDomain(saved);
         } catch (DataIntegrityViolationException e) {
-            // defense against the race between the service's existsByName()
-            // and this save(): the database's unique constraint is what
-            // actually enforces the rule; here we only translate it into
-            // the domain exception.
+            // defense against the race between the service's uniqueness
+            // check and this save(): the database's unique constraint is
+            // what actually enforces the rule; here we only translate it
+            // into the domain exception.
             throw new BusinessRuleException("já existe uma categoria com o nome '" + category.getName() + "'");
         }
     }
@@ -42,6 +44,11 @@ class CategoryPersistenceAdapter implements CategoryRepository {
     @Override
     public boolean existsByName(String name) {
         return jpaRepository.existsByName(name);
+    }
+
+    @Override
+    public boolean existsByNameAndIdNot(String name, Long id) {
+        return jpaRepository.existsByNameAndIdNot(name, id);
     }
 
     @Override

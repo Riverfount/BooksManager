@@ -45,6 +45,12 @@ class InMemoryCategoryRepository implements CategoryRepository {
     }
 
     @Override
+    public boolean existsByNameAndIdNot(String name, Long id) {
+        return categories.values().stream()
+                .anyMatch(category -> category.getName().equals(name) && !category.getId().equals(id));
+    }
+
+    @Override
     public PageResult<Category> findAll(String nameContains, boolean active, PageQuery page) {
         var matching = categories.values().stream()
                 .filter(category -> category.isActive() == active)

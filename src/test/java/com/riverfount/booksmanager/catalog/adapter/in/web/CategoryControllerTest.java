@@ -6,8 +6,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -18,10 +20,13 @@ import com.riverfount.booksmanager.catalog.application.port.in.GetCategoryUseCas
 import com.riverfount.booksmanager.catalog.application.port.in.ListCategoriesQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.ListCategoriesUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterCategoryUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.UpdateCategoryCommand;
+import com.riverfount.booksmanager.catalog.application.port.in.UpdateCategoryUseCase;
 import com.riverfount.booksmanager.catalog.domain.Category;
 import com.riverfount.booksmanager.shared.adapter.in.web.GlobalExceptionHandler;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.PageResult;
+import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
 import com.riverfount.booksmanager.shared.domain.SortDirection;
 import java.util.List;
 import java.util.Optional;
@@ -50,6 +55,9 @@ class CategoryControllerTest {
 
     @MockitoBean
     private ListCategoriesUseCase listCategoriesUseCase;
+
+    @MockitoBean
+    private UpdateCategoryUseCase updateCategoryUseCase;
 
     @Test
     @WithMockUser
@@ -230,6 +238,114 @@ class CategoryControllerTest {
     @WithMockUser
     void shouldReturn400ForInvalidActiveValue() throws Exception {
         mockMvc.perform(get("/api/v1/categories").param("active", "maybe"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldUpdateCategoryNameAndReturn200() throws Exception {
+        given(updateCategoryUseCase.update(any())).willReturn(Category.reconstitute(1L, "Ficção", true));
+
+        mockMvc.perform(patch("/api/v1/categories/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Ficção\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.name").value("Ficção"))
+                .andExpect(jsonPath("$.active").value(true));
+
+        then(updateCategoryUseCase).should().update(new UpdateCategoryCommand(1L, "Ficção"));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldSendNullNameWhenItIsOmitted() throws Exception {
+        given(updateCategoryUseCase.update(any())).willReturn(Category.reconstitute(1L, "Ficção", true));
+
+        mockMvc.perform(patch("/api/v1/categories/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk());
+
+        then(updateCategoryUseCase).should().update(new UpdateCategoryCommand(1L, null));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn422WhenRenamingToNameUsedByAnotherCategory() throws Exception {
+        given(updateCategoryUseCase.update(any()))
+                .willThrow(new BusinessRuleException("já existe uma categoria com o nome 'Romance'"));
+
+        mockMvc.perform(patch("/api/v1/categories/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Romance\"}"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")))
+                .andExpect(jsonPath("$.detail").value(containsString("Romance")));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn404WhenUpdatingNonExistentCategory() throws Exception {
+        given(updateCategoryUseCase.update(any()))
+                .willThrow(new ResourceNotFoundException("categoria não encontrada: 99"));
+
+        mockMvc.perform(patch("/api/v1/categories/99")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Ficção\"}"))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn400WhenUpdatingWithBlankName() throws Exception {
+        mockMvc.perform(patch("/api/v1/categories/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"  \"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+
+        then(updateCategoryUseCase).should(never()).update(any());
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn400WhenUpdatingWithEmptyName() throws Exception {
+        mockMvc.perform(patch("/api/v1/categories/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn400WhenUpdatingWithNameLongerThanDomainLimit() throws Exception {
+        var nameOneCharacterAboveTheLimit = "A".repeat(Category.MAX_NAME_LENGTH + 1);
+
+        mockMvc.perform(patch("/api/v1/categories/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"" + nameOneCharacterAboveTheLimit + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn400WhenUpdatingWithMalformedJson() throws Exception {
+        mockMvc.perform(patch("/api/v1/categories/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":"))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
     }

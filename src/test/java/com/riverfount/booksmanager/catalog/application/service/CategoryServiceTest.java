@@ -5,10 +5,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.riverfount.booksmanager.catalog.application.port.in.ListCategoriesQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterCategoryCommand;
+import com.riverfount.booksmanager.catalog.application.port.in.UpdateCategoryCommand;
 import com.riverfount.booksmanager.catalog.domain.Category;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.InvalidQueryException;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
+import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -134,6 +136,73 @@ class CategoryServiceTest {
         assertThatThrownBy(() -> new ListCategoriesQuery(null, true, PageQuery.of(0, 20, "createdAt")))
                 .isInstanceOf(InvalidQueryException.class)
                 .hasMessageContaining("createdAt");
+    }
+
+    @Test
+    void shouldRenameExistingCategoryAndPersistTheChange() {
+        var registered = service.register(new RegisterCategoryCommand("Ficcão"));
+
+        var updated = service.update(new UpdateCategoryCommand(registered.getId(), "Ficção"));
+
+        assertThat(updated.getId()).isEqualTo(registered.getId());
+        assertThat(updated.getName()).isEqualTo("Ficção");
+        assertThat(repository.findById(registered.getId()).orElseThrow().getName()).isEqualTo("Ficção");
+    }
+
+    @Test
+    void shouldKeepNameWhenItIsNotSent() {
+        var registered = service.register(new RegisterCategoryCommand("Ficção"));
+
+        var updated = service.update(new UpdateCategoryCommand(registered.getId(), null));
+
+        assertThat(updated.getName()).isEqualTo("Ficção");
+    }
+
+    @Test
+    void shouldNotRenameToNameAlreadyUsedByAnotherCategory() {
+        service.register(new RegisterCategoryCommand("Romance"));
+        var registered = service.register(new RegisterCategoryCommand("Ficção"));
+
+        assertThatThrownBy(() -> service.update(new UpdateCategoryCommand(registered.getId(), "Romance")))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("Romance");
+        assertThat(repository.findById(registered.getId()).orElseThrow().getName()).isEqualTo("Ficção");
+    }
+
+    @Test
+    void shouldAcceptRenamingToItsOwnCurrentName() {
+        var registered = service.register(new RegisterCategoryCommand("Ficção"));
+
+        var updated = service.update(new UpdateCategoryCommand(registered.getId(), "Ficção"));
+
+        assertThat(updated.getName()).isEqualTo("Ficção");
+    }
+
+    @Test
+    void shouldKeepActiveFlagWhenUpdating() {
+        var category = service.register(new RegisterCategoryCommand("Categoria Inativa"));
+        category.deactivate();
+        repository.save(category);
+
+        var updated = service.update(new UpdateCategoryCommand(category.getId(), "Categoria Renomeada"));
+
+        assertThat(updated.isActive()).isFalse();
+    }
+
+    @Test
+    void shouldRejectUpdateOfNonExistentCategory() {
+        assertThatThrownBy(() -> service.update(new UpdateCategoryCommand(99L, "Qualquer Nome")))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("99");
+    }
+
+    @Test
+    void shouldRejectBlankNameWhenUpdating() {
+        var registered = service.register(new RegisterCategoryCommand("Ficção"));
+
+        assertThatThrownBy(() -> service.update(new UpdateCategoryCommand(registered.getId(), " ")))
+                .isInstanceOf(BusinessRuleException.class);
+        assertThat(repository.findById(registered.getId()).orElseThrow().getName()).isEqualTo("Ficção");
     }
 
     private void deactivated(String name) {

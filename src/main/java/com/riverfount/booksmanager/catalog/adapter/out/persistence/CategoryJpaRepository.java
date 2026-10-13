@@ -8,6 +8,8 @@ interface CategoryJpaRepository extends JpaRepository<CategoryJpaEntity, Long> {
 
     boolean existsByName(String name);
 
+    boolean existsByNameAndIdNot(String name, Long id);
+
     Page<CategoryJpaEntity> findByActive(boolean active, Pageable pageable);
 
     // Spring Data escapes LIKE wildcards (% and _) in the "containing" value

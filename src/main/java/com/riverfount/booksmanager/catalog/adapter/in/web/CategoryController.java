@@ -5,6 +5,8 @@ import com.riverfount.booksmanager.catalog.application.port.in.ListCategoriesQue
 import com.riverfount.booksmanager.catalog.application.port.in.ListCategoriesUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterCategoryCommand;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterCategoryUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.UpdateCategoryCommand;
+import com.riverfount.booksmanager.catalog.application.port.in.UpdateCategoryUseCase;
 import com.riverfount.booksmanager.shared.adapter.in.web.PageResponse;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
@@ -19,6 +21,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -29,18 +32,21 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @RestController
 @RequestMapping("/api/v1/categories")
-@Tag(name = "Categories", description = "Cadastro, consulta e listagem de categorias do acervo (RF03).")
+@Tag(name = "Categories", description = "Cadastro, consulta, listagem e edição de categorias do acervo (RF03).")
 class CategoryController {
 
     private final RegisterCategoryUseCase registerCategoryUseCase;
     private final GetCategoryUseCase getCategoryUseCase;
     private final ListCategoriesUseCase listCategoriesUseCase;
+    private final UpdateCategoryUseCase updateCategoryUseCase;
 
     CategoryController(RegisterCategoryUseCase registerCategoryUseCase,
-            GetCategoryUseCase getCategoryUseCase, ListCategoriesUseCase listCategoriesUseCase) {
+            GetCategoryUseCase getCategoryUseCase, ListCategoriesUseCase listCategoriesUseCase,
+            UpdateCategoryUseCase updateCategoryUseCase) {
         this.registerCategoryUseCase = registerCategoryUseCase;
         this.getCategoryUseCase = getCategoryUseCase;
         this.listCategoriesUseCase = listCategoriesUseCase;
+        this.updateCategoryUseCase = updateCategoryUseCase;
     }
 
     @PostMapping
@@ -102,5 +108,26 @@ class CategoryController {
         return getCategoryUseCase.findById(id)
                 .map(CategoryResponse::from)
                 .orElseThrow(() -> new ResourceNotFoundException("categoria não encontrada: " + id));
+    }
+
+    @PatchMapping("/{id}")
+    @Operation(summary = "Editar categoria",
+            description = "Altera só os campos enviados; os omitidos mantêm o valor atual. O nome continua "
+                    + "único: manter o próprio nome atual não é considerado repetição.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Categoria atualizada"),
+            @ApiResponse(responseCode = "400", description = "Requisição inválida",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "404", description = "Categoria não encontrada",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "422", description = "Já existe outra categoria com esse nome",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    CategoryResponse update(@PathVariable Long id, @Valid @RequestBody UpdateCategoryRequest request) {
+        var category = updateCategoryUseCase.update(new UpdateCategoryCommand(id, request.name()));
+        return CategoryResponse.from(category);
     }
 }
