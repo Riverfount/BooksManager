@@ -5,22 +5,26 @@ import com.riverfount.booksmanager.catalog.application.port.in.ListCategoriesQue
 import com.riverfount.booksmanager.catalog.application.port.in.ListCategoriesUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterCategoryCommand;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterCategoryUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.UpdateCategoryCommand;
+import com.riverfount.booksmanager.catalog.application.port.in.UpdateCategoryUseCase;
 import com.riverfount.booksmanager.catalog.application.port.out.CategoryRepository;
 import com.riverfount.booksmanager.catalog.domain.Category;
 import com.riverfount.booksmanager.shared.domain.PageResult;
+import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Orchestrates registering, querying and listing Category: fetches what the
+ * Orchestrates registering, querying, listing and updating Category: fetches what the
  * domain needs to decide, calls the domain and persists. The business
  * decision itself (unique name, validations, RN14) lives entirely in
  * Category.
  */
 @Service
 @Transactional
-class CategoryService implements RegisterCategoryUseCase, GetCategoryUseCase, ListCategoriesUseCase {
+class CategoryService implements RegisterCategoryUseCase, GetCategoryUseCase, ListCategoriesUseCase,
+        UpdateCategoryUseCase {
 
     private final CategoryRepository categoryRepository;
 
@@ -44,5 +48,19 @@ class CategoryService implements RegisterCategoryUseCase, GetCategoryUseCase, Li
     @Transactional(readOnly = true)
     public PageResult<Category> list(ListCategoriesQuery query) {
         return categoryRepository.findAll(query.name(), query.active(), query.page());
+    }
+
+    @Override
+    public Category update(UpdateCategoryCommand command) {
+        var category = categoryRepository.findById(command.id())
+                .orElseThrow(() -> new ResourceNotFoundException("categoria não encontrada: " + command.id()));
+        if (command.name() != null) {
+            // the category itself is excluded, so keeping the current name
+            // is not a duplicate
+            Category.validateUniqueName(command.name(),
+                    categoryRepository.existsByNameAndIdNot(command.name(), category.getId()));
+            category.rename(command.name());
+        }
+        return categoryRepository.save(category);
     }
 }

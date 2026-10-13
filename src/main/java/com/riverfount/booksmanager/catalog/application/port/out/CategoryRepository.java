@@ -16,6 +16,9 @@ public interface CategoryRepository {
 
     boolean existsByName(String name);
 
+    /** Whether a category other than the given one already has this name. */
+    boolean existsByNameAndIdNot(String name, Long id);
+
     /**
      * Lists categories by active flag and, when nameContains is not null,
      * by name containing it (case-insensitive). The sort field is one of
