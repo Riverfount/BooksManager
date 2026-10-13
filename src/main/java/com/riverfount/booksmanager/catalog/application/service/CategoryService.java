@@ -1,5 +1,6 @@
 package com.riverfount.booksmanager.catalog.application.service;
 
+import com.riverfount.booksmanager.catalog.application.port.in.DeactivateCategoryUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.GetCategoryUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ListCategoriesQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.ListCategoriesUseCase;
@@ -16,15 +17,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Orchestrates registering, querying, listing and updating Category: fetches what the
- * domain needs to decide, calls the domain and persists. The business
- * decision itself (unique name, validations, RN14) lives entirely in
- * Category.
+ * Orchestrates registering, querying, listing, updating and deactivating
+ * Category: fetches what the domain needs to decide, calls the domain and
+ * persists. The business decision itself (unique name, validations, RN14)
+ * lives entirely in Category.
  */
 @Service
 @Transactional
 class CategoryService implements RegisterCategoryUseCase, GetCategoryUseCase, ListCategoriesUseCase,
-        UpdateCategoryUseCase {
+        UpdateCategoryUseCase, DeactivateCategoryUseCase {
 
     private final CategoryRepository categoryRepository;
 
@@ -52,8 +53,7 @@ class CategoryService implements RegisterCategoryUseCase, GetCategoryUseCase, Li
 
     @Override
     public Category update(UpdateCategoryCommand command) {
-        var category = categoryRepository.findById(command.id())
-                .orElseThrow(() -> new ResourceNotFoundException("categoria não encontrada: " + command.id()));
+        var category = loadExisting(command.id());
         if (command.name() != null) {
             // the category itself is excluded, so keeping the current name
             // is not a duplicate
@@ -62,5 +62,17 @@ class CategoryService implements RegisterCategoryUseCase, GetCategoryUseCase, Li
             category.rename(command.name());
         }
         return categoryRepository.save(category);
+    }
+
+    @Override
+    public void deactivate(Long id) {
+        var category = loadExisting(id);
+        category.deactivate();
+        categoryRepository.save(category);
+    }
+
+    private Category loadExisting(Long id) {
+        return categoryRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("categoria não encontrada: " + id));
     }
 }

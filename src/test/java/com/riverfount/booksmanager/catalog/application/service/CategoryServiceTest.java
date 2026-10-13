@@ -205,6 +205,35 @@ class CategoryServiceTest {
         assertThat(repository.findById(registered.getId()).orElseThrow().getName()).isEqualTo("Ficção");
     }
 
+    @Test
+    void shouldDeactivateExistingCategoryKeepingItStored() {
+        var registered = service.register(new RegisterCategoryCommand("Ficção"));
+
+        service.deactivate(registered.getId());
+
+        var stored = repository.findById(registered.getId());
+        assertThat(stored).isPresent();
+        assertThat(stored.get().isActive()).isFalse();
+        assertThat(stored.get().getName()).isEqualTo("Ficção");
+    }
+
+    @Test
+    void shouldBeIdempotentWhenDeactivatingAnAlreadyInactiveCategory() {
+        var registered = service.register(new RegisterCategoryCommand("Ficção"));
+        service.deactivate(registered.getId());
+
+        service.deactivate(registered.getId());
+
+        assertThat(repository.findById(registered.getId()).orElseThrow().isActive()).isFalse();
+    }
+
+    @Test
+    void shouldRejectDeactivationOfNonExistentCategory() {
+        assertThatThrownBy(() -> service.deactivate(99L))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("99");
+    }
+
     private void deactivated(String name) {
         var category = service.register(new RegisterCategoryCommand(name));
         category.deactivate();
