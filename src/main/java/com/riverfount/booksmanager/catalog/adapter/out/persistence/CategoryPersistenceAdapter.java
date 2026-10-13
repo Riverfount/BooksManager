@@ -2,7 +2,10 @@ package com.riverfount.booksmanager.catalog.adapter.out.persistence;
 
 import com.riverfount.booksmanager.catalog.application.port.out.CategoryRepository;
 import com.riverfount.booksmanager.catalog.domain.Category;
+import com.riverfount.booksmanager.shared.adapter.out.persistence.SpringDataPages;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
+import com.riverfount.booksmanager.shared.domain.PageQuery;
+import com.riverfount.booksmanager.shared.domain.PageResult;
 import java.util.Optional;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
@@ -39,6 +42,15 @@ class CategoryPersistenceAdapter implements CategoryRepository {
     @Override
     public boolean existsByName(String name) {
         return jpaRepository.existsByName(name);
+    }
+
+    @Override
+    public PageResult<Category> findAll(String nameContains, boolean active, PageQuery page) {
+        var pageable = SpringDataPages.toPageable(page);
+        var result = nameContains == null
+                ? jpaRepository.findByActive(active, pageable)
+                : jpaRepository.findByActiveAndNameContainingIgnoreCase(active, nameContains, pageable);
+        return SpringDataPages.toPageResult(result, this::toDomain);
     }
 
     private Category toDomain(CategoryJpaEntity entity) {

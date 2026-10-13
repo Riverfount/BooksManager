@@ -1,9 +1,11 @@
 package com.riverfount.booksmanager.catalog.adapter.in.web;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -13,12 +15,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.riverfount.booksmanager.catalog.application.port.in.GetCategoryUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.ListCategoriesQuery;
+import com.riverfount.booksmanager.catalog.application.port.in.ListCategoriesUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterCategoryUseCase;
 import com.riverfount.booksmanager.catalog.domain.Category;
 import com.riverfount.booksmanager.shared.adapter.in.web.GlobalExceptionHandler;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
+import com.riverfount.booksmanager.shared.domain.PageResult;
+import com.riverfount.booksmanager.shared.domain.SortDirection;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -39,6 +47,9 @@ class CategoryControllerTest {
 
     @MockitoBean
     private GetCategoryUseCase getCategoryUseCase;
+
+    @MockitoBean
+    private ListCategoriesUseCase listCategoriesUseCase;
 
     @Test
     @WithMockUser
@@ -130,5 +141,102 @@ class CategoryControllerTest {
         mockMvc.perform(get("/api/v1/categories/99"))
                 .andExpect(status().isNotFound())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldListCategoriesWithPaginationMetadata() throws Exception {
+        given(listCategoriesUseCase.list(any())).willReturn(new PageResult<>(
+                List.of(Category.reconstitute(1L, "Ficção", true), Category.reconstitute(2L, "Romance", true)),
+                0, 2, 3));
+
+        mockMvc.perform(get("/api/v1/categories").param("size", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(2))
+                .andExpect(jsonPath("$.items[0].id").value(1))
+                .andExpect(jsonPath("$.items[0].name").value("Ficção"))
+                .andExpect(jsonPath("$.items[0].active").value(true))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(2))
+                .andExpect(jsonPath("$.totalItems").value(3))
+                .andExpect(jsonPath("$.totalPages").value(2));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldListOnlyActiveCategoriesSortedByNameByDefault() throws Exception {
+        given(listCategoriesUseCase.list(any())).willReturn(new PageResult<>(List.of(), 0, 20, 0));
+
+        mockMvc.perform(get("/api/v1/categories")).andExpect(status().isOk());
+
+        var query = capturedQuery();
+        assertThat(query.name()).isNull();
+        assertThat(query.active()).isTrue();
+        assertThat(query.page().page()).isZero();
+        assertThat(query.page().size()).isEqualTo(20);
+        assertThat(query.page().sortBy()).isEqualTo("name");
+        assertThat(query.page().direction()).isEqualTo(SortDirection.ASC);
+    }
+
+    @Test
+    @WithMockUser
+    void shouldPassFiltersPaginationAndSortToTheUseCase() throws Exception {
+        given(listCategoriesUseCase.list(any())).willReturn(new PageResult<>(List.of(), 1, 5, 0));
+
+        mockMvc.perform(get("/api/v1/categories")
+                        .param("name", "ficção")
+                        .param("active", "false")
+                        .param("page", "1")
+                        .param("size", "5")
+                        .param("sort", "id,desc"))
+                .andExpect(status().isOk());
+
+        var query = capturedQuery();
+        assertThat(query.name()).isEqualTo("ficção");
+        assertThat(query.active()).isFalse();
+        assertThat(query.page().page()).isEqualTo(1);
+        assertThat(query.page().size()).isEqualTo(5);
+        assertThat(query.page().sortBy()).isEqualTo("id");
+        assertThat(query.page().direction()).isEqualTo(SortDirection.DESC);
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn400ForPageSizeAbove100() throws Exception {
+        mockMvc.perform(get("/api/v1/categories").param("size", "101"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")))
+                .andExpect(jsonPath("$.detail").value(containsString("100")));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn400ForNegativePage() throws Exception {
+        mockMvc.perform(get("/api/v1/categories").param("page", "-1"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn400ForUnknownSortField() throws Exception {
+        mockMvc.perform(get("/api/v1/categories").param("sort", "createdAt,asc"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")))
+                .andExpect(jsonPath("$.detail").value(containsString("createdAt")));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn400ForInvalidActiveValue() throws Exception {
+        mockMvc.perform(get("/api/v1/categories").param("active", "maybe"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+    }
+
+    private ListCategoriesQuery capturedQuery() {
+        var captor = ArgumentCaptor.forClass(ListCategoriesQuery.class);
+        then(listCategoriesUseCase).should().list(captor.capture());
+        return captor.getValue();
     }
 }

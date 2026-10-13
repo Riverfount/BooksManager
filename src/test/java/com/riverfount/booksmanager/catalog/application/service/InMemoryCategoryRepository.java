@@ -2,7 +2,11 @@ package com.riverfount.booksmanager.catalog.application.service;
 
 import com.riverfount.booksmanager.catalog.application.port.out.CategoryRepository;
 import com.riverfount.booksmanager.catalog.domain.Category;
+import com.riverfount.booksmanager.shared.domain.PageQuery;
+import com.riverfount.booksmanager.shared.domain.PageResult;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -38,5 +42,16 @@ class InMemoryCategoryRepository implements CategoryRepository {
     @Override
     public boolean existsByName(String name) {
         return categories.values().stream().anyMatch(category -> category.getName().equals(name));
+    }
+
+    @Override
+    public PageResult<Category> findAll(String nameContains, boolean active, PageQuery page) {
+        var matching = categories.values().stream()
+                .filter(category -> category.isActive() == active)
+                .filter(category -> nameContains == null || category.getName().toLowerCase(Locale.ROOT)
+                        .contains(nameContains.toLowerCase(Locale.ROOT)));
+        return InMemoryPagination.page(matching, page, Map.of(
+                "id", Comparator.comparing(Category::getId),
+                "name", Comparator.comparing(Category::getName)), Comparator.comparing(Category::getId));
     }
 }
