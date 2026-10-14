@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 class CopyTest {
 
@@ -161,5 +163,84 @@ class CopyTest {
         var copy = Copy.reconstitute(1L, 1L, "PAT-1", CopyStatus.BORROWED, true, 0L);
 
         assertThatThrownBy(copy::deactivate).isInstanceOf(BusinessRuleException.class);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = CopyStatus.class, names = {"AVAILABLE", "RESERVED", "DAMAGED"})
+    void shouldManuallyMarkNonBorrowedCopyAsLost(CopyStatus current) {
+        var copy = Copy.reconstitute(1L, 1L, "PAT-1", current, true, 0L);
+
+        copy.changeStatus(CopyStatus.LOST);
+
+        assertThat(copy.getStatus()).isEqualTo(CopyStatus.LOST);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = CopyStatus.class, names = {"AVAILABLE", "RESERVED", "LOST"})
+    void shouldManuallyMarkNonBorrowedCopyAsDamaged(CopyStatus current) {
+        var copy = Copy.reconstitute(1L, 1L, "PAT-1", current, true, 0L);
+
+        copy.changeStatus(CopyStatus.DAMAGED);
+
+        assertThat(copy.getStatus()).isEqualTo(CopyStatus.DAMAGED);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = CopyStatus.class, names = {"DAMAGED", "LOST"})
+    void shouldNotManuallyMarkBorrowedCopyAsDamagedOrLost(CopyStatus target) {
+        var copy = Copy.reconstitute(1L, 1L, "PAT-1", CopyStatus.BORROWED, true, 0L);
+
+        assertThatThrownBy(() -> copy.changeStatus(target))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("emprestado");
+        assertThat(copy.getStatus()).isEqualTo(CopyStatus.BORROWED);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = CopyStatus.class, names = {"DAMAGED", "LOST"})
+    void shouldManuallyMakeDamagedOrLostCopyAvailableAgain(CopyStatus current) {
+        var copy = Copy.reconstitute(1L, 1L, "PAT-1", current, true, 0L);
+
+        copy.changeStatus(CopyStatus.AVAILABLE);
+
+        assertThat(copy.getStatus()).isEqualTo(CopyStatus.AVAILABLE);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = CopyStatus.class, names = {"BORROWED", "RESERVED"})
+    void shouldNotManuallyMakeBorrowedOrReservedCopyAvailable(CopyStatus current) {
+        var copy = Copy.reconstitute(1L, 1L, "PAT-1", current, true, 0L);
+
+        assertThatThrownBy(() -> copy.changeStatus(CopyStatus.AVAILABLE))
+                .isInstanceOf(BusinessRuleException.class);
+        assertThat(copy.getStatus()).isEqualTo(current);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = CopyStatus.class, names = {"BORROWED", "RESERVED"})
+    void shouldNotManuallySetBorrowedOrReserved(CopyStatus target) {
+        var copy = Copy.create(1L, "PAT-1");
+
+        assertThatThrownBy(() -> copy.changeStatus(target))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("empréstimo");
+        assertThat(copy.getStatus()).isEqualTo(CopyStatus.AVAILABLE);
+    }
+
+    @ParameterizedTest
+    @EnumSource(CopyStatus.class)
+    void settingTheCurrentStatusShouldBeNoOp(CopyStatus current) {
+        var copy = Copy.reconstitute(1L, 1L, "PAT-1", current, true, 0L);
+
+        copy.changeStatus(current);
+
+        assertThat(copy.getStatus()).isEqualTo(current);
+    }
+
+    @Test
+    void shouldNotChangeStatusToNull() {
+        var copy = Copy.create(1L, "PAT-1");
+
+        assertThatThrownBy(() -> copy.changeStatus(null)).isInstanceOf(BusinessRuleException.class);
     }
 }

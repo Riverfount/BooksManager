@@ -199,4 +199,15 @@ class CopyPersistenceAdapterTest {
         assertThat(byStatus.items()).extracting(Copy::getAssetCode).containsExactly("PAT-2", "PAT-1");
         assertThat(byIdDesc.items()).extracting(Copy::getAssetCode).containsExactly("PAT-2", "PAT-1");
     }
+
+    @Test
+    void shouldPersistManualStatusChange() {
+        var saved = adapter.save(Copy.create(bookId, "PAT-1"));
+        saved.changeStatus(CopyStatus.DAMAGED);
+
+        var updated = adapter.save(saved);
+
+        assertThat(updated.getVersion()).isGreaterThan(saved.getVersion());
+        assertThat(adapter.findById(saved.getId()).orElseThrow().getStatus()).isEqualTo(CopyStatus.DAMAGED);
+    }
 }

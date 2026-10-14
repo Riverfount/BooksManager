@@ -5,6 +5,8 @@ import com.riverfount.booksmanager.catalog.application.port.in.ListCopiesQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.ListCopiesUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterCopyCommand;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterCopyUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.UpdateCopyCommand;
+import com.riverfount.booksmanager.catalog.application.port.in.UpdateCopyUseCase;
 import com.riverfount.booksmanager.catalog.domain.CopyStatus;
 import com.riverfount.booksmanager.shared.adapter.in.web.PageResponse;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
@@ -20,6 +22,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -30,18 +33,20 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @RestController
 @RequestMapping("/api/v1/copies")
-@Tag(name = "Copies", description = "Cadastro, consulta e listagem de exemplares de um livro (RF04).")
+@Tag(name = "Copies", description = "Cadastro, consulta, listagem e edição de status de exemplares de um livro (RF04).")
 class CopyController {
 
     private final RegisterCopyUseCase registerCopyUseCase;
     private final GetCopyUseCase getCopyUseCase;
     private final ListCopiesUseCase listCopiesUseCase;
+    private final UpdateCopyUseCase updateCopyUseCase;
 
     CopyController(RegisterCopyUseCase registerCopyUseCase, GetCopyUseCase getCopyUseCase,
-            ListCopiesUseCase listCopiesUseCase) {
+            ListCopiesUseCase listCopiesUseCase, UpdateCopyUseCase updateCopyUseCase) {
         this.registerCopyUseCase = registerCopyUseCase;
         this.getCopyUseCase = getCopyUseCase;
         this.listCopiesUseCase = listCopiesUseCase;
+        this.updateCopyUseCase = updateCopyUseCase;
     }
 
     @PostMapping
@@ -112,5 +117,31 @@ class CopyController {
         return getCopyUseCase.findById(id)
                 .map(CopyResponse::from)
                 .orElseThrow(() -> new ResourceNotFoundException("exemplar não encontrado: " + id));
+    }
+
+    @PatchMapping("/{id}")
+    @Operation(summary = "Editar exemplar",
+            description = "Altera só os campos enviados; os omitidos mantêm o valor atual. Hoje só o status é "
+                    + "editável, nas transições operacionais: marcar como DAMAGED ou LOST, ou voltar a "
+                    + "AVAILABLE um exemplar DAMAGED ou LOST. BORROWED e RESERVED só mudam pelos fluxos de "
+                    + "empréstimo, devolução e reserva, e um exemplar emprestado não pode ser marcado como "
+                    + "danificado ou extraviado por esta rota (RN10). O código de patrimônio e o livro são "
+                    + "imutáveis: se vierem no corpo, são ignorados.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Exemplar atualizado"),
+            @ApiResponse(responseCode = "400", description = "Requisição inválida (status desconhecido, "
+                    + "por exemplo)",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "404", description = "Exemplar não encontrado",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "422", description = "Transição de status não permitida",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    CopyResponse update(@PathVariable Long id, @Valid @RequestBody UpdateCopyRequest request) {
+        var copy = updateCopyUseCase.update(new UpdateCopyCommand(id, request.status()));
+        return CopyResponse.from(copy);
     }
 }
