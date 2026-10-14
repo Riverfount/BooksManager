@@ -6,11 +6,12 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Pagination for the plain book listing (RF01). The search by title,
- * author, ISBN and category with available copies (RF05, HU03) is a
- * separate use case.
+ * Pagination and optional filters of the book listing and search (RF01,
+ * RF05, HU03): by title, author name, ISBN (all "contains", ignoring case)
+ * and category id. A null filter means "no filter on that field".
  */
-public record ListBooksQuery(boolean active, PageQuery page) {
+public record ListBooksQuery(String title, String author, String isbn, Long categoryId, boolean active,
+        PageQuery page) {
 
     public static final Set<String> SORTABLE_FIELDS = Set.of("id", "title", "isbn", "publicationYear");
     public static final String DEFAULT_SORT = "title";
@@ -21,5 +22,10 @@ public record ListBooksQuery(boolean active, PageQuery page) {
             throw new InvalidQueryException("não é possível ordenar livros por: " + page.sortBy()
                     + " (use " + String.join(", ", SORTABLE_FIELDS.stream().sorted().toList()) + ")");
         }
+    }
+
+    /** Listing with no search filter. */
+    public ListBooksQuery(boolean active, PageQuery page) {
+        this(null, null, null, null, active, page);
     }
 }

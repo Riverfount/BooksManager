@@ -30,7 +30,7 @@ Bibliotecários, que operam o sistema no dia a dia, e o administrador, que geren
 - Listar os empréstimos em atraso
 
 ### 1.5 Estado atual
-A Fase 1 (Catálogo) está concluída na API: livros, autores, categorias e exemplares têm cadastro, consulta, listagem paginada, edição e inativação. Ainda faltam a pesquisa de livros com exemplares disponíveis (RF05), os leitores e o login (Fase 2) e os empréstimos e multas (Fase 3). O plano completo e a situação de cada fase estão em [`docs/projeto.md`](docs/projeto.md), seção "Plano de desenvolvimento".
+A Fase 1 (Catálogo) está concluída na API: livros, autores, categorias e exemplares têm cadastro, consulta, listagem paginada, edição e inativação. A pesquisa de livros, com a quantidade de exemplares disponíveis, é a própria listagem com filtros. Ainda faltam os leitores e o login (Fase 2) e os empréstimos e multas (Fase 3). O plano completo e a situação de cada fase estão em [`docs/projeto.md`](docs/projeto.md), seção "Plano de desenvolvimento".
 
 ---
 
@@ -89,7 +89,7 @@ Todos os recursos do catálogo seguem o mesmo contrato, sob o prefixo **/api/v1*
 
 | Recurso | Rota base | Observações |
 |---|---|---|
-| Livros | `/books` | O ISBN é imutável depois do cadastro. |
+| Livros | `/books` | O ISBN é imutável depois do cadastro. A listagem pesquisa por `title`, `author`, `isbn` (por trecho) e `categoryId`, e cada livro traz `availableCopies`. |
 | Autores | `/authors` | Filtro por `name`. |
 | Categorias | `/categories` | Filtro por `name`; o nome é único. |
 | Exemplares | `/copies` | Filtros por `bookId` e `status`; a edição altera só o status. |

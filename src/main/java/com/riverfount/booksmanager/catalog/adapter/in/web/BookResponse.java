@@ -1,5 +1,6 @@
 package com.riverfount.booksmanager.catalog.adapter.in.web;
 
+import com.riverfount.booksmanager.catalog.application.port.in.BookWithAvailability;
 import com.riverfount.booksmanager.catalog.domain.Book;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Set;
@@ -20,10 +21,15 @@ record BookResponse(
         @Schema(description = "Ids dos autores", example = "[1]")
         Set<Long> authorIds,
         @Schema(description = "Se o livro está ativo", example = "true")
-        boolean active) {
+        boolean active,
+        @Schema(description = "Quantos exemplares estão disponíveis para empréstimo (ativos e com status "
+                + "AVAILABLE)", example = "2")
+        long availableCopies) {
 
-    static BookResponse from(Book book) {
+    static BookResponse from(BookWithAvailability item) {
+        Book book = item.book();
         return new BookResponse(book.getId(), book.getIsbn().value(), book.getTitle(), book.getPublisher(),
-                book.getPublicationYear(), book.getCategoryId(), book.getAuthorIds(), book.isActive());
+                book.getPublicationYear(), book.getCategoryId(), book.getAuthorIds(), book.isActive(),
+                item.availableCopies());
     }
 }

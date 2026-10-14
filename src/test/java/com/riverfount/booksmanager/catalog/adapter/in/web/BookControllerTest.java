@@ -17,6 +17,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.riverfount.booksmanager.catalog.application.port.in.BookWithAvailability;
 import com.riverfount.booksmanager.catalog.application.port.in.DeactivateBookUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.GetBookUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ListBooksQuery;
@@ -71,7 +72,11 @@ class BookControllerTest {
     @MockitoBean
     private DeactivateBookUseCase deactivateBookUseCase;
 
-    private Book sampleBook() {
+    private BookWithAvailability sampleBook() {
+        return new BookWithAvailability(plainBook(), 2);
+    }
+
+    private Book plainBook() {
         return Book.create(new Isbn("9788533302273"), "Dom Casmurro", "Editora X", 1899, 1L, Set.of(10L),
                 FIXED_CLOCK);
     }
@@ -79,7 +84,7 @@ class BookControllerTest {
     @Test
     @WithMockUser
     void shouldRegisterBookAndReturn201WithLocation() throws Exception {
-        given(registerBookUseCase.register(any())).willReturn(sampleBook());
+        given(registerBookUseCase.register(any())).willReturn(new BookWithAvailability(plainBook(), 0));
 
         mockMvc.perform(post("/api/v1/books")
                         .with(csrf())
@@ -93,7 +98,8 @@ class BookControllerTest {
                 .andExpect(jsonPath("$.isbn").value("9788533302273"))
                 .andExpect(jsonPath("$.title").value("Dom Casmurro"))
                 .andExpect(jsonPath("$.categoryId").value(1))
-                .andExpect(jsonPath("$.authorIds[0]").value(10));
+                .andExpect(jsonPath("$.authorIds[0]").value(10))
+                .andExpect(jsonPath("$.availableCopies").value(0));
     }
 
     @Test
@@ -177,7 +183,8 @@ class BookControllerTest {
 
         mockMvc.perform(get("/api/v1/books/1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.title").value("Dom Casmurro"));
+                .andExpect(jsonPath("$.title").value("Dom Casmurro"))
+                .andExpect(jsonPath("$.availableCopies").value(2));
     }
 
     @Test
@@ -193,9 +200,9 @@ class BookControllerTest {
     @Test
     @WithMockUser
     void shouldListBooksWithPaginationMetadata() throws Exception {
-        given(listBooksUseCase.list(any())).willReturn(new PageResult<>(List.of(
+        given(listBooksUseCase.list(any())).willReturn(new PageResult<>(List.of(new BookWithAvailability(
                 Book.reconstitute(1L, new Isbn("9788533302273"), "Dom Casmurro", "Garnier", 1899, 3L, Set.of(7L),
-                        true)), 0, 1, 2));
+                        true), 5)), 0, 1, 2));
 
         mockMvc.perform(get("/api/v1/books").param("size", "1"))
                 .andExpect(status().isOk())
@@ -206,6 +213,7 @@ class BookControllerTest {
                 .andExpect(jsonPath("$.items[0].categoryId").value(3))
                 .andExpect(jsonPath("$.items[0].authorIds[0]").value(7))
                 .andExpect(jsonPath("$.items[0].active").value(true))
+                .andExpect(jsonPath("$.items[0].availableCopies").value(5))
                 .andExpect(jsonPath("$.page").value(0))
                 .andExpect(jsonPath("$.size").value(1))
                 .andExpect(jsonPath("$.totalItems").value(2))
@@ -402,6 +410,66 @@ class BookControllerTest {
         mockMvc.perform(delete("/api/v1/books/99").with(csrf()))
                 .andExpect(status().isNotFound())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldUpdateBookReturningTheAvailableCopies() throws Exception {
+        given(updateBookUseCase.update(any())).willReturn(sampleBook());
+
+        mockMvc.perform(patch("/api/v1/books/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Dom Casmurro\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.availableCopies").value(2));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldNotFilterTheListingByDefault() throws Exception {
+        given(listBooksUseCase.list(any())).willReturn(new PageResult<>(List.of(), 0, 20, 0));
+
+        mockMvc.perform(get("/api/v1/books")).andExpect(status().isOk());
+
+        var query = capturedQuery();
+        assertThat(query.title()).isNull();
+        assertThat(query.author()).isNull();
+        assertThat(query.isbn()).isNull();
+        assertThat(query.categoryId()).isNull();
+    }
+
+    @Test
+    @WithMockUser
+    void shouldPassTheSearchFiltersToTheUseCase() throws Exception {
+        given(listBooksUseCase.list(any())).willReturn(new PageResult<>(List.of(), 0, 20, 0));
+
+        mockMvc.perform(get("/api/v1/books")
+                        .param("title", "casmurro")
+                        .param("author", "machado")
+                        .param("isbn", "978-85-3330")
+                        .param("categoryId", "3")
+                        .param("sort", "title,desc"))
+                .andExpect(status().isOk());
+
+        var query = capturedQuery();
+        assertThat(query.title()).isEqualTo("casmurro");
+        assertThat(query.author()).isEqualTo("machado");
+        assertThat(query.isbn()).isEqualTo("978-85-3330");
+        assertThat(query.categoryId()).isEqualTo(3L);
+        assertThat(query.active()).isTrue();
+        assertThat(query.page().sortBy()).isEqualTo("title");
+        assertThat(query.page().direction()).isEqualTo(SortDirection.DESC);
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn400ForNonNumericCategoryId() throws Exception {
+        mockMvc.perform(get("/api/v1/books").param("categoryId", "abc"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+
+        then(listBooksUseCase).shouldHaveNoInteractions();
     }
 
     private ListBooksQuery capturedQuery() {

@@ -28,7 +28,7 @@
 - Critério de aceite: um exemplar com empréstimo ativo não pode ser inativado (RN10).
 
 **HU03 —** Como operador, quero pesquisar livros por título, autor, ISBN ou categoria, para descobrir rapidamente se há exemplar disponível.
-- Critério de aceite: a busca aceita título, autor, ISBN e categoria, com paginação e ordenação (RF05).
+- Critério de aceite: a busca aceita título, autor, ISBN e categoria, com paginação e ordenação (RF05). Título, autor e ISBN casam por trecho, sem diferenciar maiúsculas, e os filtros informados valem em conjunto.
 - Critério de aceite: cada resultado mostra quantos exemplares estão disponíveis.
 
 **HU14 —** Como operador, quero editar os dados de um livro, para corrigir erros de cadastro e manter os autores e a categoria atualizados.

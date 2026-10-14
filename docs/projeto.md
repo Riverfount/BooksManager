@@ -116,7 +116,7 @@ Todos os recursos do catálogo (livros, autores, categorias e exemplares) seguem
 #### Listagem e paginação (RNF14)
 
 - Parâmetros `page` (a partir de 0), `size` (de 1 a 100, padrão 20) e `sort` no formato `campo[,asc|desc]`, com os campos permitidos definidos por cada listagem. O `active` vale `true` por padrão, então os inativos só aparecem quando pedidos.
-- Filtros próprios de cada recurso: `name` em autores e categorias; `bookId` e `status` em exemplares.
+- Filtros próprios de cada recurso: `name` em autores e categorias; `bookId` e `status` em exemplares; `title`, `author`, `isbn` e `categoryId` em livros (ver "Livros", abaixo).
 - A resposta é um `PageResponse` com `items`, `page`, `size`, `totalItems` e `totalPages`.
 - Tamanho acima de 100, página negativa, campo de ordenação desconhecido ou filtro com valor inválido (um `status` inexistente, por exemplo) são recusados com 400, e nunca ajustados em silêncio.
 - No núcleo, a paginação usa os tipos `PageQuery` e `PageResult`, de `shared.domain`, em Java puro. O `Pageable` do Spring Data fica restrito aos adaptadores de persistência, que o obtêm por `SpringDataPages` (em `shared.adapter.out.persistence`) e desempatam a ordenação pelo `id` para as páginas serem estáveis.
@@ -129,6 +129,8 @@ Todos os recursos do catálogo (livros, autores, categorias e exemplares) seguem
 - Quando o campo editado é único (o nome da categoria, por exemplo), a checagem ignora o próprio registro, porque manter o valor atual não é duplicidade. A restrição `unique` do banco é a defesa final contra a corrida entre a checagem e a gravação; para o `UPDATE` também ser traduzido em regra de negócio, o adaptador grava com `saveAndFlush`.
 
 **Livros.** O conjunto `authorIds` enviado substitui o atual e nunca pode ser vazio. Categoria e autores só precisam existir e estar ativos quando são novos para o livro; os que ele já tinha continuam aceitos mesmo inativados depois (HU18, HU21).
+
+**Pesquisa de livros (RF05).** É a própria listagem `GET /api/v1/books`, com filtros opcionais que valem em conjunto: `title`, `author` (nome de um dos autores) e `isbn` casam por trecho, sem diferenciar maiúsculas, e `categoryId` casa pelo id. No ISBN, hífens e espaços do termo são ignorados; nos textos, `%` e `_` valem como caracteres comuns. Toda resposta de livro (cadastro, consulta, listagem e edição) traz `availableCopies`, a quantidade de exemplares **ativos** com status `AVAILABLE`. A contagem pertence aos exemplares, não ao agregado `Book`: os casos de uso devolvem `BookWithAvailability` (o livro e a contagem), e a página inteira usa uma única consulta agregada em `CopyRepository.countAvailableByBookIds`, sem uma consulta por livro. O autor é filtrado com `EXISTS`, então um livro com vários autores que casam aparece e é contado uma vez só.
 
 **Exemplares.** Só o status é editável, e a regra fica em `Copy.changeStatus`. A rota manual aceita as transições para `DAMAGED` e `LOST` e a volta para `AVAILABLE` de um exemplar `DAMAGED` ou `LOST` (recuperado ou consertado). `BORROWED` e `RESERVED` só mudam pelos fluxos de empréstimo, devolução e reserva, e um exemplar emprestado não pode ser marcado como danificado ou extraviado por essa rota (RN10); a transição não permitida devolve 422. `markAsDamaged()` e `markAsLost()` não têm essa trava, para os fluxos de empréstimo poderem usá-los.
 
@@ -214,7 +216,7 @@ O front-end é criado, executado e acompanhado separadamente, em seu próprio re
 | Fase | Entrega | Situação |
 | --- | --- | --- |
 | 0. Base | Projeto configurado, banco com Docker Compose, Flyway, ArchUnit, health check, configuração de segurança provisória, CORS e integração contínua. O projeto do front-end (React e Tailwind CSS) é criado e acompanhado no repositório próprio dele, fora deste plano. | **Concluída** neste repositório: Docker Compose, Flyway, ArchUnit, `Makefile`, validação do esquema, health check do banco (RNF23), CORS (RNF09) e integração contínua (RNF06). |
-| 1. Catálogo | Livros, autores, categorias e exemplares, com migrações, interface e testes. | **Concluída na API**, com cadastro, consulta, listagem, edição e inativação dos quatro recursos. Pendentes: a pesquisa de livros com exemplares disponíveis (RF05); a interface fica no repositório do front-end. |
+| 1. Catálogo | Livros, autores, categorias e exemplares, com migrações, interface e testes. | **Concluída na API**, com cadastro, consulta, listagem, edição e inativação dos quatro recursos e a pesquisa de livros com exemplares disponíveis (RF05, issue #83). A interface fica no repositório do front-end. |
 | 2. Leitores e acesso | Cadastro de leitores, usuários do sistema, login e perfis, na API e no front-end. | Não iniciada. |
 | 3. Empréstimos | Configuração da biblioteca (política de penalidade), empréstimo, devolução, renovação, penalidades por atraso (multa ou suspensão) e relatório de atrasos, com o domínio completo e testes. | Não iniciada. |
 | 4. Complementos | Reservas, relatórios adicionais e demais parâmetros configuráveis. | Não iniciada. |

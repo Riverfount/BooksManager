@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.riverfount.booksmanager.TestcontainersConfiguration;
+import com.riverfount.booksmanager.catalog.application.port.out.BookFilter;
 import com.riverfount.booksmanager.catalog.domain.Book;
 import com.riverfount.booksmanager.catalog.domain.Isbn;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
@@ -133,6 +134,154 @@ class BookPersistenceAdapterTest {
     }
 
     @Test
+    void shouldFilterByTitleContainingIgnoringCase() {
+        saveBook("9788533302273", "Dom Casmurro", categoryId, Set.of(authorId1));
+        saveBook("9788535914849", "Memórias Póstumas", categoryId, Set.of(authorId1));
+
+        var result = adapter.findAll(new BookFilter("CASMUR", null, null, null), true, byTitle());
+
+        assertThat(result.items()).extracting(Book::getTitle).containsExactly("Dom Casmurro");
+        assertThat(result.totalItems()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldFilterByAuthorNameContainingIgnoringCase() {
+        var machado = newAuthor("Machado de Assis");
+        var clarice = newAuthor("Clarice Lispector");
+        saveBook("9788533302273", "Dom Casmurro", categoryId, Set.of(machado));
+        saveBook("9788535914849", "A Hora da Estrela", categoryId, Set.of(clarice));
+
+        var result = adapter.findAll(new BookFilter(null, "MACHADO", null, null), true, byTitle());
+
+        assertThat(result.items()).extracting(Book::getTitle).containsExactly("Dom Casmurro");
+    }
+
+    @Test
+    void shouldFindTheBookByAnyOfItsAuthors() {
+        var machado = newAuthor("Machado de Assis");
+        var clarice = newAuthor("Clarice Lispector");
+        saveBook("9788533302273", "Livro a Quatro Mãos", categoryId, Set.of(machado, clarice));
+
+        assertThat(adapter.findAll(new BookFilter(null, "machado", null, null), true, byTitle()).items())
+                .extracting(Book::getTitle).containsExactly("Livro a Quatro Mãos");
+        assertThat(adapter.findAll(new BookFilter(null, "clarice", null, null), true, byTitle()).items())
+                .extracting(Book::getTitle).containsExactly("Livro a Quatro Mãos");
+    }
+
+    @Test
+    void aBookWithTwoMatchingAuthorsShouldAppearAndCountOnlyOnce() {
+        saveBook("9788533302273", "Dom Casmurro", categoryId, Set.of(authorId1, authorId2));
+
+        var result = adapter.findAll(new BookFilter(null, "Autor", null, null), true, byTitle());
+
+        assertThat(result.items()).hasSize(1);
+        assertThat(result.totalItems()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldFilterByPartOfTheIsbn() {
+        saveBook("9788533302273", "Dom Casmurro", categoryId, Set.of(authorId1));
+        saveBook("9788535914849", "Memórias Póstumas", categoryId, Set.of(authorId1));
+
+        var result = adapter.findAll(new BookFilter(null, null, "978-85-3330", null), true, byTitle());
+
+        assertThat(result.items()).extracting(Book::getTitle).containsExactly("Dom Casmurro");
+    }
+
+    @Test
+    void shouldFindAnIsbn10WithTheCheckLetter() {
+        saveBook("080442957X", "Livro ISBN-10", categoryId, Set.of(authorId1));
+
+        var result = adapter.findAll(new BookFilter(null, null, "442957x", null), true, byTitle());
+
+        assertThat(result.items()).extracting(Book::getTitle).containsExactly("Livro ISBN-10");
+    }
+
+    @Test
+    void shouldFilterByCategory() {
+        var romance = newCategory("Romance");
+        saveBook("9788533302273", "Dom Casmurro", romance, Set.of(authorId1));
+        saveBook("9788535914849", "Livro de Ficção", categoryId, Set.of(authorId1));
+
+        var result = adapter.findAll(new BookFilter(null, null, null, romance), true, byTitle());
+
+        assertThat(result.items()).extracting(Book::getTitle).containsExactly("Dom Casmurro");
+    }
+
+    @Test
+    void shouldCombineAllTheFiltersWithAnd() {
+        var romance = newCategory("Romance");
+        var machado = newAuthor("Machado de Assis");
+        saveBook("9788533302273", "Dom Casmurro", romance, Set.of(machado));
+        saveBook("9788535914849", "Dom Quixote", romance, Set.of(authorId1));
+        saveBook("9788525406958", "Dom Alheio", categoryId, Set.of(machado));
+
+        var result = adapter.findAll(new BookFilter("dom", "machado", "9788533", romance), true, byTitle());
+
+        assertThat(result.items()).extracting(Book::getTitle).containsExactly("Dom Casmurro");
+    }
+
+    @Test
+    void shouldKeepFilteringByTheActiveFlag() {
+        saveBook("9788533302273", "Dom Casmurro", categoryId, Set.of(authorId1));
+        save("9788535914849", "Dom Inativo", 2000, false);
+
+        assertThat(adapter.findAll(new BookFilter("dom", null, null, null), true, byTitle()).items())
+                .extracting(Book::getTitle).containsExactly("Dom Casmurro");
+        assertThat(adapter.findAll(new BookFilter("dom", null, null, null), false, byTitle()).items())
+                .extracting(Book::getTitle).containsExactly("Dom Inativo");
+    }
+
+    @Test
+    void shouldTreatLikeWildcardsInTheTitleFilterLiterally() {
+        saveBook("9788533302273", "100% Java", categoryId, Set.of(authorId1));
+        saveBook("9788535914849", "100 Java", categoryId, Set.of(authorId1));
+        saveBook("9788525406958", "A_B", categoryId, Set.of(authorId1));
+        saveBook("9788532530806", "AxB", categoryId, Set.of(authorId1));
+
+        assertThat(adapter.findAll(new BookFilter("%", null, null, null), true, byTitle()).items())
+                .extracting(Book::getTitle).containsExactly("100% Java");
+        assertThat(adapter.findAll(new BookFilter("_", null, null, null), true, byTitle()).items())
+                .extracting(Book::getTitle).containsExactly("A_B");
+    }
+
+    @Test
+    void shouldTreatLikeWildcardsInTheAuthorFilterLiterally() {
+        var literal = newAuthor("Autor_Especial");
+        var other = newAuthor("AutorXEspecial");
+        saveBook("9788533302273", "Livro Literal", categoryId, Set.of(literal));
+        saveBook("9788535914849", "Livro Outro", categoryId, Set.of(other));
+
+        var result = adapter.findAll(new BookFilter(null, "_", null, null), true, byTitle());
+
+        assertThat(result.items()).extracting(Book::getTitle).containsExactly("Livro Literal");
+    }
+
+    @Test
+    void shouldPaginateAFilteredSearch() {
+        saveBook("9788533302273", "Dom A", categoryId, Set.of(authorId1));
+        saveBook("9788535914849", "Dom B", categoryId, Set.of(authorId1));
+        saveBook("9788525406958", "Dom C", categoryId, Set.of(authorId1));
+        saveBook("9788532530806", "Outro", categoryId, Set.of(authorId1));
+
+        var page = adapter.findAll(new BookFilter("dom", null, null, null), true, PageQuery.of(1, 2, "title"));
+
+        assertThat(page.items()).extracting(Book::getTitle).containsExactly("Dom C");
+        assertThat(page.totalItems()).isEqualTo(3);
+        assertThat(page.totalPages()).isEqualTo(2);
+    }
+
+    @Test
+    void shouldReturnAnEmptyPageWhenNothingMatches() {
+        saveBook("9788533302273", "Dom Casmurro", categoryId, Set.of(authorId1));
+
+        var result = adapter.findAll(new BookFilter("inexistente", null, null, null), true, byTitle());
+
+        assertThat(result.items()).isEmpty();
+        assertThat(result.totalItems()).isZero();
+    }
+
+    @Test
     void foreignKeyViolationShouldNotBeConfusedWithDuplicateIsbn() {
         var bookWithNonExistentCategory = Book.create(new Isbn("9788533302273"), "Dom Casmurro", "Editora X", 1899,
                 999999L, Set.of(authorId1), FIXED_CLOCK);
@@ -173,8 +322,8 @@ class BookPersistenceAdapterTest {
         save("9788525406958", "Livro B", 2010, true);
         save("080442957X", "Livro Inativo", 1950, false);
 
-        var firstPage = adapter.findAll(true, PageQuery.of(0, 2, "title"));
-        var secondPage = adapter.findAll(true, PageQuery.of(1, 2, "title"));
+        var firstPage = adapter.findAll(BookFilter.none(), true, PageQuery.of(0, 2, "title"));
+        var secondPage = adapter.findAll(BookFilter.none(), true, PageQuery.of(1, 2, "title"));
 
         assertThat(firstPage.items()).extracting(Book::getTitle).containsExactly("Livro A", "Livro B");
         assertThat(secondPage.items()).extracting(Book::getTitle).containsExactly("Livro C");
@@ -188,7 +337,7 @@ class BookPersistenceAdapterTest {
         save("9788533302273", "Livro Ativo", 1899, true);
         save("080442957X", "Livro Inativo", 1950, false);
 
-        var result = adapter.findAll(false, PageQuery.of(0, 20, "title"));
+        var result = adapter.findAll(BookFilter.none(), false, PageQuery.of(0, 20, "title"));
 
         assertThat(result.items()).extracting(Book::getTitle).containsExactly("Livro Inativo");
     }
@@ -198,9 +347,9 @@ class BookPersistenceAdapterTest {
         save("9788535914849", "Mais Antigo", 1899, true);
         save("9788533302273", "Mais Novo", 2010, true);
 
-        assertThat(adapter.findAll(true, PageQuery.of(0, 20, "publicationYear,desc")).items())
+        assertThat(adapter.findAll(BookFilter.none(), true, PageQuery.of(0, 20, "publicationYear,desc")).items())
                 .extracting(Book::getTitle).containsExactly("Mais Novo", "Mais Antigo");
-        assertThat(adapter.findAll(true, PageQuery.of(0, 20, "isbn")).items())
+        assertThat(adapter.findAll(BookFilter.none(), true, PageQuery.of(0, 20, "isbn")).items())
                 .extracting(Book::getTitle).containsExactly("Mais Novo", "Mais Antigo");
     }
 
@@ -218,12 +367,31 @@ class BookPersistenceAdapterTest {
                 .unwrap(SessionFactory.class).getStatistics();
         statistics.clear();
 
-        var result = adapter.findAll(true, PageQuery.of(0, 20, "title"));
+        var result = adapter.findAll(BookFilter.none(), true, PageQuery.of(0, 20, "title"));
 
         assertThat(result.items()).hasSize(isbns.length)
                 .allSatisfy(book -> assertThat(book.getAuthorIds()).hasSize(2));
         // one query for the page and one batch for all the authors
         assertThat(statistics.getPrepareStatementCount()).isLessThanOrEqualTo(2);
+    }
+
+    private Long saveBook(String isbn, String title, Long category, Set<Long> authors) {
+        return adapter.save(Book.create(new Isbn(isbn), title, "Editora X", 2000, category, authors,
+                FIXED_CLOCK)).getId();
+    }
+
+    private Long newAuthor(String name) {
+        return jdbcTemplate.queryForObject("insert into author (name, active) values (?, true) returning id",
+                Long.class, name);
+    }
+
+    private Long newCategory(String name) {
+        return jdbcTemplate.queryForObject("insert into category (name, active) values (?, true) returning id",
+                Long.class, name);
+    }
+
+    private static PageQuery byTitle() {
+        return PageQuery.of(0, 20, "title");
     }
 
     private void save(String isbn, String title, Integer publicationYear, boolean active) {
