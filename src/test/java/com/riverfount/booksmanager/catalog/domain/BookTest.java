@@ -246,6 +246,28 @@ class BookTest {
     }
 
     @Test
+    void deactivatingAnInactiveBookShouldBeNoOp() {
+        var book = Book.create(ISBN, "Dom Casmurro", "Editora X", 1899, 1L, Set.of(10L), FIXED_CLOCK);
+        book.deactivate();
+
+        book.deactivate();
+
+        assertThat(book.isActive()).isFalse();
+    }
+
+    @Test
+    void deactivatingShouldKeepTheBookData() {
+        var book = Book.create(ISBN, "Dom Casmurro", "Editora X", 1899, 1L, Set.of(10L), FIXED_CLOCK);
+
+        book.deactivate();
+
+        assertThat(book.getIsbn()).isEqualTo(ISBN);
+        assertThat(book.getTitle()).isEqualTo("Dom Casmurro");
+        assertThat(book.getCategoryId()).isEqualTo(1L);
+        assertThat(book.getAuthorIds()).containsExactly(10L);
+    }
+
+    @Test
     void shouldDeactivateBook() {
         var book = Book.create(ISBN, "Dom Casmurro", "Editora X", 1899, 1L, Set.of(10L), FIXED_CLOCK);
 

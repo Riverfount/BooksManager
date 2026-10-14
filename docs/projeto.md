@@ -112,6 +112,8 @@ Na edição de livros (issue #54), o ISBN é imutável (RN01): não faz parte do
 
 O `DELETE` nunca exclui fisicamente (RN14): inativa o registro, implementado na issue #49 com a inativação de autores. A resposta é 204 sem corpo, inativar um registro já inativo é idempotente (também 204) e id inexistente devolve 404. O registro inativo continua acessível em `GET /{id}` com `active=false`, sai das listagens padrão e mantém suas associações (por exemplo, os livros de um autor inativo continuam com ele), mas não pode ser usado em cadastros novos.
 
+No livro (issue #55), `DELETE /api/v1/books/{id}` segue o mesmo contrato: o livro inativo mantém autores e categoria, sai da listagem padrão e não aceita exemplares novos (o cadastro de exemplar devolve 422).
+
 ### Verificação automática
 
 Testes com ArchUnit garantem no build que o domínio não importa Spring nem JPA, que a aplicação não depende dos adaptadores e que o domínio não depende da aplicação. **Implementado** (issue #4): `ArchitectureTest` (renomeada de `ArquiteturaTest` na issue #41), com as três regras via `archunit-junit5` (o `pom.xml` tinha o artefato `archunit` core, sem o módulo de integração com JUnit 5 — trocado por `archunit-junit5`). Validado também por sabotagem: um import real do Spring usado na exceção de regra de negócio do domínio (`BusinessRuleException`) faz a regra falhar; revertido depois.

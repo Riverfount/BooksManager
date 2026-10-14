@@ -6,7 +6,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -15,6 +17,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.riverfount.booksmanager.catalog.application.port.in.DeactivateBookUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.GetBookUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ListBooksQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.ListBooksUseCase;
@@ -64,6 +67,9 @@ class BookControllerTest {
 
     @MockitoBean
     private UpdateBookUseCase updateBookUseCase;
+
+    @MockitoBean
+    private DeactivateBookUseCase deactivateBookUseCase;
 
     private Book sampleBook() {
         return Book.create(new Isbn("9788533302273"), "Dom Casmurro", "Editora X", 1899, 1L, Set.of(10L),
@@ -375,6 +381,27 @@ class BookControllerTest {
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")))
                 .andExpect(jsonPath("$.detail").value(containsString("categoria inativa")));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldDeactivateBookAndReturn204WithoutBody() throws Exception {
+        mockMvc.perform(delete("/api/v1/books/1").with(csrf()))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+
+        then(deactivateBookUseCase).should().deactivate(1L);
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn404WhenDeactivatingNonExistentBook() throws Exception {
+        willThrow(new ResourceNotFoundException("livro não encontrado: 99"))
+                .given(deactivateBookUseCase).deactivate(99L);
+
+        mockMvc.perform(delete("/api/v1/books/99").with(csrf()))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
     }
 
     private ListBooksQuery capturedQuery() {
