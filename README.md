@@ -22,12 +22,15 @@ Oferecer ao bibliotecário uma forma simples de cadastrar o acervo, registrar em
 ### 1.3 Para quem
 Bibliotecários, que operam o sistema no dia a dia, e o administrador, que gerencia usuários e parâmetros. Nesta primeira versão, o leitor não acessa o sistema.
 
-### 1.4 O que o sistema vai fazer (visão inicial)
+### 1.4 O que o sistema vai fazer
 - Cadastrar livros, autores, categorias, exemplares e leitores
 - Registrar empréstimos, devoluções e renovações
 - Calcular e controlar multas por atraso
 - Pesquisar o acervo e mostrar a disponibilidade
 - Listar os empréstimos em atraso
+
+### 1.5 Estado atual
+A Fase 1 (Catálogo) está concluída na API: livros, autores, categorias e exemplares têm cadastro, consulta, listagem paginada, edição e inativação. Ainda faltam a pesquisa de livros com exemplares disponíveis (RF05), os leitores e o login (Fase 2) e os empréstimos e multas (Fase 3). O plano completo e a situação de cada fase estão em [`docs/projeto.md`](docs/projeto.md), seção "Plano de desenvolvimento".
 
 ---
 
@@ -44,7 +47,7 @@ Bibliotecários, que operam o sistema no dia a dia, e o administrador, que geren
 
 ## 3. Arquitetura
 
-O projeto vai seguir a **arquitetura hexagonal** (portas e adaptadores), organizado como um monólito modular dividido nos módulos `catalog`, `loan`, `user`, `security` e `shared`. As regras de negócio ficarão em um domínio escrito em Java puro, sem dependência de Spring ou JPA. Banco de dados, adaptador web (API REST) e serviços externos vão se conectar ao domínio por meio de portas, implementadas por adaptadores. O `ArchitectureTest` (ArchUnit) já verifica essa separação a cada build: o domínio não pode depender de Spring, JPA/Hibernate, da aplicação nem dos adaptadores, e a aplicação não pode depender dos adaptadores.
+O projeto segue a **arquitetura hexagonal** (portas e adaptadores), organizado como um monólito modular dividido nos módulos `catalog`, `loan`, `user`, `security` e `shared`. Até agora estão implementados o `catalog` e o `shared`; os demais entram nas próximas fases. As regras de negócio ficam em um domínio escrito em Java puro, sem dependência de Spring ou JPA. Banco de dados, adaptador web (API REST) e serviços externos se conectam ao domínio por meio de portas, implementadas por adaptadores. O `ArchitectureTest` (ArchUnit) já verifica essa separação a cada build: o domínio não pode depender de Spring, JPA/Hibernate, da aplicação nem dos adaptadores, e a aplicação não pode depender dos adaptadores.
 
 O front-end (React + Tailwind CSS) é um projeto separado que consome esta API apenas por HTTP/JSON; nenhuma regra de negócio vive nele.
 
@@ -60,7 +63,7 @@ O front-end (React + Tailwind CSS) é um projeto separado que consome esta API a
 ### No GitHub Codespaces (recomendado)
 1. No repositório, clique em **Code → Codespaces → Create codespace on main** (ou abra o Codespace existente).
 2. Aguarde a preparação do ambiente.
-3. No terminal, execute o comando **mvn spring-boot:run**. O Spring Boot sobe o container do PostgreSQL automaticamente a partir do arquivo **compose.yaml**.
+3. No terminal, execute o comando **./mvnw spring-boot:run**. O Spring Boot sobe o container do PostgreSQL automaticamente a partir do arquivo **compose.yaml**.
 4. Quando aparecer o aviso da porta **8080**, clique em **Abrir no navegador**. Isso abre a raiz da API (sem nada para visualizar); para a documentação, acesse **/swagger-ui.html** (veja a seção "Documentação da API" abaixo).
 
 ### No computador (ferramentas instaladas)
@@ -81,8 +84,33 @@ Os comandos mais usados do dia a dia também estão disponíveis como alvos do `
 ### Documentação da API
 A API é um back-end puro, sem páginas HTML; não há nada para visualizar na raiz **http://localhost:8080**. Com a aplicação em execução, a documentação Swagger fica em http://localhost:8080/swagger-ui.html, e as requisições à API usam o prefixo **/api/v1**.
 
+### Endpoints do catálogo
+Todos os recursos do catálogo seguem o mesmo contrato, sob o prefixo **/api/v1**:
+
+| Recurso | Rota base | Observações |
+|---|---|---|
+| Livros | `/books` | O ISBN é imutável depois do cadastro. |
+| Autores | `/authors` | Filtro por `name`. |
+| Categorias | `/categories` | Filtro por `name`; o nome é único. |
+| Exemplares | `/copies` | Filtros por `bookId` e `status`; a edição altera só o status. |
+
+| Operação | Requisição | Resposta |
+|---|---|---|
+| Cadastrar | `POST /{recurso}` | 201 |
+| Consultar | `GET /{recurso}/{id}` | 200 |
+| Listar | `GET /{recurso}?page=&size=&sort=&active=` | 200, página de até 100 itens |
+| Editar | `PATCH /{recurso}/{id}` | 200, altera só os campos enviados |
+| Inativar | `DELETE /{recurso}/{id}` | 204, nunca exclui fisicamente |
+
+Os erros seguem o formato ProblemDetail (400, 404 e 422). Os detalhes do contrato estão em [`docs/projeto.md`](docs/projeto.md), seção "Interface e API", e cada endpoint está descrito no Swagger.
+
+### Testes
+- `make test` (ou `./mvnw test`) roda todos os testes; `make verify` (ou `./mvnw verify`) faz o build completo, inclusive com os testes de arquitetura.
+- Os testes de persistência usam o PostgreSQL real via Testcontainers, por isso o Docker precisa estar em execução.
+- Para rodar uma classe só: `./mvnw test -Dtest=BookTest`.
+
 ### Banco de dados
-O PostgreSQL é executado em um container Docker, definido no arquivo **compose.yaml** na raiz do projeto. As tabelas são criadas e atualizadas por scripts do Flyway, na pasta **src/main/resources/db/migration**; a primeira migração (**V1__create_catalog.sql**) já cria as tabelas do catálogo (`category`, `author`, `book`, `book_author`, `copy`).
+O PostgreSQL é executado em um container Docker, definido no arquivo **compose.yaml** na raiz do projeto. As tabelas são criadas e atualizadas por scripts do Flyway, na pasta **src/main/resources/db/migration**; a migração atual (**V1__create_catalog.sql**) cria as tabelas do catálogo (`category`, `author`, `book`, `book_author`, `copy`).
 
 ---
 
@@ -105,5 +133,5 @@ As versões abaixo refletem o que está declarado no **pom.xml** e no **compose.
 
 O front-end (React + Tailwind CSS) é um projeto separado deste back-end; suas ferramentas (build, TypeScript/JavaScript, roteamento, cliente HTTP) e se ficará no mesmo repositório ou em um repositório próprio ainda não foram definidos.
 
-## 7. Uso de inteligência artificial
+## 6. Uso de inteligência artificial
 Utilizei o Claude (Anthropic) como apoio no planejamento inicial do projeto, para discutir a arquitetura, definir a stack tecnológica e organizar as ideias deste documento. As decisões e a implementação são de minha responsabilidade.

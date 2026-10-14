@@ -20,6 +20,7 @@
 
 **HU23 —** Como operador, quero marcar um exemplar como danificado ou extraviado, para que ele não seja oferecido para empréstimo.
 - Critério de aceite: posso marcar manualmente um exemplar como danificado ou extraviado; os status emprestado e reservado só mudam pelos fluxos de empréstimo, devolução e reserva (RF04).
+- Critério de aceite: um exemplar danificado ou extraviado pode voltar a disponível manualmente, quando é consertado ou encontrado (RF04).
 - Critério de aceite: um exemplar emprestado não pode ter o status alterado manualmente; a perda ou o dano dele é registrado na devolução (RF15).
 
 **HU24 —** Como operador, quero inativar um exemplar que saiu do acervo, sem perder o histórico de empréstimos dele.
