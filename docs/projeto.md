@@ -2,9 +2,7 @@
 
 Versão 0.1.0 · Outubro de 2026
 
-Este documento reúne a visão, a arquitetura e a stack tecnológica do Books Manager. 
-
-Fizemos a reorganização da documentação assim requisitos funcionais, regras de negócio e requisitos não funcionais foram para `docs/requisitos.md`; o diagrama de classes, para `docs/diagramas.md`; e as histórias de usuário, para `docs/use-case.md`. Este documento continua sendo a referência de visão, arquitetura e plano — consulte-o junto com `docs/requisitos.md` quando a tarefa envolver uma regra de negócio ou requisito específico, e cite o ID (ex.: `RN05`, `RF12`).
+Este documento reúne a visão, a arquitetura e a stack tecnológica do Books Manager. Os requisitos funcionais, as regras de negócio e os requisitos não funcionais ficam em `docs/requisitos.md`; o diagrama de classes, em `docs/diagramas.md`; e as histórias de usuário, em `docs/use-case.md`. Este documento é a referência de visão, arquitetura e plano — consulte-o junto com `docs/requisitos.md` quando a tarefa envolver uma regra de negócio ou requisito específico, e cite o ID (ex.: `RN05`, `RF12`).
 
 ## Visão geral
 
@@ -59,7 +57,7 @@ Valores conferidos com o `pom.xml` do projeto e atualizados pelas decisões regi
 | Ambiente | Docker Compose | Sobe o PostgreSQL pelo arquivo `compose.yaml`. |
 | Desenvolvimento | Spring Boot DevTools | Reinício automático ao salvar. |
 | Testes | Back-end: JUnit 5, Mockito, Spring Boot Test, Testcontainers (PostgreSQL), ArchUnit 1.4.1. Front-end: testes de componentes (por exemplo, Vitest e React Testing Library), a definir. | |
-| Versionamento | Git e GitHub | GitHub Projects com milestones e issues (ver seção "Rastreamento com o GitHub"). |
+| Versionamento | Git e GitHub | GitHub Projects com milestones e issues (milestones por fase e uma issue por entrega). |
 
 ## Arquitetura
 
@@ -102,23 +100,42 @@ A penalidade por atraso é uma política do domínio, com variantes para multa, 
 
 ### Interface e API
 
-A interface é uma aplicação React separada do backend, em repositório próprio, e se comunica com ele apenas por HTTP e JSON. Os controllers REST são os adaptadores de entrada da API: traduzem as requisições em commands dos casos de uso e devolvem DTOs próprios, nunca as classes de domínio. A API é versionada (`/api/v1`), seu contrato fica registrado no OpenAPI e o CORS é restrito à origem do front-end. O backend não guarda sessão no servidor.
+A interface é uma aplicação React separada do backend, em repositório próprio, e se comunica com ele apenas por HTTP e JSON. Os controllers REST são os adaptadores de entrada da API: traduzem as requisições em commands dos casos de uso e devolvem DTOs próprios, nunca as classes de domínio. A API é versionada (`/api/v1`), seu contrato fica registrado no OpenAPI e o CORS é restrito à origem do front-end (ainda por configurar, ver "Plano de desenvolvimento"). O backend não guarda sessão no servidor.
 
-As listagens seguem um contrato único de paginação (RNF14), implementado na issue #47 com a listagem de autores: parâmetros `page` (a partir de 0), `size` (de 1 a 100, padrão 20) e `sort` no formato `campo[,asc|desc]`, com os campos permitidos definidos por cada listagem; filtros próprios, como `name` e `active` (só ativos por padrão). A resposta é um `PageResponse` com `items`, `page`, `size`, `totalItems` e `totalPages`. Tamanho acima de 100, página negativa ou campo de ordenação desconhecido são recusados com 400 em ProblemDetail, em vez de ajustados em silêncio. No núcleo, a paginação usa os tipos `PageQuery` e `PageResult`, de `shared.domain`, em Java puro; o `Pageable` do Spring Data fica restrito aos adaptadores de persistência, que fazem a conversão por `SpringDataPages` (em `shared.adapter.out.persistence`, issue #50) e desempatam a ordenação pelo `id` para as páginas serem estáveis.
+Todos os recursos do catálogo (livros, autores, categorias e exemplares) seguem o mesmo contrato de CRUD, descrito a seguir. Os erros saem sempre em ProblemDetail (RFC 9457): 400 para requisição inválida, 404 para id inexistente e 422 para violação de regra de negócio.
 
-A listagem de exemplares (issue #56) usa os filtros opcionais `bookId` e `status`, além de `active` (só ativos por padrão), e ordena por `id`, `assetCode` (padrão) ou `status`. Um `status` desconhecido ou um `bookId` não numérico devolve 400 em ProblemDetail.
+| Operação | Rota | Resposta |
+| --- | --- | --- |
+| Cadastrar | `POST /api/v1/{recurso}` | 201 com `Location` e o recurso criado |
+| Consultar | `GET /api/v1/{recurso}/{id}` | 200 com o recurso, inclusive inativo (`active=false`) |
+| Listar | `GET /api/v1/{recurso}` | 200 com uma página (`PageResponse`) |
+| Editar | `PATCH /api/v1/{recurso}/{id}` | 200 com o recurso atualizado |
+| Inativar | `DELETE /api/v1/{recurso}/{id}` | 204 sem corpo |
 
-A edição de exemplares (issue #57) altera só o status, e a regra fica em `Copy.changeStatus`: pela rota manual são aceitas as transições para `DAMAGED` e `LOST` e a volta para `AVAILABLE` de um exemplar `DAMAGED` ou `LOST` (recuperado ou consertado). `BORROWED` e `RESERVED` só mudam pelos fluxos de empréstimo, devolução e reserva, e um exemplar emprestado não pode ser marcado como danificado ou extraviado por essa rota (RN10); transição não permitida devolve 422. O código de patrimônio e o livro são imutáveis: se vierem no corpo, são ignorados. `markAsDamaged()` e `markAsLost()` continuam sem essa trava, para os fluxos de empréstimo poderem usá-los.
+#### Listagem e paginação (RNF14)
 
-No exemplar (issue #58), `DELETE /api/v1/copies/{id}` segue o contrato de inativação: 204, idempotente e 404 para id inexistente. Um exemplar `BORROWED` não pode ser inativado (RN10) e devolve 422; o exemplar inativo continua no banco, sai da listagem padrão e não pode ser emprestado.
+- Parâmetros `page` (a partir de 0), `size` (de 1 a 100, padrão 20) e `sort` no formato `campo[,asc|desc]`, com os campos permitidos definidos por cada listagem. O `active` vale `true` por padrão, então os inativos só aparecem quando pedidos.
+- Filtros próprios de cada recurso: `name` em autores e categorias; `bookId` e `status` em exemplares.
+- A resposta é um `PageResponse` com `items`, `page`, `size`, `totalItems` e `totalPages`.
+- Tamanho acima de 100, página negativa, campo de ordenação desconhecido ou filtro com valor inválido (um `status` inexistente, por exemplo) são recusados com 400, e nunca ajustados em silêncio.
+- No núcleo, a paginação usa os tipos `PageQuery` e `PageResult`, de `shared.domain`, em Java puro. O `Pageable` do Spring Data fica restrito aos adaptadores de persistência, que o obtêm por `SpringDataPages` (em `shared.adapter.out.persistence`) e desempatam a ordenação pelo `id` para as páginas serem estáveis.
 
-A edição usa `PATCH` com JSON comum (não JSON Merge Patch), implementada na issue #48 com a edição de autores: só os campos enviados são alterados, e um campo omitido ou `null` mantém o valor atual — não é possível "apagar" um campo obrigatório por essa rota. Os campos enviados seguem as mesmas regras de formato do cadastro (400 em ProblemDetail), id inexistente devolve 404 e a resposta é 200 com o recurso atualizado. Quando o campo editado é único (como o nome da categoria, issue #51), a checagem ignora o próprio registro — manter o valor atual não é duplicidade — e a violação devolve 422. Como no cadastro, a restrição `unique` do banco é a defesa final contra a corrida entre a checagem e a gravação; para o `UPDATE` também ser traduzido em regra de negócio, o adaptador grava com `saveAndFlush`, e não só no commit.
+#### Edição com `PATCH`
 
-Na edição de livros (issue #54), o ISBN é imutável (RN01): não faz parte do corpo do `PATCH`, e um `isbn` enviado é ignorado. O conjunto `authorIds` enviado substitui o atual (nunca vazio). Categoria e autores só precisam existir e estar ativos quando são novos para o livro; os que ele já tinha continuam aceitos mesmo inativados depois (HU18, HU21), e a falha devolve 422.
+- Usa JSON comum, não JSON Merge Patch. Só os campos enviados são alterados, e um campo omitido ou `null` mantém o valor atual; por isso não é possível "apagar" um campo obrigatório por essa rota.
+- Os campos enviados seguem as mesmas regras de formato do cadastro.
+- Campos imutáveis não fazem parte do DTO e, se vierem no corpo, são ignorados: o ISBN do livro (RN01), o código de patrimônio e o livro do exemplar.
+- Quando o campo editado é único (o nome da categoria, por exemplo), a checagem ignora o próprio registro, porque manter o valor atual não é duplicidade. A restrição `unique` do banco é a defesa final contra a corrida entre a checagem e a gravação; para o `UPDATE` também ser traduzido em regra de negócio, o adaptador grava com `saveAndFlush`.
 
-O `DELETE` nunca exclui fisicamente (RN14): inativa o registro, implementado na issue #49 com a inativação de autores. A resposta é 204 sem corpo, inativar um registro já inativo é idempotente (também 204) e id inexistente devolve 404. O registro inativo continua acessível em `GET /{id}` com `active=false`, sai das listagens padrão e mantém suas associações (por exemplo, os livros de um autor inativo continuam com ele), mas não pode ser usado em cadastros novos.
+**Livros.** O conjunto `authorIds` enviado substitui o atual e nunca pode ser vazio. Categoria e autores só precisam existir e estar ativos quando são novos para o livro; os que ele já tinha continuam aceitos mesmo inativados depois (HU18, HU21).
 
-No livro (issue #55), `DELETE /api/v1/books/{id}` segue o mesmo contrato: o livro inativo mantém autores e categoria, sai da listagem padrão e não aceita exemplares novos (o cadastro de exemplar devolve 422).
+**Exemplares.** Só o status é editável, e a regra fica em `Copy.changeStatus`. A rota manual aceita as transições para `DAMAGED` e `LOST` e a volta para `AVAILABLE` de um exemplar `DAMAGED` ou `LOST` (recuperado ou consertado). `BORROWED` e `RESERVED` só mudam pelos fluxos de empréstimo, devolução e reserva, e um exemplar emprestado não pode ser marcado como danificado ou extraviado por essa rota (RN10); a transição não permitida devolve 422. `markAsDamaged()` e `markAsLost()` não têm essa trava, para os fluxos de empréstimo poderem usá-los.
+
+#### Inativação com `DELETE` (RN14)
+
+- Nunca exclui fisicamente: inativa o registro. A resposta é 204, e inativar um registro já inativo é idempotente (também 204).
+- O registro inativo continua acessível em `GET /{id}` com `active=false`, sai das listagens padrão e mantém suas associações (os livros de um autor inativo continuam com ele), mas não pode ser usado em cadastros novos.
+- Um livro inativo não aceita exemplares novos (o cadastro de exemplar devolve 422). Um exemplar `BORROWED` não pode ser inativado (RN10) e também devolve 422.
 
 ### Verificação automática
 
@@ -193,14 +210,14 @@ O front-end é executado separadamente, em seu próprio repositório. Os comando
 
 ## Plano de desenvolvimento
 
-| Fase | Entrega |
-| --- | --- |
-| 0. Base | Projeto configurado, banco com Docker Compose, Flyway, ArchUnit, health check, configuração de segurança provisória, CORS e projeto do front-end (React e Tailwind CSS) criado. |
-| 1. Catálogo | Livros, autores, categorias e exemplares, com migrações, interface e testes. |
-| 2. Leitores e acesso | Cadastro de leitores, usuários do sistema, login e perfis, na API e no front-end. |
-| 3. Empréstimos | Configuração da biblioteca (política de penalidade), empréstimo, devolução, renovação, penalidades por atraso (multa ou suspensão) e relatório de atrasos, com o domínio completo e testes. |
-| 4. Complementos | Reservas, relatórios adicionais e demais parâmetros configuráveis. |
-| 5. Evolução | Notificações por e-mail, importação por ISBN, exportação de relatórios e integração contínua. |
+| Fase | Entrega | Situação |
+| --- | --- | --- |
+| 0. Base | Projeto configurado, banco com Docker Compose, Flyway, ArchUnit, health check, configuração de segurança provisória, CORS e projeto do front-end (React e Tailwind CSS) criado. | **Parcial.** Feitos: Docker Compose, Flyway, ArchUnit, `Makefile` e a validação do esquema. Pendentes: integração contínua (RNF06), CORS (RNF09), verificação do banco no health check (RNF23) e o projeto do front-end. |
+| 1. Catálogo | Livros, autores, categorias e exemplares, com migrações, interface e testes. | **Concluída na API**, com cadastro, consulta, listagem, edição e inativação dos quatro recursos. Pendentes: a pesquisa de livros com exemplares disponíveis (RF05) e a interface. |
+| 2. Leitores e acesso | Cadastro de leitores, usuários do sistema, login e perfis, na API e no front-end. | Não iniciada. |
+| 3. Empréstimos | Configuração da biblioteca (política de penalidade), empréstimo, devolução, renovação, penalidades por atraso (multa ou suspensão) e relatório de atrasos, com o domínio completo e testes. | Não iniciada. |
+| 4. Complementos | Reservas, relatórios adicionais e demais parâmetros configuráveis. | Não iniciada. |
+| 5. Evolução | Notificações por e-mail, importação por ISBN, exportação de relatórios e integração contínua. | Não iniciada. A integração contínua (RNF06) é prioridade M e deve ser antecipada. |
 
 O empréstimo concentra as regras mais importantes e deve ter o domínio mais completo e mais testado. O catálogo é o ponto de partida natural por ser a base dos demais módulos. Cada fase entrega a API e as telas correspondentes do front-end.
 
@@ -208,7 +225,7 @@ A capacidade estimada é de cerca de 8 horas por semana, com mínimo de 4. Desco
 
 Marcos sugeridos:
 
-- **Fim de novembro:** fases 0 e 1 (base e catálogo).
+- **Fim de novembro:** fases 0 e 1 (base e catálogo). A API do catálogo já está pronta; restam as pendências acima.
 - **Meados de dezembro:** fase 2 (leitores, usuários e login).
 - **Meados de janeiro:** fase 3 (empréstimos, penalidades e relatório de atrasos), ou seja, todos os requisitos M.
 - **Início de fevereiro:** fase 4, com as reservas e os demais itens S.
