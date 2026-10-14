@@ -5,6 +5,8 @@ import com.riverfount.booksmanager.catalog.application.port.in.ListBooksQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.ListBooksUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterBookCommand;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterBookUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.UpdateBookCommand;
+import com.riverfount.booksmanager.catalog.application.port.in.UpdateBookUseCase;
 import com.riverfount.booksmanager.catalog.application.port.out.AuthorRepository;
 import com.riverfount.booksmanager.catalog.application.port.out.BookRepository;
 import com.riverfount.booksmanager.catalog.application.port.out.CategoryRepository;
@@ -13,7 +15,9 @@ import com.riverfount.booksmanager.catalog.domain.Book;
 import com.riverfount.booksmanager.catalog.domain.Isbn;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.PageResult;
+import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
 import java.time.Clock;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -21,14 +25,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Orchestrates registering, querying and listing Book: fetches what the domain
+ * Orchestrates registering, querying, listing and updating Book: fetches what the domain
  * needs to decide (do the category and authors exist? does the ISBN
  * already exist?), calls the domain and persists. The business decision
  * itself lives in the domain (Book.create, Book.validateUniqueIsbn).
  */
 @Service
 @Transactional
-class BookService implements RegisterBookUseCase, GetBookUseCase, ListBooksUseCase {
+class BookService implements RegisterBookUseCase, GetBookUseCase, ListBooksUseCase, UpdateBookUseCase {
 
     private final BookRepository bookRepository;
     private final CategoryRepository categoryRepository;
@@ -67,6 +71,36 @@ class BookService implements RegisterBookUseCase, GetBookUseCase, ListBooksUseCa
     @Transactional(readOnly = true)
     public PageResult<Book> list(ListBooksQuery query) {
         return bookRepository.findAll(query.active(), query.page());
+    }
+
+    @Override
+    public Book update(UpdateBookCommand command) {
+        var book = bookRepository.findById(command.id())
+                .orElseThrow(() -> new ResourceNotFoundException("livro não encontrado: " + command.id()));
+        var previousCategoryId = book.getCategoryId();
+        // a null field keeps the current value; the ISBN is never touched (RN01)
+        book.updateDetails(
+                command.title() != null ? command.title() : book.getTitle(),
+                command.publisher() != null ? command.publisher() : book.getPublisher(),
+                command.publicationYear() != null ? command.publicationYear() : book.getPublicationYear(),
+                command.categoryId() != null ? command.categoryId() : book.getCategoryId(),
+                clock);
+        // only a category or authors the book does not have yet need to be
+        // active: one inactivated after being linked stays accepted (HU18, HU21)
+        if (command.categoryId() != null && !Objects.equals(command.categoryId(), previousCategoryId)) {
+            validateCategoryExists(command.categoryId());
+        }
+        if (command.authorIds() != null) {
+            var currentAuthorIds = book.getAuthorIds();
+            book.replaceAuthors(command.authorIds());
+            var addedAuthorIds = book.getAuthorIds().stream()
+                    .filter(authorId -> !currentAuthorIds.contains(authorId))
+                    .collect(Collectors.toSet());
+            if (!addedAuthorIds.isEmpty()) {
+                validateAuthorsExist(addedAuthorIds);
+            }
+        }
+        return bookRepository.save(book);
     }
 
     private void validateCategoryExists(Long categoryId) {

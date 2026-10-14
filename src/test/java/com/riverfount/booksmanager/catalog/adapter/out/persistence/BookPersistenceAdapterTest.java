@@ -91,6 +91,29 @@ class BookPersistenceAdapterTest {
     }
 
     @Test
+    void shouldPersistEditedDetailsAndReplacedAuthorsOfAnExistingBook() {
+        var saved = adapter.save(Book.create(new Isbn("9788533302273"), "Dom Casmurro", "Editora X", 1899,
+                categoryId, Set.of(authorId1), FIXED_CLOCK));
+        entityManager.flush();
+        entityManager.clear();
+
+        var book = adapter.findById(saved.getId()).orElseThrow();
+        book.updateDetails("Dom Casmurro (revisado)", "Editora Y", 1900, categoryId, FIXED_CLOCK);
+        book.replaceAuthors(Set.of(authorId2));
+        adapter.save(book);
+        entityManager.flush();
+        entityManager.clear();
+
+        var found = adapter.findById(saved.getId()).orElseThrow();
+        assertThat(found.getTitle()).isEqualTo("Dom Casmurro (revisado)");
+        assertThat(found.getPublisher()).isEqualTo("Editora Y");
+        assertThat(found.getPublicationYear()).isEqualTo(1900);
+        assertThat(found.getAuthorIds()).containsExactly(authorId2);
+        assertThat(jdbcTemplate.queryForObject("select count(*) from book_author where book_id = ?",
+                Integer.class, saved.getId())).isEqualTo(1);
+    }
+
+    @Test
     void foreignKeyViolationShouldNotBeConfusedWithDuplicateIsbn() {
         var bookWithNonExistentCategory = Book.create(new Isbn("9788533302273"), "Dom Casmurro", "Editora X", 1899,
                 999999L, Set.of(authorId1), FIXED_CLOCK);

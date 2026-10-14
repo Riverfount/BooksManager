@@ -8,6 +8,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -18,11 +19,14 @@ import com.riverfount.booksmanager.catalog.application.port.in.GetBookUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ListBooksQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.ListBooksUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterBookUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.UpdateBookCommand;
+import com.riverfount.booksmanager.catalog.application.port.in.UpdateBookUseCase;
 import com.riverfount.booksmanager.catalog.domain.Book;
 import com.riverfount.booksmanager.catalog.domain.Isbn;
 import com.riverfount.booksmanager.shared.adapter.in.web.GlobalExceptionHandler;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.PageResult;
+import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
 import com.riverfount.booksmanager.shared.domain.SortDirection;
 import java.time.Clock;
 import java.time.Instant;
@@ -57,6 +61,9 @@ class BookControllerTest {
 
     @MockitoBean
     private ListBooksUseCase listBooksUseCase;
+
+    @MockitoBean
+    private UpdateBookUseCase updateBookUseCase;
 
     private Book sampleBook() {
         return Book.create(new Isbn("9788533302273"), "Dom Casmurro", "Editora X", 1899, 1L, Set.of(10L),
@@ -266,6 +273,108 @@ class BookControllerTest {
         mockMvc.perform(get("/api/v1/books").param("active", "maybe"))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldUpdateBookAndReturn200() throws Exception {
+        given(updateBookUseCase.update(any())).willReturn(sampleBook());
+
+        mockMvc.perform(patch("/api/v1/books/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"title":"Dom Casmurro","publisher":"Editora X","publicationYear":1899,
+                                 "categoryId":1,"authorIds":[10]}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.title").value("Dom Casmurro"))
+                .andExpect(jsonPath("$.isbn").value("9788533302273"));
+
+        then(updateBookUseCase).should().update(new UpdateBookCommand(1L, "Dom Casmurro", "Editora X", 1899,
+                1L, Set.of(10L)));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldSendNullsForOmittedFieldsOnUpdate() throws Exception {
+        given(updateBookUseCase.update(any())).willReturn(sampleBook());
+
+        mockMvc.perform(patch("/api/v1/books/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Novo título\"}"))
+                .andExpect(status().isOk());
+
+        then(updateBookUseCase).should().update(new UpdateBookCommand(1L, "Novo título", null, null, null,
+                null));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldIgnoreIsbnSentOnUpdate() throws Exception {
+        given(updateBookUseCase.update(any())).willReturn(sampleBook());
+
+        mockMvc.perform(patch("/api/v1/books/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"isbn\":\"9788535914849\",\"title\":\"Novo título\"}"))
+                .andExpect(status().isOk());
+
+        then(updateBookUseCase).should().update(new UpdateBookCommand(1L, "Novo título", null, null, null,
+                null));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn400WhenUpdatingWithBlankTitle() throws Exception {
+        mockMvc.perform(patch("/api/v1/books/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"   \"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+
+        then(updateBookUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn400WhenUpdatingWithEmptyAuthorIds() throws Exception {
+        mockMvc.perform(patch("/api/v1/books/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"authorIds\":[]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+
+        then(updateBookUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn404WhenUpdatingNonExistentBook() throws Exception {
+        given(updateBookUseCase.update(any())).willThrow(new ResourceNotFoundException("livro não encontrado: 99"));
+
+        mockMvc.perform(patch("/api/v1/books/99")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Novo título\"}"))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn422WhenUpdatingWithInactiveCategory() throws Exception {
+        given(updateBookUseCase.update(any())).willThrow(new BusinessRuleException("categoria inativa: 5"));
+
+        mockMvc.perform(patch("/api/v1/books/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"categoryId\":5}"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")))
+                .andExpect(jsonPath("$.detail").value(containsString("categoria inativa")));
     }
 
     private ListBooksQuery capturedQuery() {

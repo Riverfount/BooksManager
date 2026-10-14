@@ -212,6 +212,40 @@ class BookTest {
     }
 
     @Test
+    void shouldReplaceAuthors() {
+        var book = Book.create(ISBN, "Dom Casmurro", "Editora X", 1899, 1L, Set.of(10L, 20L), FIXED_CLOCK);
+
+        book.replaceAuthors(Set.of(20L, 30L));
+
+        assertThat(book.getAuthorIds()).containsExactlyInAnyOrder(20L, 30L);
+    }
+
+    @Test
+    void shouldNotReplaceAuthorsWithEmptySet() {
+        var book = Book.create(ISBN, "Dom Casmurro", "Editora X", 1899, 1L, Set.of(10L), FIXED_CLOCK);
+
+        assertThatThrownBy(() -> book.replaceAuthors(Set.of())).isInstanceOf(BusinessRuleException.class);
+        assertThat(book.getAuthorIds()).containsExactly(10L);
+    }
+
+    @Test
+    void shouldNotReplaceAuthorsWithNullSet() {
+        var book = Book.create(ISBN, "Dom Casmurro", "Editora X", 1899, 1L, Set.of(10L), FIXED_CLOCK);
+
+        assertThatThrownBy(() -> book.replaceAuthors(null)).isInstanceOf(BusinessRuleException.class);
+    }
+
+    @Test
+    void shouldNotReplaceAuthorsWithNullElement() {
+        var book = Book.create(ISBN, "Dom Casmurro", "Editora X", 1899, 1L, Set.of(10L), FIXED_CLOCK);
+        var withNull = new java.util.HashSet<Long>();
+        withNull.add(null);
+
+        assertThatThrownBy(() -> book.replaceAuthors(withNull)).isInstanceOf(BusinessRuleException.class);
+        assertThat(book.getAuthorIds()).containsExactly(10L);
+    }
+
+    @Test
     void shouldDeactivateBook() {
         var book = Book.create(ISBN, "Dom Casmurro", "Editora X", 1899, 1L, Set.of(10L), FIXED_CLOCK);
 
