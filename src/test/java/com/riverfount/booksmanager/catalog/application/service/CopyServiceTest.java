@@ -3,10 +3,15 @@ package com.riverfount.booksmanager.catalog.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.riverfount.booksmanager.catalog.application.port.in.ListCopiesQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterCopyCommand;
 import com.riverfount.booksmanager.catalog.domain.Book;
+import com.riverfount.booksmanager.catalog.domain.Copy;
+import com.riverfount.booksmanager.catalog.domain.CopyStatus;
 import com.riverfount.booksmanager.catalog.domain.Isbn;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
+import com.riverfount.booksmanager.shared.domain.InvalidQueryException;
+import com.riverfount.booksmanager.shared.domain.PageQuery;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -19,12 +24,13 @@ class CopyServiceTest {
     private static final Clock FIXED_CLOCK = Clock.fixed(Instant.parse("2026-10-10T00:00:00Z"), ZoneOffset.UTC);
 
     private CopyService service;
+    private InMemoryCopyRepository copyRepository;
     private InMemoryBookRepository bookRepository;
     private Long bookId;
 
     @BeforeEach
     void setUp() {
-        var copyRepository = new InMemoryCopyRepository();
+        copyRepository = new InMemoryCopyRepository();
         bookRepository = new InMemoryBookRepository();
         service = new CopyService(copyRepository, bookRepository);
 
@@ -82,5 +88,79 @@ class CopyServiceTest {
     @Test
     void shouldReturnEmptyWhenFindingNonExistentId() {
         assertThat(service.findById(-1L)).isEmpty();
+    }
+
+    @Test
+    void shouldListOnlyActiveCopiesByDefault() {
+        service.register(new RegisterCopyCommand(bookId, "PAT-1"));
+        var inactive = service.register(new RegisterCopyCommand(bookId, "PAT-2"));
+        deactivate(inactive);
+
+        var result = service.list(new ListCopiesQuery(null, null, true, PageQuery.of(0, 20, "assetCode")));
+
+        assertThat(result.items()).extracting(Copy::getAssetCode).containsExactly("PAT-1");
+    }
+
+    @Test
+    void shouldListInactiveCopiesWhenRequested() {
+        service.register(new RegisterCopyCommand(bookId, "PAT-1"));
+        var inactive = service.register(new RegisterCopyCommand(bookId, "PAT-2"));
+        deactivate(inactive);
+
+        var result = service.list(new ListCopiesQuery(null, null, false, PageQuery.of(0, 20, "assetCode")));
+
+        assertThat(result.items()).extracting(Copy::getAssetCode).containsExactly("PAT-2");
+    }
+
+    @Test
+    void shouldFilterByBook() {
+        var otherBookId = bookRepository.save(Book.create(new Isbn("080442957X"), "Outro Livro", "Editora Y",
+                2000, 1L, Set.of(1L), FIXED_CLOCK)).getId();
+        service.register(new RegisterCopyCommand(bookId, "PAT-1"));
+        service.register(new RegisterCopyCommand(otherBookId, "PAT-2"));
+
+        var result = service.list(new ListCopiesQuery(otherBookId, null, true, PageQuery.of(0, 20, "assetCode")));
+
+        assertThat(result.items()).extracting(Copy::getAssetCode).containsExactly("PAT-2");
+    }
+
+    @Test
+    void shouldFilterByStatus() {
+        service.register(new RegisterCopyCommand(bookId, "PAT-1"));
+        var borrowed = service.register(new RegisterCopyCommand(bookId, "PAT-2"));
+        borrowed.checkOut();
+        copyRepository.save(borrowed);
+
+        var result = service.list(new ListCopiesQuery(null, CopyStatus.BORROWED, true,
+                PageQuery.of(0, 20, "assetCode")));
+
+        assertThat(result.items()).extracting(Copy::getAssetCode).containsExactly("PAT-2");
+    }
+
+    @Test
+    void shouldPaginateAndSortCopies() {
+        service.register(new RegisterCopyCommand(bookId, "PAT-3"));
+        service.register(new RegisterCopyCommand(bookId, "PAT-1"));
+        service.register(new RegisterCopyCommand(bookId, "PAT-2"));
+
+        var firstPage = service.list(new ListCopiesQuery(null, null, true, PageQuery.of(0, 2, "assetCode")));
+        var secondPage = service.list(new ListCopiesQuery(null, null, true, PageQuery.of(1, 2, "assetCode")));
+
+        assertThat(firstPage.items()).extracting(Copy::getAssetCode).containsExactly("PAT-1", "PAT-2");
+        assertThat(secondPage.items()).extracting(Copy::getAssetCode).containsExactly("PAT-3");
+        assertThat(firstPage.totalItems()).isEqualTo(3);
+        assertThat(firstPage.totalPages()).isEqualTo(2);
+    }
+
+    @Test
+    void shouldRejectUnknownSortField() {
+        assertThatThrownBy(() -> new ListCopiesQuery(null, null, true, PageQuery.of(0, 20, "bookId")))
+                .isInstanceOf(InvalidQueryException.class)
+                .hasMessageContaining("bookId");
+    }
+
+    private void deactivate(Copy copy) {
+        copy.deactivate();
+        copyRepository.save(copy);
     }
 }

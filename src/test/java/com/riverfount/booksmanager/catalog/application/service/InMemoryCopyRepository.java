@@ -2,6 +2,10 @@ package com.riverfount.booksmanager.catalog.application.service;
 
 import com.riverfount.booksmanager.catalog.application.port.out.CopyRepository;
 import com.riverfount.booksmanager.catalog.domain.Copy;
+import com.riverfount.booksmanager.catalog.domain.CopyStatus;
+import com.riverfount.booksmanager.shared.domain.PageQuery;
+import com.riverfount.booksmanager.shared.domain.PageResult;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -37,5 +41,17 @@ class InMemoryCopyRepository implements CopyRepository {
     public boolean existsByAssetCode(String assetCode) {
         return copies.values().stream()
                 .anyMatch(copy -> copy.getAssetCode().equals(assetCode));
+    }
+
+    @Override
+    public PageResult<Copy> findAll(Long bookId, CopyStatus status, boolean active, PageQuery page) {
+        var matching = copies.values().stream()
+                .filter(copy -> copy.isActive() == active)
+                .filter(copy -> bookId == null || copy.getBookId().equals(bookId))
+                .filter(copy -> status == null || copy.getStatus() == status);
+        return InMemoryPagination.page(matching, page, Map.of(
+                "id", Comparator.comparing(Copy::getId),
+                "assetCode", Comparator.comparing(Copy::getAssetCode),
+                "status", Comparator.comparing(Copy::getStatus)), Comparator.comparing(Copy::getId));
     }
 }

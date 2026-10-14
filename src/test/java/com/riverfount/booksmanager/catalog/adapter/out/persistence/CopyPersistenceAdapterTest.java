@@ -7,6 +7,7 @@ import com.riverfount.booksmanager.TestcontainersConfiguration;
 import com.riverfount.booksmanager.catalog.domain.Copy;
 import com.riverfount.booksmanager.catalog.domain.CopyStatus;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
+import com.riverfount.booksmanager.shared.domain.PageQuery;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -122,5 +123,80 @@ class CopyPersistenceAdapterTest {
 
         assertThatThrownBy(() -> adapter.save(copy2)) // copy2 still carries version 0
                 .isInstanceOf(ObjectOptimisticLockingFailureException.class);
+    }
+
+    @Test
+    void shouldListActiveCopiesPaginatedAndSortedByAssetCode() {
+        adapter.save(Copy.create(bookId, "PAT-3"));
+        adapter.save(Copy.create(bookId, "PAT-1"));
+        adapter.save(Copy.create(bookId, "PAT-2"));
+        adapter.save(Copy.reconstitute(null, bookId, "PAT-9", CopyStatus.AVAILABLE, false, 0L));
+
+        var firstPage = adapter.findAll(null, null, true, PageQuery.of(0, 2, "assetCode"));
+        var secondPage = adapter.findAll(null, null, true, PageQuery.of(1, 2, "assetCode"));
+
+        assertThat(firstPage.items()).extracting(Copy::getAssetCode).containsExactly("PAT-1", "PAT-2");
+        assertThat(secondPage.items()).extracting(Copy::getAssetCode).containsExactly("PAT-3");
+        assertThat(firstPage.totalItems()).isEqualTo(3);
+        assertThat(firstPage.totalPages()).isEqualTo(2);
+    }
+
+    @Test
+    void shouldListInactiveCopiesWhenRequested() {
+        adapter.save(Copy.create(bookId, "PAT-1"));
+        adapter.save(Copy.reconstitute(null, bookId, "PAT-9", CopyStatus.AVAILABLE, false, 0L));
+
+        var result = adapter.findAll(null, null, false, PageQuery.of(0, 20, "assetCode"));
+
+        assertThat(result.items()).extracting(Copy::getAssetCode).containsExactly("PAT-9");
+    }
+
+    @Test
+    void shouldFilterByBook() {
+        var otherBookId = jdbcTemplate.queryForObject(
+                """
+                insert into book (isbn, title, category_id, active)
+                values ('080442957X', 'Outro Livro', (select category_id from book where id = ?), true)
+                returning id
+                """,
+                Long.class, bookId);
+        adapter.save(Copy.create(bookId, "PAT-1"));
+        adapter.save(Copy.create(otherBookId, "PAT-2"));
+
+        var result = adapter.findAll(otherBookId, null, true, PageQuery.of(0, 20, "assetCode"));
+
+        assertThat(result.items()).extracting(Copy::getAssetCode).containsExactly("PAT-2");
+    }
+
+    @Test
+    void shouldFilterByStatus() {
+        adapter.save(Copy.create(bookId, "PAT-1"));
+        adapter.save(Copy.reconstitute(null, bookId, "PAT-2", CopyStatus.BORROWED, true, 0L));
+
+        var result = adapter.findAll(null, CopyStatus.BORROWED, true, PageQuery.of(0, 20, "assetCode"));
+
+        assertThat(result.items()).extracting(Copy::getAssetCode).containsExactly("PAT-2");
+    }
+
+    @Test
+    void shouldCombineBookAndStatusFilters() {
+        adapter.save(Copy.create(bookId, "PAT-1"));
+        adapter.save(Copy.reconstitute(null, bookId, "PAT-2", CopyStatus.BORROWED, true, 0L));
+
+        var result = adapter.findAll(bookId, CopyStatus.AVAILABLE, true, PageQuery.of(0, 20, "assetCode"));
+
+        assertThat(result.items()).extracting(Copy::getAssetCode).containsExactly("PAT-1");
+    }
+
+    @Test
+    void shouldSortByStatusAndByIdDescending() {
+        adapter.save(Copy.reconstitute(null, bookId, "PAT-1", CopyStatus.BORROWED, true, 0L));
+        adapter.save(Copy.create(bookId, "PAT-2"));
+
+        var byStatus = adapter.findAll(null, null, true, PageQuery.of(0, 20, "status"));
+        var byIdDesc = adapter.findAll(null, null, true, PageQuery.of(0, 20, "id,desc"));
+
+        assertThat(byStatus.items()).extracting(Copy::getAssetCode).containsExactly("PAT-2", "PAT-1");
+        assertThat(byIdDesc.items()).extracting(Copy::getAssetCode).containsExactly("PAT-2", "PAT-1");
     }
 }
