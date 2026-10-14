@@ -75,16 +75,19 @@ class BookController {
                 request.publisher(), request.publicationYear(), request.categoryId(), request.authorIds()));
         var location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")
-                .buildAndExpand(book.getId())
+                .buildAndExpand(book.book().getId())
                 .toUri();
         return ResponseEntity.created(location).body(BookResponse.from(book));
     }
 
     @GetMapping
-    @Operation(summary = "Listar livros",
+    @Operation(summary = "Listar e pesquisar livros",
             description = "Lista os livros de forma paginada (máximo de 100 por página). Por padrão, só os "
-                    + "ativos e em ordem de título. A pesquisa por título, autor, ISBN e categoria (RF05) é "
-                    + "outra rota.")
+                    + "ativos e em ordem de título. Os filtros `title`, `author` e `isbn` casam por trecho, "
+                    + "sem diferenciar maiúsculas (no ISBN, hífens e espaços são ignorados), a `categoryId` "
+                    + "casa pelo id, e os filtros informados valem em conjunto (RF05). Cada livro traz "
+                    + "`availableCopies`, a quantidade de exemplares ativos e disponíveis. Tamanho de página "
+                    + "acima de 100 é rejeitado com 400.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Página de livros"),
             @ApiResponse(responseCode = "400",
@@ -93,6 +96,14 @@ class BookController {
                             schema = @Schema(implementation = ProblemDetail.class)))
     })
     PageResponse<BookResponse> list(
+            @Parameter(description = "Trecho do título", example = "casmurro")
+            @RequestParam(required = false) String title,
+            @Parameter(description = "Trecho do nome de um dos autores", example = "machado")
+            @RequestParam(required = false) String author,
+            @Parameter(description = "Trecho do ISBN, com ou sem hífens", example = "978-85-3330")
+            @RequestParam(required = false) String isbn,
+            @Parameter(description = "Id da categoria", example = "1")
+            @RequestParam(required = false) Long categoryId,
             @Parameter(description = "Listar ativos (true) ou inativos (false)")
             @RequestParam(defaultValue = "true") boolean active,
             @Parameter(description = "Número da página, a partir de 0")
@@ -102,7 +113,7 @@ class BookController {
             @Parameter(description = "Ordenação no formato campo[,asc|desc]; campos: id, title, isbn, "
                     + "publicationYear", example = "title,asc")
             @RequestParam(defaultValue = ListBooksQuery.DEFAULT_SORT) String sort) {
-        var query = new ListBooksQuery(active, PageQuery.of(page, size, sort));
+        var query = new ListBooksQuery(title, author, isbn, categoryId, active, PageQuery.of(page, size, sort));
         return PageResponse.from(listBooksUseCase.list(query), BookResponse::from);
     }
 

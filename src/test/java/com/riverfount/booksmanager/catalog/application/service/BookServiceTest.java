@@ -9,6 +9,8 @@ import com.riverfount.booksmanager.catalog.application.port.in.UpdateBookCommand
 import com.riverfount.booksmanager.catalog.domain.Book;
 import com.riverfount.booksmanager.catalog.domain.Author;
 import com.riverfount.booksmanager.catalog.domain.Category;
+import com.riverfount.booksmanager.catalog.domain.Copy;
+import com.riverfount.booksmanager.catalog.domain.CopyStatus;
 import com.riverfount.booksmanager.catalog.domain.Isbn;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.InvalidQueryException;
@@ -29,15 +31,18 @@ class BookServiceTest {
     private InMemoryBookRepository bookRepository;
     private InMemoryCategoryRepository categoryRepository;
     private InMemoryAuthorRepository authorRepository;
+    private InMemoryCopyRepository copyRepository;
     private Long categoryId;
     private Long authorId;
 
     @BeforeEach
     void setUp() {
-        bookRepository = new InMemoryBookRepository();
-        categoryRepository = new InMemoryCategoryRepository();
         authorRepository = new InMemoryAuthorRepository();
-        service = new BookService(bookRepository, categoryRepository, authorRepository, FIXED_CLOCK);
+        bookRepository = new InMemoryBookRepository(authorRepository);
+        categoryRepository = new InMemoryCategoryRepository();
+        copyRepository = new InMemoryCopyRepository();
+        service = new BookService(bookRepository, categoryRepository, authorRepository, copyRepository,
+                FIXED_CLOCK);
 
         categoryId = categoryRepository.save(Category.create("Ficção")).getId();
         authorId = authorRepository.save(Author.create("Machado de Assis")).getId();
@@ -45,9 +50,11 @@ class BookServiceTest {
 
     @Test
     void shouldRegisterBookWithValidData() {
-        var book = service.register(new RegisterBookCommand("9788533302273", "Dom Casmurro", "Editora X", 1899,
-                categoryId, Set.of(authorId)));
+        var registered = service.register(new RegisterBookCommand("9788533302273", "Dom Casmurro", "Editora X",
+                1899, categoryId, Set.of(authorId)));
+        var book = registered.book();
 
+        assertThat(registered.availableCopies()).isZero();
         assertThat(book.getId()).isNotNull();
         assertThat(book.getIsbn()).isEqualTo(new Isbn("9788533302273"));
         assertThat(book.getTitle()).isEqualTo("Dom Casmurro");
@@ -122,10 +129,10 @@ class BookServiceTest {
         var registered = service.register(new RegisterBookCommand("9788533302273", "Dom Casmurro", "Editora X",
                 1899, categoryId, Set.of(authorId)));
 
-        var found = service.findById(registered.getId());
+        var found = service.findById(registered.book().getId());
 
         assertThat(found).isPresent();
-        assertThat(found.get().getTitle()).isEqualTo("Dom Casmurro");
+        assertThat(found.get().book().getTitle()).isEqualTo("Dom Casmurro");
     }
 
     @Test
@@ -140,7 +147,7 @@ class BookServiceTest {
 
         var result = service.list(new ListBooksQuery(true, PageQuery.of(0, 20, "title")));
 
-        assertThat(result.items()).extracting(Book::getTitle).containsExactly("Dom Casmurro");
+        assertThat(result.items()).extracting(item -> item.book().getTitle()).containsExactly("Dom Casmurro");
     }
 
     @Test
@@ -150,7 +157,7 @@ class BookServiceTest {
 
         var result = service.list(new ListBooksQuery(false, PageQuery.of(0, 20, "title")));
 
-        assertThat(result.items()).extracting(Book::getTitle).containsExactly("Livro Inativo");
+        assertThat(result.items()).extracting(item -> item.book().getTitle()).containsExactly("Livro Inativo");
     }
 
     @Test
@@ -161,7 +168,7 @@ class BookServiceTest {
 
         var result = service.list(new ListBooksQuery(true, PageQuery.of(1, 2, "title")));
 
-        assertThat(result.items()).extracting(Book::getTitle).containsExactly("Livro C");
+        assertThat(result.items()).extracting(item -> item.book().getTitle()).containsExactly("Livro C");
         assertThat(result.totalItems()).isEqualTo(3);
         assertThat(result.totalPages()).isEqualTo(2);
     }
@@ -173,7 +180,7 @@ class BookServiceTest {
 
         var result = service.list(new ListBooksQuery(true, PageQuery.of(0, 20, "publicationYear,desc")));
 
-        assertThat(result.items()).extracting(Book::getTitle).containsExactly("Mais Novo", "Mais Antigo");
+        assertThat(result.items()).extracting(item -> item.book().getTitle()).containsExactly("Mais Novo", "Mais Antigo");
     }
 
     @Test
@@ -183,7 +190,7 @@ class BookServiceTest {
 
         var result = service.list(new ListBooksQuery(true, PageQuery.of(0, 20, "isbn")));
 
-        assertThat(result.items()).extracting(book -> book.getIsbn().value())
+        assertThat(result.items()).extracting(item -> item.book().getIsbn().value())
                 .containsExactly("9788533302273", "9788535914849");
     }
 
@@ -201,12 +208,12 @@ class BookServiceTest {
         var updated = service.update(new UpdateBookCommand(book.getId(), "Dom Casmurro (revisado)", null, null,
                 null, null));
 
-        assertThat(updated.getTitle()).isEqualTo("Dom Casmurro (revisado)");
-        assertThat(updated.getPublisher()).isEqualTo("Editora X");
-        assertThat(updated.getPublicationYear()).isEqualTo(1899);
-        assertThat(updated.getCategoryId()).isEqualTo(categoryId);
-        assertThat(updated.getAuthorIds()).containsExactly(authorId);
-        assertThat(updated.getIsbn()).isEqualTo(new Isbn("9788533302273"));
+        assertThat(updated.book().getTitle()).isEqualTo("Dom Casmurro (revisado)");
+        assertThat(updated.book().getPublisher()).isEqualTo("Editora X");
+        assertThat(updated.book().getPublicationYear()).isEqualTo(1899);
+        assertThat(updated.book().getCategoryId()).isEqualTo(categoryId);
+        assertThat(updated.book().getAuthorIds()).containsExactly(authorId);
+        assertThat(updated.book().getIsbn()).isEqualTo(new Isbn("9788533302273"));
         assertThat(bookRepository.findById(book.getId()).orElseThrow().getTitle())
                 .isEqualTo("Dom Casmurro (revisado)");
     }
@@ -220,11 +227,11 @@ class BookServiceTest {
         var updated = service.update(new UpdateBookCommand(book.getId(), "Novo título", "Editora Y", 1900,
                 newCategoryId, Set.of(newAuthorId)));
 
-        assertThat(updated.getTitle()).isEqualTo("Novo título");
-        assertThat(updated.getPublisher()).isEqualTo("Editora Y");
-        assertThat(updated.getPublicationYear()).isEqualTo(1900);
-        assertThat(updated.getCategoryId()).isEqualTo(newCategoryId);
-        assertThat(updated.getAuthorIds()).containsExactly(newAuthorId);
+        assertThat(updated.book().getTitle()).isEqualTo("Novo título");
+        assertThat(updated.book().getPublisher()).isEqualTo("Editora Y");
+        assertThat(updated.book().getPublicationYear()).isEqualTo(1900);
+        assertThat(updated.book().getCategoryId()).isEqualTo(newCategoryId);
+        assertThat(updated.book().getAuthorIds()).containsExactly(newAuthorId);
     }
 
     @Test
@@ -284,8 +291,8 @@ class BookServiceTest {
         var updated = service.update(new UpdateBookCommand(book.getId(), "Novo título", null, null, categoryId,
                 null));
 
-        assertThat(updated.getTitle()).isEqualTo("Novo título");
-        assertThat(updated.getCategoryId()).isEqualTo(categoryId);
+        assertThat(updated.book().getTitle()).isEqualTo("Novo título");
+        assertThat(updated.book().getCategoryId()).isEqualTo(categoryId);
     }
 
     @Test
@@ -297,7 +304,7 @@ class BookServiceTest {
         var updated = service.update(new UpdateBookCommand(book.getId(), null, null, null, null,
                 Set.of(authorId, newAuthorId)));
 
-        assertThat(updated.getAuthorIds()).containsExactlyInAnyOrder(authorId, newAuthorId);
+        assertThat(updated.book().getAuthorIds()).containsExactlyInAnyOrder(authorId, newAuthorId);
     }
 
     @Test
@@ -338,9 +345,144 @@ class BookServiceTest {
                 .hasMessageContaining("99");
     }
 
+    @Test
+    void shouldFilterByTitleContainingIgnoringCase() {
+        register("9788533302273", "Dom Casmurro", 1899);
+        register("9788535914849", "Memórias Póstumas", 1881);
+
+        var result = service.list(new ListBooksQuery("CASMUR", null, null, null, true,
+                PageQuery.of(0, 20, "title")));
+
+        assertThat(result.items()).extracting(item -> item.book().getTitle()).containsExactly("Dom Casmurro");
+    }
+
+    @Test
+    void shouldFilterByAuthorNameContainingIgnoringCase() {
+        var otherAuthorId = authorRepository.save(Author.create("Clarice Lispector")).getId();
+        register("9788533302273", "Dom Casmurro", 1899);
+        service.register(new RegisterBookCommand("9788535914849", "A Hora da Estrela", "Editora X", 1977,
+                categoryId, Set.of(otherAuthorId)));
+
+        var result = service.list(new ListBooksQuery(null, "LISPEC", null, null, true,
+                PageQuery.of(0, 20, "title")));
+
+        assertThat(result.items()).extracting(item -> item.book().getTitle())
+                .containsExactly("A Hora da Estrela");
+    }
+
+    @Test
+    void shouldFilterByPartOfTheIsbnIgnoringHyphens() {
+        register("9788533302273", "Dom Casmurro", 1899);
+        register("9788535914849", "Memórias Póstumas", 1881);
+
+        var result = service.list(new ListBooksQuery(null, null, "978-85-3330", null, true,
+                PageQuery.of(0, 20, "title")));
+
+        assertThat(result.items()).extracting(item -> item.book().getTitle()).containsExactly("Dom Casmurro");
+    }
+
+    @Test
+    void shouldFilterByCategory() {
+        var otherCategoryId = categoryRepository.save(Category.create("Romance")).getId();
+        register("9788533302273", "Dom Casmurro", 1899);
+        service.register(new RegisterBookCommand("9788535914849", "Memórias Póstumas", "Editora X", 1881,
+                otherCategoryId, Set.of(authorId)));
+
+        var result = service.list(new ListBooksQuery(null, null, null, otherCategoryId, true,
+                PageQuery.of(0, 20, "title")));
+
+        assertThat(result.items()).extracting(item -> item.book().getTitle())
+                .containsExactly("Memórias Póstumas");
+    }
+
+    @Test
+    void shouldCombineFiltersWithAnd() {
+        register("9788533302273", "Dom Casmurro", 1899);
+        register("9788535914849", "Dom Quixote", 1605);
+
+        var result = service.list(new ListBooksQuery("dom", null, "9788535", null, true,
+                PageQuery.of(0, 20, "title")));
+
+        assertThat(result.items()).extracting(item -> item.book().getTitle()).containsExactly("Dom Quixote");
+    }
+
+    @Test
+    void shouldIgnoreBlankFilters() {
+        register("9788533302273", "Dom Casmurro", 1899);
+        register("9788535914849", "Memórias Póstumas", 1881);
+
+        var result = service.list(new ListBooksQuery("  ", "", " ", null, true, PageQuery.of(0, 20, "title")));
+
+        assertThat(result.totalItems()).isEqualTo(2);
+    }
+
+    @Test
+    void shouldReturnNoBooksWhenNothingMatches() {
+        register("9788533302273", "Dom Casmurro", 1899);
+
+        var result = service.list(new ListBooksQuery("inexistente", null, null, null, true,
+                PageQuery.of(0, 20, "title")));
+
+        assertThat(result.items()).isEmpty();
+        assertThat(result.totalItems()).isZero();
+    }
+
+    @Test
+    void shouldShowAvailableCopiesOfEachBookInTheList() {
+        var domCasmurro = register("9788533302273", "Dom Casmurro", 1899);
+        var memorias = register("9788535914849", "Memórias Póstumas", 1881);
+        register("9788525406958", "Sem exemplares", 2010);
+        copyRepository.save(Copy.create(domCasmurro.getId(), "PAT-1"));
+        copyRepository.save(Copy.create(domCasmurro.getId(), "PAT-2"));
+        copyRepository.save(Copy.create(memorias.getId(), "PAT-3"));
+
+        var result = service.list(new ListBooksQuery(true, PageQuery.of(0, 20, "title")));
+
+        assertThat(result.items()).extracting(item -> item.book().getTitle(), item -> item.availableCopies())
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("Dom Casmurro", 2L),
+                        org.assertj.core.groups.Tuple.tuple("Memórias Póstumas", 1L),
+                        org.assertj.core.groups.Tuple.tuple("Sem exemplares", 0L));
+    }
+
+    @Test
+    void shouldNotCountBorrowedDamagedLostReservedOrInactiveCopies() {
+        var book = register("9788533302273", "Dom Casmurro", 1899);
+        copyRepository.save(Copy.create(book.getId(), "PAT-1"));
+        copyRepository.save(Copy.reconstitute(null, book.getId(), "PAT-2", CopyStatus.BORROWED, true, 0L));
+        copyRepository.save(Copy.reconstitute(null, book.getId(), "PAT-3", CopyStatus.DAMAGED, true, 0L));
+        copyRepository.save(Copy.reconstitute(null, book.getId(), "PAT-4", CopyStatus.LOST, true, 0L));
+        copyRepository.save(Copy.reconstitute(null, book.getId(), "PAT-5", CopyStatus.RESERVED, true, 0L));
+        copyRepository.save(Copy.reconstitute(null, book.getId(), "PAT-6", CopyStatus.AVAILABLE, false, 0L));
+
+        var found = service.findById(book.getId());
+
+        assertThat(found).isPresent();
+        assertThat(found.get().availableCopies()).isEqualTo(1L);
+    }
+
+    @Test
+    void shouldShowAvailableCopiesWhenFindingById() {
+        var book = register("9788533302273", "Dom Casmurro", 1899);
+        copyRepository.save(Copy.create(book.getId(), "PAT-1"));
+        copyRepository.save(Copy.create(book.getId(), "PAT-2"));
+
+        assertThat(service.findById(book.getId()).orElseThrow().availableCopies()).isEqualTo(2L);
+    }
+
+    @Test
+    void shouldShowAvailableCopiesWhenUpdating() {
+        var book = register("9788533302273", "Dom Casmurro", 1899);
+        copyRepository.save(Copy.create(book.getId(), "PAT-1"));
+
+        var updated = service.update(new UpdateBookCommand(book.getId(), "Novo título", null, null, null, null));
+
+        assertThat(updated.availableCopies()).isEqualTo(1L);
+    }
+
     private Book register(String isbn, String title, Integer publicationYear) {
         return service.register(new RegisterBookCommand(isbn, title, "Editora X", publicationYear, categoryId,
-                Set.of(authorId)));
+                Set.of(authorId))).book();
     }
 
     private void deactivated(Book book) {

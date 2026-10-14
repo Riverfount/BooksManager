@@ -1,5 +1,6 @@
 package com.riverfount.booksmanager.catalog.application.service;
 
+import com.riverfount.booksmanager.catalog.application.port.in.BookWithAvailability;
 import com.riverfount.booksmanager.catalog.application.port.in.DeactivateBookUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.GetBookUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ListBooksQuery;
@@ -9,8 +10,10 @@ import com.riverfount.booksmanager.catalog.application.port.in.RegisterBookUseCa
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateBookCommand;
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateBookUseCase;
 import com.riverfount.booksmanager.catalog.application.port.out.AuthorRepository;
+import com.riverfount.booksmanager.catalog.application.port.out.BookFilter;
 import com.riverfount.booksmanager.catalog.application.port.out.BookRepository;
 import com.riverfount.booksmanager.catalog.application.port.out.CategoryRepository;
+import com.riverfount.booksmanager.catalog.application.port.out.CopyRepository;
 import com.riverfount.booksmanager.catalog.domain.Author;
 import com.riverfount.booksmanager.catalog.domain.Book;
 import com.riverfount.booksmanager.catalog.domain.Isbn;
@@ -26,7 +29,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Orchestrates registering, querying, listing, updating and deactivating Book: fetches what the domain
+ * Orchestrates registering, querying, searching, updating and deactivating Book: fetches what the domain
  * needs to decide (do the category and authors exist? does the ISBN
  * already exist?), calls the domain and persists. The business decision
  * itself lives in the domain (Book.create, Book.validateUniqueIsbn).
@@ -39,18 +42,20 @@ class BookService implements RegisterBookUseCase, GetBookUseCase, ListBooksUseCa
     private final BookRepository bookRepository;
     private final CategoryRepository categoryRepository;
     private final AuthorRepository authorRepository;
+    private final CopyRepository copyRepository;
     private final Clock clock;
 
     BookService(BookRepository bookRepository, CategoryRepository categoryRepository,
-            AuthorRepository authorRepository, Clock clock) {
+            AuthorRepository authorRepository, CopyRepository copyRepository, Clock clock) {
         this.bookRepository = bookRepository;
         this.categoryRepository = categoryRepository;
         this.authorRepository = authorRepository;
+        this.copyRepository = copyRepository;
         this.clock = clock;
     }
 
     @Override
-    public Book register(RegisterBookCommand command) {
+    public BookWithAvailability register(RegisterBookCommand command) {
         var isbn = new Isbn(command.isbn());
         // built before the cross-checks: this way, categoryId and
         // authorIds are already guaranteed non-null when we query the
@@ -60,23 +65,29 @@ class BookService implements RegisterBookUseCase, GetBookUseCase, ListBooksUseCa
         validateCategoryExists(book.getCategoryId());
         validateAuthorsExist(book.getAuthorIds());
         Book.validateUniqueIsbn(isbn, bookRepository.existsByIsbn(isbn));
-        return bookRepository.save(book);
+        // a new book has no copies yet
+        return new BookWithAvailability(bookRepository.save(book), 0);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<Book> findById(Long id) {
-        return bookRepository.findById(id);
+    public Optional<BookWithAvailability> findById(Long id) {
+        return bookRepository.findById(id).map(this::withAvailability);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public PageResult<Book> list(ListBooksQuery query) {
-        return bookRepository.findAll(query.active(), query.page());
+    public PageResult<BookWithAvailability> list(ListBooksQuery query) {
+        var filter = new BookFilter(query.title(), query.author(), query.isbn(), query.categoryId());
+        var page = bookRepository.findAll(filter, query.active(), query.page());
+        // one aggregated query for the whole page, not one per book
+        var bookIds = page.items().stream().map(Book::getId).collect(Collectors.toSet());
+        var availableCopies = copyRepository.countAvailableByBookIds(bookIds);
+        return page.map(book -> new BookWithAvailability(book, availableCopies.getOrDefault(book.getId(), 0L)));
     }
 
     @Override
-    public Book update(UpdateBookCommand command) {
+    public BookWithAvailability update(UpdateBookCommand command) {
         var book = bookRepository.findById(command.id())
                 .orElseThrow(() -> new ResourceNotFoundException("livro não encontrado: " + command.id()));
         var previousCategoryId = book.getCategoryId();
@@ -102,7 +113,7 @@ class BookService implements RegisterBookUseCase, GetBookUseCase, ListBooksUseCa
                 validateAuthorsExist(addedAuthorIds);
             }
         }
-        return bookRepository.save(book);
+        return withAvailability(bookRepository.save(book));
     }
 
     @Override
@@ -111,6 +122,11 @@ class BookService implements RegisterBookUseCase, GetBookUseCase, ListBooksUseCa
                 .orElseThrow(() -> new ResourceNotFoundException("livro não encontrado: " + id));
         book.deactivate();
         bookRepository.save(book);
+    }
+
+    private BookWithAvailability withAvailability(Book book) {
+        var availableCopies = copyRepository.countAvailableByBookIds(Set.of(book.getId()));
+        return new BookWithAvailability(book, availableCopies.getOrDefault(book.getId(), 0L));
     }
 
     private void validateCategoryExists(Long categoryId) {

@@ -18,8 +18,8 @@ public interface BookRepository {
     boolean existsByIsbn(Isbn isbn);
 
     /**
-     * Lists books by active flag. The sort field is one of
-     * ListBooksQuery.SORTABLE_FIELDS.
+     * Lists books by active flag, narrowed by the optional filters (RF05).
+     * The sort field is one of ListBooksQuery.SORTABLE_FIELDS.
      */
-    PageResult<Book> findAll(boolean active, PageQuery page);
+    PageResult<Book> findAll(BookFilter filter, boolean active, PageQuery page);
 }

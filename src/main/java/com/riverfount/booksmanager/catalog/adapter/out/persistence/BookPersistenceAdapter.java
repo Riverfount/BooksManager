@@ -1,5 +1,6 @@
 package com.riverfount.booksmanager.catalog.adapter.out.persistence;
 
+import com.riverfount.booksmanager.catalog.application.port.out.BookFilter;
 import com.riverfount.booksmanager.catalog.application.port.out.BookRepository;
 import com.riverfount.booksmanager.catalog.domain.Book;
 import com.riverfount.booksmanager.catalog.domain.Isbn;
@@ -8,6 +9,7 @@ import com.riverfount.booksmanager.shared.adapter.out.persistence.SpringDataPage
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.PageResult;
+import java.util.Locale;
 import java.util.Optional;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
@@ -55,9 +57,25 @@ class BookPersistenceAdapter implements BookRepository {
     }
 
     @Override
-    public PageResult<Book> findAll(boolean active, PageQuery page) {
-        var result = jpaRepository.findByActive(active, SpringDataPages.toPageable(page));
+    public PageResult<Book> findAll(BookFilter filter, boolean active, PageQuery page) {
+        var result = jpaRepository.search(likePattern(filter.title()), likePattern(filter.author()),
+                likePatternKeepingCase(filter.isbn()), filter.categoryId(), active,
+                SpringDataPages.toPageable(page));
         return SpringDataPages.toPageResult(result, this::toDomain);
+    }
+
+    /** "Contains" pattern, lowercased to match the lower() in the query; null stays null. */
+    private static String likePattern(String term) {
+        return term == null ? null : likePatternKeepingCase(term.toLowerCase(Locale.ROOT));
+    }
+
+    /** "Contains" pattern with the LIKE wildcards escaped ('!' is the escape character); null stays null. */
+    private static String likePatternKeepingCase(String term) {
+        if (term == null) {
+            return null;
+        }
+        var escaped = term.replace("!", "!!").replace("%", "!%").replace("_", "!_");
+        return "%" + escaped + "%";
     }
 
     private Book toDomain(BookJpaEntity entity) {

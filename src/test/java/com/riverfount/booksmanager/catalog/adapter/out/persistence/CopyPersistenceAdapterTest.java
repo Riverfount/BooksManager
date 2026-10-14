@@ -8,6 +8,7 @@ import com.riverfount.booksmanager.catalog.domain.Copy;
 import com.riverfount.booksmanager.catalog.domain.CopyStatus;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -198,6 +199,50 @@ class CopyPersistenceAdapterTest {
 
         assertThat(byStatus.items()).extracting(Copy::getAssetCode).containsExactly("PAT-2", "PAT-1");
         assertThat(byIdDesc.items()).extracting(Copy::getAssetCode).containsExactly("PAT-2", "PAT-1");
+    }
+
+    @Test
+    void shouldCountOnlyActiveAvailableCopiesGroupedByBook() {
+        var otherBookId = jdbcTemplate.queryForObject(
+                """
+                insert into book (isbn, title, category_id, active)
+                values ('080442957X', 'Outro Livro', (select category_id from book where id = ?), true)
+                returning id
+                """,
+                Long.class, bookId);
+        adapter.save(Copy.create(bookId, "PAT-1"));
+        adapter.save(Copy.create(bookId, "PAT-2"));
+        adapter.save(Copy.reconstitute(null, bookId, "PAT-3", CopyStatus.BORROWED, true, 0L));
+        adapter.save(Copy.reconstitute(null, bookId, "PAT-4", CopyStatus.DAMAGED, true, 0L));
+        adapter.save(Copy.reconstitute(null, bookId, "PAT-5", CopyStatus.LOST, true, 0L));
+        adapter.save(Copy.reconstitute(null, bookId, "PAT-6", CopyStatus.RESERVED, true, 0L));
+        adapter.save(Copy.reconstitute(null, bookId, "PAT-7", CopyStatus.AVAILABLE, false, 0L));
+        adapter.save(Copy.create(otherBookId, "PAT-8"));
+
+        var counts = adapter.countAvailableByBookIds(Set.of(bookId, otherBookId));
+
+        assertThat(counts).containsEntry(bookId, 2L).containsEntry(otherBookId, 1L).hasSize(2);
+    }
+
+    @Test
+    void aBookWithoutAvailableCopiesShouldBeAbsentFromTheCount() {
+        adapter.save(Copy.reconstitute(null, bookId, "PAT-1", CopyStatus.BORROWED, true, 0L));
+
+        assertThat(adapter.countAvailableByBookIds(Set.of(bookId))).isEmpty();
+    }
+
+    @Test
+    void shouldCountOnlyTheRequestedBooks() {
+        adapter.save(Copy.create(bookId, "PAT-1"));
+
+        assertThat(adapter.countAvailableByBookIds(Set.of(999999L))).isEmpty();
+    }
+
+    @Test
+    void shouldReturnAnEmptyCountForNoBooks() {
+        adapter.save(Copy.create(bookId, "PAT-1"));
+
+        assertThat(adapter.countAvailableByBookIds(Set.of())).isEmpty();
     }
 
     @Test

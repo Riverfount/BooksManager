@@ -8,7 +8,10 @@ import com.riverfount.booksmanager.shared.adapter.out.persistence.SpringDataPage
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.PageResult;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
@@ -55,6 +58,16 @@ class CopyPersistenceAdapter implements CopyRepository {
     public PageResult<Copy> findAll(Long bookId, CopyStatus status, boolean active, PageQuery page) {
         var result = jpaRepository.search(bookId, status, active, SpringDataPages.toPageable(page));
         return SpringDataPages.toPageResult(result, this::toDomain);
+    }
+
+    @Override
+    public Map<Long, Long> countAvailableByBookIds(Set<Long> bookIds) {
+        if (bookIds.isEmpty()) {
+            return Map.of();
+        }
+        return jpaRepository.countAvailableByBookIds(bookIds).stream()
+                .collect(Collectors.toMap(CopyJpaRepository.AvailableCopiesCount::getBookId,
+                        CopyJpaRepository.AvailableCopiesCount::getTotal));
     }
 
     private Copy toDomain(CopyJpaEntity entity) {

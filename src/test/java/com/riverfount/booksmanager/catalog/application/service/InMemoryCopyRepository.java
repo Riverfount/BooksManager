@@ -9,6 +9,8 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * In-memory implementation of CopyRepository, used only in the
@@ -53,5 +55,13 @@ class InMemoryCopyRepository implements CopyRepository {
                 "id", Comparator.comparing(Copy::getId),
                 "assetCode", Comparator.comparing(Copy::getAssetCode),
                 "status", Comparator.comparing(Copy::getStatus)), Comparator.comparing(Copy::getId));
+    }
+
+    @Override
+    public Map<Long, Long> countAvailableByBookIds(Set<Long> bookIds) {
+        return copies.values().stream()
+                .filter(copy -> bookIds.contains(copy.getBookId()))
+                .filter(copy -> copy.isActive() && copy.getStatus() == CopyStatus.AVAILABLE)
+                .collect(Collectors.groupingBy(Copy::getBookId, Collectors.counting()));
     }
 }
