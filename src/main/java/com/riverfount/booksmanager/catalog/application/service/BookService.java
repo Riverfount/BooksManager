@@ -1,5 +1,6 @@
 package com.riverfount.booksmanager.catalog.application.service;
 
+import com.riverfount.booksmanager.catalog.application.port.in.DeactivateBookUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.GetBookUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ListBooksQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.ListBooksUseCase;
@@ -25,14 +26,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Orchestrates registering, querying, listing and updating Book: fetches what the domain
+ * Orchestrates registering, querying, listing, updating and deactivating Book: fetches what the domain
  * needs to decide (do the category and authors exist? does the ISBN
  * already exist?), calls the domain and persists. The business decision
  * itself lives in the domain (Book.create, Book.validateUniqueIsbn).
  */
 @Service
 @Transactional
-class BookService implements RegisterBookUseCase, GetBookUseCase, ListBooksUseCase, UpdateBookUseCase {
+class BookService implements RegisterBookUseCase, GetBookUseCase, ListBooksUseCase, UpdateBookUseCase,
+        DeactivateBookUseCase {
 
     private final BookRepository bookRepository;
     private final CategoryRepository categoryRepository;
@@ -101,6 +103,14 @@ class BookService implements RegisterBookUseCase, GetBookUseCase, ListBooksUseCa
             }
         }
         return bookRepository.save(book);
+    }
+
+    @Override
+    public void deactivate(Long id) {
+        var book = bookRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("livro não encontrado: " + id));
+        book.deactivate();
+        bookRepository.save(book);
     }
 
     private void validateCategoryExists(Long categoryId) {

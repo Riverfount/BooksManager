@@ -1,5 +1,6 @@
 package com.riverfount.booksmanager.catalog.adapter.in.web;
 
+import com.riverfount.booksmanager.catalog.application.port.in.DeactivateBookUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.GetBookUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ListBooksQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.ListBooksUseCase;
@@ -18,8 +19,10 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,25 +30,29 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @RestController
 @RequestMapping("/api/v1/books")
-@Tag(name = "Books", description = "Cadastro, consulta, listagem e edição de livros do acervo (RF01).")
+@Tag(name = "Books", description = "Cadastro, consulta, listagem, edição e inativação de livros do acervo (RF01).")
 class BookController {
 
     private final RegisterBookUseCase registerBookUseCase;
     private final GetBookUseCase getBookUseCase;
     private final ListBooksUseCase listBooksUseCase;
     private final UpdateBookUseCase updateBookUseCase;
+    private final DeactivateBookUseCase deactivateBookUseCase;
 
     BookController(RegisterBookUseCase registerBookUseCase, GetBookUseCase getBookUseCase,
-            ListBooksUseCase listBooksUseCase, UpdateBookUseCase updateBookUseCase) {
+            ListBooksUseCase listBooksUseCase, UpdateBookUseCase updateBookUseCase,
+            DeactivateBookUseCase deactivateBookUseCase) {
         this.registerBookUseCase = registerBookUseCase;
         this.getBookUseCase = getBookUseCase;
         this.listBooksUseCase = listBooksUseCase;
         this.updateBookUseCase = updateBookUseCase;
+        this.deactivateBookUseCase = deactivateBookUseCase;
     }
 
     @PostMapping
@@ -137,5 +144,20 @@ class BookController {
         var book = updateBookUseCase.update(new UpdateBookCommand(id, request.title(), request.publisher(),
                 request.publicationYear(), request.categoryId(), request.authorIds()));
         return BookResponse.from(book);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Inativar livro",
+            description = "Inativa o livro, sem excluí-lo fisicamente (RN14). Um livro inativo não aceita "
+                    + "exemplares novos. Inativar um livro já inativo não tem efeito.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Livro inativado"),
+            @ApiResponse(responseCode = "404", description = "Livro não encontrado",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    void deactivate(@PathVariable Long id) {
+        deactivateBookUseCase.deactivate(id);
     }
 }

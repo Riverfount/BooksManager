@@ -309,6 +309,35 @@ class BookServiceTest {
                 .isInstanceOf(BusinessRuleException.class);
     }
 
+    @Test
+    void shouldDeactivateExistingBookKeepingItStored() {
+        var book = register("9788533302273", "Dom Casmurro", 1899);
+
+        service.deactivate(book.getId());
+
+        var stored = bookRepository.findById(book.getId()).orElseThrow();
+        assertThat(stored.isActive()).isFalse();
+        assertThat(stored.getTitle()).isEqualTo("Dom Casmurro");
+        assertThat(stored.getAuthorIds()).containsExactly(authorId);
+    }
+
+    @Test
+    void shouldBeIdempotentWhenDeactivatingAnInactiveBook() {
+        var book = register("9788533302273", "Dom Casmurro", 1899);
+        deactivated(book);
+
+        service.deactivate(book.getId());
+
+        assertThat(bookRepository.findById(book.getId()).orElseThrow().isActive()).isFalse();
+    }
+
+    @Test
+    void shouldNotDeactivateNonExistentBook() {
+        assertThatThrownBy(() -> service.deactivate(99L))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("99");
+    }
+
     private Book register(String isbn, String title, Integer publicationYear) {
         return service.register(new RegisterBookCommand(isbn, title, "Editora X", publicationYear, categoryId,
                 Set.of(authorId)));

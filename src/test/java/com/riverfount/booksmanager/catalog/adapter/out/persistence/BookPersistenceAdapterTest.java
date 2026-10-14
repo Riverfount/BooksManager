@@ -114,6 +114,25 @@ class BookPersistenceAdapterTest {
     }
 
     @Test
+    void deactivatedBookShouldStayInTheDatabaseWithItsAuthors() {
+        var saved = adapter.save(Book.create(new Isbn("9788533302273"), "Dom Casmurro", "Editora X", 1899,
+                categoryId, Set.of(authorId1, authorId2), FIXED_CLOCK));
+        entityManager.flush();
+        entityManager.clear();
+
+        var book = adapter.findById(saved.getId()).orElseThrow();
+        book.deactivate();
+        adapter.save(book);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(jdbcTemplate.queryForObject("select active from book where id = ?", Boolean.class,
+                saved.getId())).isFalse();
+        assertThat(adapter.findById(saved.getId()).orElseThrow().getAuthorIds())
+                .containsExactlyInAnyOrder(authorId1, authorId2);
+    }
+
+    @Test
     void foreignKeyViolationShouldNotBeConfusedWithDuplicateIsbn() {
         var bookWithNonExistentCategory = Book.create(new Isbn("9788533302273"), "Dom Casmurro", "Editora X", 1899,
                 999999L, Set.of(authorId1), FIXED_CLOCK);
