@@ -120,7 +120,7 @@ O contrato da API é o OpenAPI gerado pelo SpringDoc (`/v3/api-docs`), e o front
 - **Não quebram** e podem entrar a qualquer momento: campo novo na resposta, parâmetro opcional novo na requisição, endpoint novo e valor novo em um enum de resposta que o cliente trata como desconhecido. O cliente deve ignorar campos que não conhece.
 - **Quebram** e exigem uma versão nova (`/api/v2`): remover ou renomear campo, mudar o tipo de um campo, tornar obrigatório um parâmetro que era opcional, mudar o significado de um código de status ou de um valor existente.
 - Toda mudança de contrato é citada na descrição da PR que a introduz e anotada na tabela abaixo, para o repositório do front-end acompanhar.
-- Limitação conhecida: os esquemas gerados não marcam campos como obrigatórios (`required`), então clientes tipados a partir do OpenAPI veem todos como opcionais.
+- Campos obrigatórios (issue #85): nas respostas, cada campo que a API sempre devolve é marcado com `@Schema(requiredMode = REQUIRED)` e fica em `required` no OpenAPI; os que podem ser nulos (`publisher` e `publicationYear` do livro) ficam de fora. Nas requisições, o `required` vem do Bean Validation (`@NotNull`, `@NotBlank`, `@NotEmpty`), e as de edição (`PATCH`) não exigem nada. O `OpenApiRequiredFieldsTest` confere isso; ao criar um `*Response` novo, marque os campos da mesma forma.
 
 | Data | Mudança | Tipo | Issue |
 | --- | --- | --- | --- |
