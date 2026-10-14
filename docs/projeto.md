@@ -113,6 +113,20 @@ Todos os recursos do catálogo (livros, autores, categorias e exemplares) seguem
 | Editar | `PATCH /api/v1/{recurso}/{id}` | 200 com o recurso atualizado |
 | Inativar | `DELETE /api/v1/{recurso}/{id}` | 204 sem corpo |
 
+#### Compatibilidade do contrato
+
+O contrato da API é o OpenAPI gerado pelo SpringDoc (`/v3/api-docs`), e o front-end, em repositório próprio, depende dele. As regras para evoluí-lo dentro de `/api/v1`:
+
+- **Não quebram** e podem entrar a qualquer momento: campo novo na resposta, parâmetro opcional novo na requisição, endpoint novo e valor novo em um enum de resposta que o cliente trata como desconhecido. O cliente deve ignorar campos que não conhece.
+- **Quebram** e exigem uma versão nova (`/api/v2`): remover ou renomear campo, mudar o tipo de um campo, tornar obrigatório um parâmetro que era opcional, mudar o significado de um código de status ou de um valor existente.
+- Toda mudança de contrato é citada na descrição da PR que a introduz e anotada na tabela abaixo, para o repositório do front-end acompanhar.
+- Limitação conhecida: os esquemas gerados não marcam campos como obrigatórios (`required`), então clientes tipados a partir do OpenAPI veem todos como opcionais.
+
+| Data | Mudança | Tipo | Issue |
+| --- | --- | --- | --- |
+| 14/10/2026 | `BookResponse` ganhou `availableCopies` (exemplares ativos e `AVAILABLE`), presente em cadastro, consulta, listagem e edição de livros. | Compatível | #83 |
+| 14/10/2026 | `GET /api/v1/books` ganhou os filtros opcionais `title`, `author`, `isbn` e `categoryId`. | Compatível | #83 |
+
 #### Listagem e paginação (RNF14)
 
 - Parâmetros `page` (a partir de 0), `size` (de 1 a 100, padrão 20) e `sort` no formato `campo[,asc|desc]`, com os campos permitidos definidos por cada listagem. O `active` vale `true` por padrão, então os inativos só aparecem quando pedidos.
