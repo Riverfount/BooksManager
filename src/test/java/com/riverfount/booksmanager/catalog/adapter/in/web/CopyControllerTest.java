@@ -8,6 +8,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -18,11 +19,14 @@ import com.riverfount.booksmanager.catalog.application.port.in.GetCopyUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ListCopiesQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.ListCopiesUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterCopyUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.UpdateCopyCommand;
+import com.riverfount.booksmanager.catalog.application.port.in.UpdateCopyUseCase;
 import com.riverfount.booksmanager.catalog.domain.Copy;
 import com.riverfount.booksmanager.catalog.domain.CopyStatus;
 import com.riverfount.booksmanager.shared.adapter.in.web.GlobalExceptionHandler;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.PageResult;
+import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
 import com.riverfount.booksmanager.shared.domain.SortDirection;
 import java.util.List;
 import java.util.Optional;
@@ -51,6 +55,9 @@ class CopyControllerTest {
 
     @MockitoBean
     private ListCopiesUseCase listCopiesUseCase;
+
+    @MockitoBean
+    private UpdateCopyUseCase updateCopyUseCase;
 
     @Test
     @WithMockUser
@@ -231,6 +238,93 @@ class CopyControllerTest {
         mockMvc.perform(get("/api/v1/copies").param("bookId", "abc"))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldUpdateCopyStatusAndReturn200() throws Exception {
+        given(updateCopyUseCase.update(any()))
+                .willReturn(Copy.reconstitute(1L, 7L, "PAT-1", CopyStatus.DAMAGED, true, 1L));
+
+        mockMvc.perform(patch("/api/v1/copies/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"DAMAGED\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.status").value("DAMAGED"));
+
+        then(updateCopyUseCase).should().update(new UpdateCopyCommand(1L, CopyStatus.DAMAGED));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldSendNullStatusWhenItIsOmitted() throws Exception {
+        given(updateCopyUseCase.update(any())).willReturn(Copy.create(7L, "PAT-1"));
+
+        mockMvc.perform(patch("/api/v1/copies/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk());
+
+        then(updateCopyUseCase).should().update(new UpdateCopyCommand(1L, null));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldIgnoreAssetCodeAndBookIdSentOnUpdate() throws Exception {
+        given(updateCopyUseCase.update(any())).willReturn(Copy.create(7L, "PAT-1"));
+
+        mockMvc.perform(patch("/api/v1/copies/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"assetCode\":\"OUTRO\",\"bookId\":99,\"status\":\"LOST\"}"))
+                .andExpect(status().isOk());
+
+        then(updateCopyUseCase).should().update(new UpdateCopyCommand(1L, CopyStatus.LOST));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn400WhenUpdatingWithUnknownStatus() throws Exception {
+        mockMvc.perform(patch("/api/v1/copies/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"BROKEN\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+
+        then(updateCopyUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn404WhenUpdatingNonExistentCopy() throws Exception {
+        given(updateCopyUseCase.update(any()))
+                .willThrow(new ResourceNotFoundException("exemplar não encontrado: 99"));
+
+        mockMvc.perform(patch("/api/v1/copies/99")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"LOST\"}"))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn422WhenStatusTransitionIsNotAllowed() throws Exception {
+        given(updateCopyUseCase.update(any())).willThrow(new BusinessRuleException(
+                "o status BORROWED só muda pelos fluxos de empréstimo, devolução e reserva"));
+
+        mockMvc.perform(patch("/api/v1/copies/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"BORROWED\"}"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")))
+                .andExpect(jsonPath("$.detail").value(containsString("BORROWED")));
     }
 
     private ListCopiesQuery capturedQuery() {

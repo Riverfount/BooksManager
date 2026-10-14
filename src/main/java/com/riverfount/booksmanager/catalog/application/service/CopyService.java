@@ -5,17 +5,20 @@ import com.riverfount.booksmanager.catalog.application.port.in.ListCopiesQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.ListCopiesUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterCopyCommand;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterCopyUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.UpdateCopyCommand;
+import com.riverfount.booksmanager.catalog.application.port.in.UpdateCopyUseCase;
 import com.riverfount.booksmanager.catalog.application.port.out.BookRepository;
 import com.riverfount.booksmanager.catalog.application.port.out.CopyRepository;
 import com.riverfount.booksmanager.catalog.domain.Copy;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.PageResult;
+import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Orchestrates registering, querying and listing Copy: fetches what the domain
+ * Orchestrates registering, querying, listing and updating Copy: fetches what the domain
  * needs to decide (does the book exist and is it active? does the asset
  * code already exist?), calls the domain and persists. The business
  * decision itself lives in the domain (Copy.create,
@@ -23,7 +26,8 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 @Transactional
-class CopyService implements RegisterCopyUseCase, GetCopyUseCase, ListCopiesUseCase {
+class CopyService implements RegisterCopyUseCase, GetCopyUseCase, ListCopiesUseCase,
+        UpdateCopyUseCase {
 
     private final CopyRepository copyRepository;
     private final BookRepository bookRepository;
@@ -54,6 +58,17 @@ class CopyService implements RegisterCopyUseCase, GetCopyUseCase, ListCopiesUseC
     @Transactional(readOnly = true)
     public PageResult<Copy> list(ListCopiesQuery query) {
         return copyRepository.findAll(query.bookId(), query.status(), query.active(), query.page());
+    }
+
+    @Override
+    public Copy update(UpdateCopyCommand command) {
+        var copy = copyRepository.findById(command.id())
+                .orElseThrow(() -> new ResourceNotFoundException("exemplar não encontrado: " + command.id()));
+        // a null field keeps the current value; the asset code and the book are never touched
+        if (command.status() != null) {
+            copy.changeStatus(command.status());
+        }
+        return copyRepository.save(copy);
     }
 
     private void validateBookExistsAndIsActive(Long bookId) {

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.riverfount.booksmanager.catalog.application.port.in.ListCopiesQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterCopyCommand;
+import com.riverfount.booksmanager.catalog.application.port.in.UpdateCopyCommand;
 import com.riverfount.booksmanager.catalog.domain.Book;
 import com.riverfount.booksmanager.catalog.domain.Copy;
 import com.riverfount.booksmanager.catalog.domain.CopyStatus;
@@ -12,6 +13,7 @@ import com.riverfount.booksmanager.catalog.domain.Isbn;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.InvalidQueryException;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
+import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -157,6 +159,58 @@ class CopyServiceTest {
         assertThatThrownBy(() -> new ListCopiesQuery(null, null, true, PageQuery.of(0, 20, "bookId")))
                 .isInstanceOf(InvalidQueryException.class)
                 .hasMessageContaining("bookId");
+    }
+
+    @Test
+    void shouldMarkCopyAsDamagedKeepingTheOtherFields() {
+        var copy = service.register(new RegisterCopyCommand(bookId, "PAT-1"));
+
+        var updated = service.update(new UpdateCopyCommand(copy.getId(), CopyStatus.DAMAGED));
+
+        assertThat(updated.getStatus()).isEqualTo(CopyStatus.DAMAGED);
+        assertThat(updated.getAssetCode()).isEqualTo("PAT-1");
+        assertThat(updated.getBookId()).isEqualTo(bookId);
+        assertThat(copyRepository.findById(copy.getId()).orElseThrow().getStatus())
+                .isEqualTo(CopyStatus.DAMAGED);
+    }
+
+    @Test
+    void shouldKeepEverythingWhenNoFieldIsSent() {
+        var copy = service.register(new RegisterCopyCommand(bookId, "PAT-1"));
+
+        var updated = service.update(new UpdateCopyCommand(copy.getId(), null));
+
+        assertThat(updated.getStatus()).isEqualTo(CopyStatus.AVAILABLE);
+        assertThat(updated.isActive()).isTrue();
+    }
+
+    @Test
+    void shouldNotUpdateNonExistentCopy() {
+        assertThatThrownBy(() -> service.update(new UpdateCopyCommand(99L, CopyStatus.LOST)))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("99");
+    }
+
+    @Test
+    void shouldNotManuallySetBorrowed() {
+        var copy = service.register(new RegisterCopyCommand(bookId, "PAT-1"));
+
+        assertThatThrownBy(() -> service.update(new UpdateCopyCommand(copy.getId(), CopyStatus.BORROWED)))
+                .isInstanceOf(BusinessRuleException.class);
+        assertThat(copyRepository.findById(copy.getId()).orElseThrow().getStatus())
+                .isEqualTo(CopyStatus.AVAILABLE);
+    }
+
+    @Test
+    void shouldNotMarkBorrowedCopyAsLost() {
+        var copy = service.register(new RegisterCopyCommand(bookId, "PAT-1"));
+        copy.checkOut();
+        copyRepository.save(copy);
+
+        assertThatThrownBy(() -> service.update(new UpdateCopyCommand(copy.getId(), CopyStatus.LOST)))
+                .isInstanceOf(BusinessRuleException.class);
+        assertThat(copyRepository.findById(copy.getId()).orElseThrow().getStatus())
+                .isEqualTo(CopyStatus.BORROWED);
     }
 
     private void deactivate(Copy copy) {

@@ -61,6 +61,41 @@ public class Copy {
         this.status = CopyStatus.LOST;
     }
 
+    /**
+     * Manual status change (RF04, HU23). Only operational transitions are
+     * allowed here: damaged, lost and back to available once a damaged or
+     * lost copy is recovered. A borrowed copy cannot be marked damaged or
+     * lost by hand (RN10), and BORROWED/RESERVED are set only by the loan
+     * and reservation flows. Setting the current status is a no-op.
+     */
+    public void changeStatus(CopyStatus target) {
+        if (target == null) {
+            throw new BusinessRuleException("o status do exemplar é obrigatório");
+        }
+        if (target == status) {
+            return;
+        }
+        switch (target) {
+            case DAMAGED, LOST -> {
+                if (status == CopyStatus.BORROWED) {
+                    throw new BusinessRuleException(
+                            "o exemplar emprestado não pode ser marcado como danificado ou extraviado "
+                                    + "manualmente; registre pela devolução");
+                }
+                this.status = target;
+            }
+            case AVAILABLE -> {
+                if (status != CopyStatus.DAMAGED && status != CopyStatus.LOST) {
+                    throw new BusinessRuleException(
+                            "só um exemplar danificado ou extraviado pode voltar a disponível manualmente");
+                }
+                this.status = CopyStatus.AVAILABLE;
+            }
+            case BORROWED, RESERVED -> throw new BusinessRuleException(
+                    "o status " + target + " só muda pelos fluxos de empréstimo, devolução e reserva");
+        }
+    }
+
     public void deactivate() {
         if (status == CopyStatus.BORROWED) {
             throw new BusinessRuleException("o exemplar não pode ser inativado enquanto estiver emprestado");
