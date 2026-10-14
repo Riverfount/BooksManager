@@ -131,7 +131,7 @@ As versões abaixo refletem o que está declarado no **pom.xml** e no **compose.
 | Apoio ao desenvolvimento | Spring Boot DevTools · Spring Boot Docker Compose |
 | Ambiente | Docker Compose · Maven 3.9.16 (wrapper) · Git/GitHub |
 
-O front-end (React + Tailwind CSS) é um projeto separado deste back-end; suas ferramentas (build, TypeScript/JavaScript, roteamento, cliente HTTP) e se ficará no mesmo repositório ou em um repositório próprio ainda não foram definidos.
+O front-end (React + Tailwind CSS) é um projeto separado deste back-end, em repositório próprio, e o acompanhamento dele acontece lá. Suas ferramentas (build, TypeScript/JavaScript, roteamento, cliente HTTP) ainda não foram definidas.
 
 ## 6. Uso de inteligência artificial
 Utilizei o Claude (Anthropic) como apoio no planejamento inicial do projeto, para discutir a arquitetura, definir a stack tecnológica e organizar as ideias deste documento. As decisões e a implementação são de minha responsabilidade.

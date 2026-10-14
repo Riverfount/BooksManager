@@ -206,20 +206,20 @@ Os testes com Testcontainers exigem o Docker em execução.
 
 Enquanto a autenticação não for implementada, a configuração de segurança é provisória. Sem ela, todas as rotas exigem login com uma senha gerada no console a cada execução.
 
-O front-end é executado separadamente, em seu próprio repositório. Os comandos de instalação e execução serão acrescentados quando o projeto da interface for criado. Em desenvolvimento, a API precisa liberar o CORS para a origem do servidor de desenvolvimento do front-end.
+O front-end é criado, executado e acompanhado separadamente, em seu próprio repositório; os comandos de instalação e execução ficam lá. Em desenvolvimento, a API precisa liberar o CORS para a origem do servidor de desenvolvimento do front-end.
 
 ## Plano de desenvolvimento
 
 | Fase | Entrega | Situação |
 | --- | --- | --- |
-| 0. Base | Projeto configurado, banco com Docker Compose, Flyway, ArchUnit, health check, configuração de segurança provisória, CORS e projeto do front-end (React e Tailwind CSS) criado. | **Parcial.** Feitos: Docker Compose, Flyway, ArchUnit, `Makefile` e a validação do esquema. Pendentes: integração contínua (RNF06), CORS (RNF09), verificação do banco no health check (RNF23) e o projeto do front-end. |
-| 1. Catálogo | Livros, autores, categorias e exemplares, com migrações, interface e testes. | **Concluída na API**, com cadastro, consulta, listagem, edição e inativação dos quatro recursos. Pendentes: a pesquisa de livros com exemplares disponíveis (RF05) e a interface. |
+| 0. Base | Projeto configurado, banco com Docker Compose, Flyway, ArchUnit, health check, configuração de segurança provisória e CORS. O projeto do front-end (React e Tailwind CSS) é criado e acompanhado no repositório próprio dele, fora deste plano. | **Parcial.** Feitos: Docker Compose, Flyway, ArchUnit, `Makefile` e a validação do esquema. Pendentes: integração contínua (RNF06), CORS (RNF09) e verificação do banco no health check (RNF23). |
+| 1. Catálogo | Livros, autores, categorias e exemplares, com migrações, interface e testes. | **Concluída na API**, com cadastro, consulta, listagem, edição e inativação dos quatro recursos. Pendentes: a pesquisa de livros com exemplares disponíveis (RF05); a interface fica no repositório do front-end. |
 | 2. Leitores e acesso | Cadastro de leitores, usuários do sistema, login e perfis, na API e no front-end. | Não iniciada. |
 | 3. Empréstimos | Configuração da biblioteca (política de penalidade), empréstimo, devolução, renovação, penalidades por atraso (multa ou suspensão) e relatório de atrasos, com o domínio completo e testes. | Não iniciada. |
 | 4. Complementos | Reservas, relatórios adicionais e demais parâmetros configuráveis. | Não iniciada. |
 | 5. Evolução | Notificações por e-mail, importação por ISBN, exportação de relatórios e integração contínua. | Não iniciada. A integração contínua (RNF06) é prioridade M e deve ser antecipada. |
 
-O empréstimo concentra as regras mais importantes e deve ter o domínio mais completo e mais testado. O catálogo é o ponto de partida natural por ser a base dos demais módulos. Cada fase entrega a API e as telas correspondentes do front-end.
+O empréstimo concentra as regras mais importantes e deve ter o domínio mais completo e mais testado. O catálogo é o ponto de partida natural por ser a base dos demais módulos. Cada fase entrega a API aqui e as telas correspondentes no repositório do front-end.
 
 A capacidade estimada é de cerca de 8 horas por semana, com mínimo de 4. Descontadas as três últimas semanas, reservadas para correções, documentação e estabilização, restam cerca de 135 horas de desenvolvimento no ritmo de 8 horas por semana, ou 70 horas no ritmo mínimo. Esse volume cobre os requisitos de prioridade M e deve deixar folga para boa parte dos itens S. Os itens S só entram depois que todos os M estiverem prontos e testados, e os C ficam para versões futuras.
 
@@ -236,7 +236,7 @@ Se no fim de dezembro a fase 3 ainda não estiver encaminhada, a fase 4 sai do p
 ## Decisões tomadas
 
 - **Java 25.** Versão confirmada para o projeto.
-- **Front-end separado, em repositório próprio.** React com Tailwind CSS, consumindo a API REST do backend, em um repositório diferente deste (decidido em 10/10/2026; descartada a opção de pasta `frontend/` no mesmo repo). As dependências do Thymeleaf já saíram do `pom.xml`, e o backend expõe apenas a API.
+- **Front-end separado, em repositório próprio.** React com Tailwind CSS, consumindo a API REST do backend, em um repositório diferente deste (decidido em 10/10/2026; descartada a opção de pasta `frontend/` no mesmo repo). A criação e o acompanhamento do projeto do front-end ficam nesse repositório, e por isso saem das pendências da Fase 0 deste (decidido em 14/10/2026). As dependências do Thymeleaf já saíram do `pom.xml`, e o backend expõe apenas a API. Ainda em aberto, e a decidir lá: build, TypeScript ou JavaScript, roteamento e cliente HTTP.
 - **Autenticação por JWT com refresh token** (decidido em 10/10/2026; descartada sessão com cookie).
 - **Penalidade por atraso configurável.** A biblioteca escolhe, em configuração, entre multa, suspensão, ambas ou nenhuma (RF20, RF26, RN08 e RN16). O sistema não fixa essa escolha.
 - **Valores iniciais da política de penalidade** (decidido em 10/10/2026): multa de R$ 1,00 por dia de atraso com teto de R$ 10,00; suspensão de 1 dia por dia de atraso com teto de 1 ano (ver nota em RN08 sobre o modelo de acúmulo assumido).
