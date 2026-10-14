@@ -58,6 +58,7 @@ Valores conferidos com o `pom.xml` do projeto e atualizados pelas decisões regi
 | Desenvolvimento | Spring Boot DevTools | Reinício automático ao salvar. |
 | Testes | Back-end: JUnit 5, Mockito, Spring Boot Test, Testcontainers (PostgreSQL), ArchUnit 1.4.1. Front-end: testes de componentes (por exemplo, Vitest e React Testing Library), a definir. | |
 | Versionamento | Git e GitHub | GitHub Projects com milestones e issues (milestones por fase e uma issue por entrega). |
+| Integração contínua | GitHub Actions | Workflow `.github/workflows/ci.yml`: `./mvnw verify` a cada push na `main` e a cada pull request, com JDK 25 e Docker do runner para os testes com Testcontainers (RNF06). |
 
 ## Arquitetura
 
@@ -212,12 +213,12 @@ O front-end é criado, executado e acompanhado separadamente, em seu próprio re
 
 | Fase | Entrega | Situação |
 | --- | --- | --- |
-| 0. Base | Projeto configurado, banco com Docker Compose, Flyway, ArchUnit, health check, configuração de segurança provisória e CORS. O projeto do front-end (React e Tailwind CSS) é criado e acompanhado no repositório próprio dele, fora deste plano. | **Parcial.** Feitos: Docker Compose, Flyway, ArchUnit, `Makefile` e a validação do esquema. Pendente: integração contínua (RNF06). |
+| 0. Base | Projeto configurado, banco com Docker Compose, Flyway, ArchUnit, health check, configuração de segurança provisória, CORS e integração contínua. O projeto do front-end (React e Tailwind CSS) é criado e acompanhado no repositório próprio dele, fora deste plano. | **Concluída** neste repositório: Docker Compose, Flyway, ArchUnit, `Makefile`, validação do esquema, health check do banco (RNF23), CORS (RNF09) e integração contínua (RNF06). |
 | 1. Catálogo | Livros, autores, categorias e exemplares, com migrações, interface e testes. | **Concluída na API**, com cadastro, consulta, listagem, edição e inativação dos quatro recursos. Pendentes: a pesquisa de livros com exemplares disponíveis (RF05); a interface fica no repositório do front-end. |
 | 2. Leitores e acesso | Cadastro de leitores, usuários do sistema, login e perfis, na API e no front-end. | Não iniciada. |
 | 3. Empréstimos | Configuração da biblioteca (política de penalidade), empréstimo, devolução, renovação, penalidades por atraso (multa ou suspensão) e relatório de atrasos, com o domínio completo e testes. | Não iniciada. |
 | 4. Complementos | Reservas, relatórios adicionais e demais parâmetros configuráveis. | Não iniciada. |
-| 5. Evolução | Notificações por e-mail, importação por ISBN, exportação de relatórios e integração contínua. | Não iniciada. A integração contínua (RNF06) é prioridade M e deve ser antecipada. |
+| 5. Evolução | Notificações por e-mail, importação por ISBN, exportação de relatórios. | Não iniciada. |
 
 O empréstimo concentra as regras mais importantes e deve ter o domínio mais completo e mais testado. O catálogo é o ponto de partida natural por ser a base dos demais módulos. Cada fase entrega a API aqui e as telas correspondentes no repositório do front-end.
 
