@@ -210,4 +210,16 @@ class CopyPersistenceAdapterTest {
         assertThat(updated.getVersion()).isGreaterThan(saved.getVersion());
         assertThat(adapter.findById(saved.getId()).orElseThrow().getStatus()).isEqualTo(CopyStatus.DAMAGED);
     }
+
+    @Test
+    void deactivatedCopyShouldStayInTheDatabaseWithActiveFalse() {
+        var saved = adapter.save(Copy.create(bookId, "PAT-1"));
+        saved.deactivate();
+
+        adapter.save(saved);
+
+        assertThat(jdbcTemplate.queryForObject("select active from copy where id = ?", Boolean.class,
+                saved.getId())).isFalse();
+        assertThat(adapter.findById(saved.getId()).orElseThrow().getAssetCode()).isEqualTo("PAT-1");
+    }
 }

@@ -1,5 +1,6 @@
 package com.riverfount.booksmanager.catalog.adapter.in.web;
 
+import com.riverfount.booksmanager.catalog.application.port.in.DeactivateCopyUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.GetCopyUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ListCopiesQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.ListCopiesUseCase;
@@ -19,8 +20,10 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -28,25 +31,29 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @RestController
 @RequestMapping("/api/v1/copies")
-@Tag(name = "Copies", description = "Cadastro, consulta, listagem e edição de status de exemplares de um livro (RF04).")
+@Tag(name = "Copies", description = "Cadastro, consulta, listagem e edição de status e inativação de exemplares de um livro (RF04).")
 class CopyController {
 
     private final RegisterCopyUseCase registerCopyUseCase;
     private final GetCopyUseCase getCopyUseCase;
     private final ListCopiesUseCase listCopiesUseCase;
     private final UpdateCopyUseCase updateCopyUseCase;
+    private final DeactivateCopyUseCase deactivateCopyUseCase;
 
     CopyController(RegisterCopyUseCase registerCopyUseCase, GetCopyUseCase getCopyUseCase,
-            ListCopiesUseCase listCopiesUseCase, UpdateCopyUseCase updateCopyUseCase) {
+            ListCopiesUseCase listCopiesUseCase, UpdateCopyUseCase updateCopyUseCase,
+            DeactivateCopyUseCase deactivateCopyUseCase) {
         this.registerCopyUseCase = registerCopyUseCase;
         this.getCopyUseCase = getCopyUseCase;
         this.listCopiesUseCase = listCopiesUseCase;
         this.updateCopyUseCase = updateCopyUseCase;
+        this.deactivateCopyUseCase = deactivateCopyUseCase;
     }
 
     @PostMapping
@@ -143,5 +150,23 @@ class CopyController {
     CopyResponse update(@PathVariable Long id, @Valid @RequestBody UpdateCopyRequest request) {
         var copy = updateCopyUseCase.update(new UpdateCopyCommand(id, request.status()));
         return CopyResponse.from(copy);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Inativar exemplar",
+            description = "Inativa o exemplar, sem excluí-lo fisicamente (RN14). Um exemplar emprestado não "
+                    + "pode ser inativado (RN10). Inativar um exemplar já inativo não tem efeito.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Exemplar inativado"),
+            @ApiResponse(responseCode = "404", description = "Exemplar não encontrado",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "422", description = "Exemplar emprestado não pode ser inativado (RN10)",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    void deactivate(@PathVariable Long id) {
+        deactivateCopyUseCase.deactivate(id);
     }
 }
