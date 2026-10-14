@@ -53,7 +53,7 @@ Valores conferidos com o `pom.xml` do projeto e atualizados pelas decisões regi
 | Validação | Bean Validation (`starter-validation`) | |
 | Documentação da API | SpringDoc OpenAPI 3.1.0 | Swagger UI em `/swagger-ui.html`. Serve de contrato com o front-end. |
 | Mapeamento | MapStruct 1.6.3 | Entre domínio, entidade JPA e DTO. Opcional no início. |
-| Observabilidade | Spring Boot Actuator | **Já está no `pom.xml`** (desde o commit `e67ef56`). Endpoint `/actuator/health` disponível; falta confirmar/configurar a verificação explícita da conexão com o banco (RNF23). |
+| Observabilidade | Spring Boot Actuator | Só o `/actuator/health` é exposto, público, listando o status de cada componente, inclusive o banco (RNF23, issue #77); os detalhes ficam ocultos e responde 503 se o banco cair. |
 | Ambiente | Docker Compose | Sobe o PostgreSQL pelo arquivo `compose.yaml`. |
 | Desenvolvimento | Spring Boot DevTools | Reinício automático ao salvar. |
 | Testes | Back-end: JUnit 5, Mockito, Spring Boot Test, Testcontainers (PostgreSQL), ArchUnit 1.4.1. Front-end: testes de componentes (por exemplo, Vitest e React Testing Library), a definir. | |
@@ -212,7 +212,7 @@ O front-end é criado, executado e acompanhado separadamente, em seu próprio re
 
 | Fase | Entrega | Situação |
 | --- | --- | --- |
-| 0. Base | Projeto configurado, banco com Docker Compose, Flyway, ArchUnit, health check, configuração de segurança provisória e CORS. O projeto do front-end (React e Tailwind CSS) é criado e acompanhado no repositório próprio dele, fora deste plano. | **Parcial.** Feitos: Docker Compose, Flyway, ArchUnit, `Makefile` e a validação do esquema. Pendentes: integração contínua (RNF06), CORS (RNF09) e verificação do banco no health check (RNF23). |
+| 0. Base | Projeto configurado, banco com Docker Compose, Flyway, ArchUnit, health check, configuração de segurança provisória e CORS. O projeto do front-end (React e Tailwind CSS) é criado e acompanhado no repositório próprio dele, fora deste plano. | **Parcial.** Feitos: Docker Compose, Flyway, ArchUnit, `Makefile` e a validação do esquema. Pendentes: integração contínua (RNF06) e CORS (RNF09). |
 | 1. Catálogo | Livros, autores, categorias e exemplares, com migrações, interface e testes. | **Concluída na API**, com cadastro, consulta, listagem, edição e inativação dos quatro recursos. Pendentes: a pesquisa de livros com exemplares disponíveis (RF05); a interface fica no repositório do front-end. |
 | 2. Leitores e acesso | Cadastro de leitores, usuários do sistema, login e perfis, na API e no front-end. | Não iniciada. |
 | 3. Empréstimos | Configuração da biblioteca (política de penalidade), empréstimo, devolução, renovação, penalidades por atraso (multa ou suspensão) e relatório de atrasos, com o domínio completo e testes. | Não iniciada. |

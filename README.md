@@ -109,6 +109,9 @@ Os erros seguem o formato ProblemDetail (400, 404 e 422). Os detalhes do contrat
 - Os testes de persistência usam o PostgreSQL real via Testcontainers, por isso o Docker precisa estar em execução.
 - Para rodar uma classe só: `./mvnw test -Dtest=BookTest`.
 
+### Verificação de saúde
+A rota pública **http://localhost:8080/actuator/health** informa se a aplicação e o banco estão no ar (200 com `UP`, ou 503 com `DOWN` se a conexão com o banco falhar). É o único endpoint do Actuator exposto.
+
 ### Banco de dados
 O PostgreSQL é executado em um container Docker, definido no arquivo **compose.yaml** na raiz do projeto. As tabelas são criadas e atualizadas por scripts do Flyway, na pasta **src/main/resources/db/migration**; a migração atual (**V1__create_catalog.sql**) cria as tabelas do catálogo (`category`, `author`, `book`, `book_author`, `copy`).
 
