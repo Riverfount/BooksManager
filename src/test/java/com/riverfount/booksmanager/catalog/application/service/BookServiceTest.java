@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.riverfount.booksmanager.catalog.application.port.in.ListBooksQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterBookCommand;
+import com.riverfount.booksmanager.catalog.application.port.in.UpdateBookCommand;
 import com.riverfount.booksmanager.catalog.domain.Book;
 import com.riverfount.booksmanager.catalog.domain.Author;
 import com.riverfount.booksmanager.catalog.domain.Category;
@@ -12,6 +13,7 @@ import com.riverfount.booksmanager.catalog.domain.Isbn;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.InvalidQueryException;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
+import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -190,6 +192,121 @@ class BookServiceTest {
         assertThatThrownBy(() -> new ListBooksQuery(true, PageQuery.of(0, 20, "publisher")))
                 .isInstanceOf(InvalidQueryException.class)
                 .hasMessageContaining("publisher");
+    }
+
+    @Test
+    void shouldUpdateOnlyTheSentFields() {
+        var book = register("9788533302273", "Dom Casmurro", 1899);
+
+        var updated = service.update(new UpdateBookCommand(book.getId(), "Dom Casmurro (revisado)", null, null,
+                null, null));
+
+        assertThat(updated.getTitle()).isEqualTo("Dom Casmurro (revisado)");
+        assertThat(updated.getPublisher()).isEqualTo("Editora X");
+        assertThat(updated.getPublicationYear()).isEqualTo(1899);
+        assertThat(updated.getCategoryId()).isEqualTo(categoryId);
+        assertThat(updated.getAuthorIds()).containsExactly(authorId);
+        assertThat(updated.getIsbn()).isEqualTo(new Isbn("9788533302273"));
+        assertThat(bookRepository.findById(book.getId()).orElseThrow().getTitle())
+                .isEqualTo("Dom Casmurro (revisado)");
+    }
+
+    @Test
+    void shouldUpdateAllEditableFields() {
+        var book = register("9788533302273", "Dom Casmurro", 1899);
+        var newCategoryId = categoryRepository.save(Category.create("Romance")).getId();
+        var newAuthorId = authorRepository.save(Author.create("Outro Autor")).getId();
+
+        var updated = service.update(new UpdateBookCommand(book.getId(), "Novo título", "Editora Y", 1900,
+                newCategoryId, Set.of(newAuthorId)));
+
+        assertThat(updated.getTitle()).isEqualTo("Novo título");
+        assertThat(updated.getPublisher()).isEqualTo("Editora Y");
+        assertThat(updated.getPublicationYear()).isEqualTo(1900);
+        assertThat(updated.getCategoryId()).isEqualTo(newCategoryId);
+        assertThat(updated.getAuthorIds()).containsExactly(newAuthorId);
+    }
+
+    @Test
+    void shouldNotUpdateNonExistentBook() {
+        assertThatThrownBy(() -> service.update(new UpdateBookCommand(999L, "Título", null, null, null, null)))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void shouldNotUpdateWithNonExistentCategory() {
+        var book = register("9788533302273", "Dom Casmurro", 1899);
+
+        assertThatThrownBy(() -> service.update(new UpdateBookCommand(book.getId(), null, null, null, 999999L,
+                null)))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("categoria não encontrada");
+    }
+
+    @Test
+    void shouldNotUpdateWithInactiveCategory() {
+        var book = register("9788533302273", "Dom Casmurro", 1899);
+        categoryRepository.save(Category.reconstitute(500L, "Categoria inativa", false));
+
+        assertThatThrownBy(() -> service.update(new UpdateBookCommand(book.getId(), null, null, null, 500L,
+                null)))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("categoria inativa");
+    }
+
+    @Test
+    void shouldNotUpdateWithNonExistentAuthor() {
+        var book = register("9788533302273", "Dom Casmurro", 1899);
+
+        assertThatThrownBy(() -> service.update(new UpdateBookCommand(book.getId(), null, null, null, null,
+                Set.of(authorId, 999999L))))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("autor não encontrado");
+    }
+
+    @Test
+    void shouldNotUpdateWithInactiveAuthor() {
+        var book = register("9788533302273", "Dom Casmurro", 1899);
+        authorRepository.save(Author.reconstitute(600L, "Autor inativo", false));
+
+        assertThatThrownBy(() -> service.update(new UpdateBookCommand(book.getId(), null, null, null, null,
+                Set.of(600L))))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("autor inativo");
+    }
+
+    @Test
+    void shouldKeepCurrentInactiveCategoryWhenItIsNotChanged() {
+        var book = register("9788533302273", "Dom Casmurro", 1899);
+        categoryRepository.save(Category.reconstitute(categoryId, "Ficção", false));
+
+        // sending the same categoryId the book already had is not a change
+        var updated = service.update(new UpdateBookCommand(book.getId(), "Novo título", null, null, categoryId,
+                null));
+
+        assertThat(updated.getTitle()).isEqualTo("Novo título");
+        assertThat(updated.getCategoryId()).isEqualTo(categoryId);
+    }
+
+    @Test
+    void shouldKeepCurrentInactiveAuthorWhenItIsNotRemoved() {
+        var book = register("9788533302273", "Dom Casmurro", 1899);
+        authorRepository.save(Author.reconstitute(authorId, "Machado de Assis", false));
+        var newAuthorId = authorRepository.save(Author.create("Outro Autor")).getId();
+
+        var updated = service.update(new UpdateBookCommand(book.getId(), null, null, null, null,
+                Set.of(authorId, newAuthorId)));
+
+        assertThat(updated.getAuthorIds()).containsExactlyInAnyOrder(authorId, newAuthorId);
+    }
+
+    @Test
+    void shouldNotUpdateWithInvalidTitle() {
+        var book = register("9788533302273", "Dom Casmurro", 1899);
+
+        assertThatThrownBy(() -> service.update(new UpdateBookCommand(book.getId(), " ", null, null, null,
+                null)))
+                .isInstanceOf(BusinessRuleException.class);
     }
 
     private Book register(String isbn, String title, Integer publicationYear) {

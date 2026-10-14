@@ -93,6 +93,19 @@ public class Book {
         authorIds.remove(authorId);
     }
 
+    /**
+     * Replaces the whole set of authors at once, keeping the rule that a
+     * book always has at least one author.
+     */
+    public void replaceAuthors(Set<Long> newAuthorIds) {
+        validateAuthors(newAuthorIds);
+        if (newAuthorIds.stream().anyMatch(Objects::isNull)) {
+            throw new BusinessRuleException("o id do autor é obrigatório");
+        }
+        authorIds.clear();
+        authorIds.addAll(newAuthorIds);
+    }
+
     public void deactivate() {
         this.active = false;
     }

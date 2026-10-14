@@ -5,6 +5,8 @@ import com.riverfount.booksmanager.catalog.application.port.in.ListBooksQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.ListBooksUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterBookCommand;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterBookUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.UpdateBookCommand;
+import com.riverfount.booksmanager.catalog.application.port.in.UpdateBookUseCase;
 import com.riverfount.booksmanager.shared.adapter.in.web.PageResponse;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
@@ -19,6 +21,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -29,18 +32,20 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @RestController
 @RequestMapping("/api/v1/books")
-@Tag(name = "Books", description = "Cadastro, consulta e listagem de livros do acervo (RF01).")
+@Tag(name = "Books", description = "Cadastro, consulta, listagem e edição de livros do acervo (RF01).")
 class BookController {
 
     private final RegisterBookUseCase registerBookUseCase;
     private final GetBookUseCase getBookUseCase;
     private final ListBooksUseCase listBooksUseCase;
+    private final UpdateBookUseCase updateBookUseCase;
 
     BookController(RegisterBookUseCase registerBookUseCase, GetBookUseCase getBookUseCase,
-            ListBooksUseCase listBooksUseCase) {
+            ListBooksUseCase listBooksUseCase, UpdateBookUseCase updateBookUseCase) {
         this.registerBookUseCase = registerBookUseCase;
         this.getBookUseCase = getBookUseCase;
         this.listBooksUseCase = listBooksUseCase;
+        this.updateBookUseCase = updateBookUseCase;
     }
 
     @PostMapping
@@ -106,5 +111,31 @@ class BookController {
         return getBookUseCase.findById(id)
                 .map(BookResponse::from)
                 .orElseThrow(() -> new ResourceNotFoundException("livro não encontrado: " + id));
+    }
+
+    @PatchMapping("/{id}")
+    @Operation(summary = "Editar livro",
+            description = "Altera só os campos enviados; os omitidos mantêm o valor atual. O ISBN é imutável "
+                    + "(RN01): se vier no corpo, é ignorado. Categoria e autores só precisam estar ativos "
+                    + "quando são novos para o livro; os que ele já tinha continuam aceitos mesmo "
+                    + "inativados depois. O conjunto de autores enviado substitui o atual.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Livro atualizado"),
+            @ApiResponse(responseCode = "400", description = "Requisição inválida",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "404", description = "Livro não encontrado",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "422",
+                    description = "Categoria ou autor inexistente ou inativo, ou dado que viola uma regra "
+                            + "do livro (ano de publicação futuro, por exemplo)",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    BookResponse update(@PathVariable Long id, @Valid @RequestBody UpdateBookRequest request) {
+        var book = updateBookUseCase.update(new UpdateBookCommand(id, request.title(), request.publisher(),
+                request.publicationYear(), request.categoryId(), request.authorIds()));
+        return BookResponse.from(book);
     }
 }
