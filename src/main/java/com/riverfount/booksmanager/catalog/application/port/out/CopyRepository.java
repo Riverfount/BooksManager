@@ -1,6 +1,9 @@
 package com.riverfount.booksmanager.catalog.application.port.out;
 
 import com.riverfount.booksmanager.catalog.domain.Copy;
+import com.riverfount.booksmanager.catalog.domain.CopyStatus;
+import com.riverfount.booksmanager.shared.domain.PageQuery;
+import com.riverfount.booksmanager.shared.domain.PageResult;
 import java.util.Optional;
 
 /**
@@ -13,4 +16,11 @@ public interface CopyRepository {
     Optional<Copy> findById(Long id);
 
     boolean existsByAssetCode(String assetCode);
+
+    /**
+     * Lists copies by active flag, optionally filtered by book and status
+     * (null means no filter). The sort field is one of
+     * ListCopiesQuery.SORTABLE_FIELDS.
+     */
+    PageResult<Copy> findAll(Long bookId, CopyStatus status, boolean active, PageQuery page);
 }

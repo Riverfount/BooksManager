@@ -2,8 +2,12 @@ package com.riverfount.booksmanager.catalog.adapter.out.persistence;
 
 import com.riverfount.booksmanager.catalog.application.port.out.CopyRepository;
 import com.riverfount.booksmanager.catalog.domain.Copy;
+import com.riverfount.booksmanager.catalog.domain.CopyStatus;
 import com.riverfount.booksmanager.shared.adapter.out.persistence.ConstraintViolations;
+import com.riverfount.booksmanager.shared.adapter.out.persistence.SpringDataPages;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
+import com.riverfount.booksmanager.shared.domain.PageQuery;
+import com.riverfount.booksmanager.shared.domain.PageResult;
 import java.util.Optional;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
@@ -45,6 +49,12 @@ class CopyPersistenceAdapter implements CopyRepository {
     @Override
     public boolean existsByAssetCode(String assetCode) {
         return jpaRepository.existsByAssetCode(assetCode);
+    }
+
+    @Override
+    public PageResult<Copy> findAll(Long bookId, CopyStatus status, boolean active, PageQuery page) {
+        var result = jpaRepository.search(bookId, status, active, SpringDataPages.toPageable(page));
+        return SpringDataPages.toPageResult(result, this::toDomain);
     }
 
     private Copy toDomain(CopyJpaEntity entity) {
