@@ -115,6 +115,9 @@ O navegador só deixa o front-end chamar a API se a origem dele estiver liberada
 ### Verificação de saúde
 A rota pública **http://localhost:8080/actuator/health** informa se a aplicação e o banco estão no ar (200 com `UP`, ou 503 com `DOWN` se a conexão com o banco falhar). É o único endpoint do Actuator exposto.
 
+### Integração contínua
+O workflow `.github/workflows/ci.yml` roda `./mvnw verify` (testes, Testcontainers e ArchUnit) com JDK 25 a cada push na `main` e a cada pull request. Se o build falhar, os relatórios de teste ficam disponíveis como artefato da execução por 7 dias. Nenhum segredo é necessário.
+
 ### Banco de dados
 O PostgreSQL é executado em um container Docker, definido no arquivo **compose.yaml** na raiz do projeto. As tabelas são criadas e atualizadas por scripts do Flyway, na pasta **src/main/resources/db/migration**; a migração atual (**V1__create_catalog.sql**) cria as tabelas do catálogo (`category`, `author`, `book`, `book_author`, `copy`).
 
@@ -135,7 +138,7 @@ As versões abaixo refletem o que está declarado no **pom.xml** e no **compose.
 | Monitoramento | Spring Boot Actuator |
 | Testes | JUnit 5 · Mockito · Spring Boot Test (fatias de web, JPA e segurança) · Testcontainers (PostgreSQL) · ArchUnit 1.4.1 |
 | Apoio ao desenvolvimento | Spring Boot DevTools · Spring Boot Docker Compose |
-| Ambiente | Docker Compose · Maven 3.9.16 (wrapper) · Git/GitHub |
+| Ambiente | Docker Compose · Maven 3.9.16 (wrapper) · Git/GitHub · GitHub Actions |
 
 O front-end (React + Tailwind CSS) é um projeto separado deste back-end, em repositório próprio, e o acompanhamento dele acontece lá. Suas ferramentas (build, TypeScript/JavaScript, roteamento, cliente HTTP) ainda não foram definidas.
 
