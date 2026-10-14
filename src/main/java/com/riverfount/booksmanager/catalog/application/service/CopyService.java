@@ -1,5 +1,6 @@
 package com.riverfount.booksmanager.catalog.application.service;
 
+import com.riverfount.booksmanager.catalog.application.port.in.DeactivateCopyUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.GetCopyUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ListCopiesQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.ListCopiesUseCase;
@@ -18,7 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Orchestrates registering, querying, listing and updating Copy: fetches what the domain
+ * Orchestrates registering, querying, listing, updating and deactivating Copy: fetches what the domain
  * needs to decide (does the book exist and is it active? does the asset
  * code already exist?), calls the domain and persists. The business
  * decision itself lives in the domain (Copy.create,
@@ -27,7 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 class CopyService implements RegisterCopyUseCase, GetCopyUseCase, ListCopiesUseCase,
-        UpdateCopyUseCase {
+        UpdateCopyUseCase, DeactivateCopyUseCase {
 
     private final CopyRepository copyRepository;
     private final BookRepository bookRepository;
@@ -69,6 +70,14 @@ class CopyService implements RegisterCopyUseCase, GetCopyUseCase, ListCopiesUseC
             copy.changeStatus(command.status());
         }
         return copyRepository.save(copy);
+    }
+
+    @Override
+    public void deactivate(Long id) {
+        var copy = copyRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("exemplar não encontrado: " + id));
+        copy.deactivate();
+        copyRepository.save(copy);
     }
 
     private void validateBookExistsAndIsActive(Long bookId) {

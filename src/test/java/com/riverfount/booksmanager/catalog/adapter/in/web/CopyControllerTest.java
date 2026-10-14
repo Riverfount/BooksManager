@@ -6,7 +6,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -15,6 +17,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.riverfount.booksmanager.catalog.application.port.in.DeactivateCopyUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.GetCopyUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ListCopiesQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.ListCopiesUseCase;
@@ -58,6 +61,9 @@ class CopyControllerTest {
 
     @MockitoBean
     private UpdateCopyUseCase updateCopyUseCase;
+
+    @MockitoBean
+    private DeactivateCopyUseCase deactivateCopyUseCase;
 
     @Test
     @WithMockUser
@@ -325,6 +331,39 @@ class CopyControllerTest {
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")))
                 .andExpect(jsonPath("$.detail").value(containsString("BORROWED")));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldDeactivateCopyAndReturn204WithoutBody() throws Exception {
+        mockMvc.perform(delete("/api/v1/copies/1").with(csrf()))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+
+        then(deactivateCopyUseCase).should().deactivate(1L);
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn404WhenDeactivatingNonExistentCopy() throws Exception {
+        willThrow(new ResourceNotFoundException("exemplar não encontrado: 99"))
+                .given(deactivateCopyUseCase).deactivate(99L);
+
+        mockMvc.perform(delete("/api/v1/copies/99").with(csrf()))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn422WhenDeactivatingBorrowedCopy() throws Exception {
+        willThrow(new BusinessRuleException("o exemplar não pode ser inativado enquanto estiver emprestado"))
+                .given(deactivateCopyUseCase).deactivate(1L);
+
+        mockMvc.perform(delete("/api/v1/copies/1").with(csrf()))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")))
+                .andExpect(jsonPath("$.detail").value(containsString("emprestado")));
     }
 
     private ListCopiesQuery capturedQuery() {

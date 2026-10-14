@@ -243,4 +243,36 @@ class CopyTest {
 
         assertThatThrownBy(() -> copy.changeStatus(null)).isInstanceOf(BusinessRuleException.class);
     }
+
+    @Test
+    void deactivatingAnInactiveCopyShouldBeNoOp() {
+        var copy = Copy.create(1L, "PAT-1");
+        copy.deactivate();
+
+        copy.deactivate();
+
+        assertThat(copy.isActive()).isFalse();
+    }
+
+    @Test
+    void deactivatingShouldKeepTheCopyData() {
+        var copy = Copy.reconstitute(1L, 7L, "PAT-1", CopyStatus.LOST, true, 3L);
+
+        copy.deactivate();
+
+        assertThat(copy.getBookId()).isEqualTo(7L);
+        assertThat(copy.getAssetCode()).isEqualTo("PAT-1");
+        assertThat(copy.getStatus()).isEqualTo(CopyStatus.LOST);
+        assertThat(copy.getVersion()).isEqualTo(3L);
+    }
+
+    @Test
+    void borrowedCopyShouldStayActiveWhenDeactivationIsRefused() {
+        var copy = Copy.reconstitute(1L, 1L, "PAT-1", CopyStatus.BORROWED, true, 0L);
+
+        assertThatThrownBy(copy::deactivate)
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("emprestado");
+        assertThat(copy.isActive()).isTrue();
+    }
 }

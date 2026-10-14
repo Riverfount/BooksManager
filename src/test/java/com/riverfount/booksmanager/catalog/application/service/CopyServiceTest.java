@@ -213,6 +213,46 @@ class CopyServiceTest {
                 .isEqualTo(CopyStatus.BORROWED);
     }
 
+    @Test
+    void shouldDeactivateExistingCopyKeepingItStored() {
+        var copy = service.register(new RegisterCopyCommand(bookId, "PAT-1"));
+
+        service.deactivate(copy.getId());
+
+        var stored = copyRepository.findById(copy.getId()).orElseThrow();
+        assertThat(stored.isActive()).isFalse();
+        assertThat(stored.getAssetCode()).isEqualTo("PAT-1");
+        assertThat(stored.getBookId()).isEqualTo(bookId);
+    }
+
+    @Test
+    void shouldBeIdempotentWhenDeactivatingAnInactiveCopy() {
+        var copy = service.register(new RegisterCopyCommand(bookId, "PAT-1"));
+        deactivate(copy);
+
+        service.deactivate(copy.getId());
+
+        assertThat(copyRepository.findById(copy.getId()).orElseThrow().isActive()).isFalse();
+    }
+
+    @Test
+    void shouldNotDeactivateNonExistentCopy() {
+        assertThatThrownBy(() -> service.deactivate(99L))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("99");
+    }
+
+    @Test
+    void shouldNotDeactivateBorrowedCopy() {
+        var copy = service.register(new RegisterCopyCommand(bookId, "PAT-1"));
+        copy.checkOut();
+        copyRepository.save(copy);
+
+        assertThatThrownBy(() -> service.deactivate(copy.getId()))
+                .isInstanceOf(BusinessRuleException.class);
+        assertThat(copyRepository.findById(copy.getId()).orElseThrow().isActive()).isTrue();
+    }
+
     private void deactivate(Copy copy) {
         copy.deactivate();
         copyRepository.save(copy);
