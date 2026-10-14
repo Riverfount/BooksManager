@@ -109,6 +109,9 @@ Os erros seguem o formato ProblemDetail (400, 404 e 422). Os detalhes do contrat
 - Os testes de persistência usam o PostgreSQL real via Testcontainers, por isso o Docker precisa estar em execução.
 - Para rodar uma classe só: `./mvnw test -Dtest=BookTest`.
 
+### CORS
+O navegador só deixa o front-end chamar a API se a origem dele estiver liberada. Defina a variável de ambiente **APP_CORS_ALLOWED_ORIGINS** com a origem do front-end (várias, separadas por vírgula), por exemplo `http://localhost:5173`. Sem ela, nenhuma origem é aceita. O `.env-sample` traz o exemplo; a variável precisa estar no ambiente do processo (exportada no terminal ou configurada na IDE), pois o Spring não lê o `.env` sozinho. São permitidos os métodos `GET`, `POST`, `PATCH`, `DELETE` e `OPTIONS` e os cabeçalhos `Authorization` e `Content-Type`.
+
 ### Verificação de saúde
 A rota pública **http://localhost:8080/actuator/health** informa se a aplicação e o banco estão no ar (200 com `UP`, ou 503 com `DOWN` se a conexão com o banco falhar). É o único endpoint do Actuator exposto.
 

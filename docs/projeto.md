@@ -100,7 +100,7 @@ A penalidade por atraso é uma política do domínio, com variantes para multa, 
 
 ### Interface e API
 
-A interface é uma aplicação React separada do backend, em repositório próprio, e se comunica com ele apenas por HTTP e JSON. Os controllers REST são os adaptadores de entrada da API: traduzem as requisições em commands dos casos de uso e devolvem DTOs próprios, nunca as classes de domínio. A API é versionada (`/api/v1`), seu contrato fica registrado no OpenAPI e o CORS é restrito à origem do front-end (ainda por configurar, ver "Plano de desenvolvimento"). O backend não guarda sessão no servidor.
+A interface é uma aplicação React separada do backend, em repositório próprio, e se comunica com ele apenas por HTTP e JSON. Os controllers REST são os adaptadores de entrada da API: traduzem as requisições em commands dos casos de uso e devolvem DTOs próprios, nunca as classes de domínio. A API é versionada (`/api/v1`), seu contrato fica registrado no OpenAPI e o CORS é restrito à origem do front-end, configurada pela variável `APP_CORS_ALLOWED_ORIGINS` (issue #76): sem ela, nenhuma origem é aceita; só a rota `/api/**` é coberta e o filtro roda antes da cadeia de segurança, para o pré-voo `OPTIONS` (sem credenciais) não receber 401. O backend não guarda sessão no servidor.
 
 Todos os recursos do catálogo (livros, autores, categorias e exemplares) seguem o mesmo contrato de CRUD, descrito a seguir. Os erros saem sempre em ProblemDetail (RFC 9457): 400 para requisição inválida, 404 para id inexistente e 422 para violação de regra de negócio.
 
@@ -212,7 +212,7 @@ O front-end é criado, executado e acompanhado separadamente, em seu próprio re
 
 | Fase | Entrega | Situação |
 | --- | --- | --- |
-| 0. Base | Projeto configurado, banco com Docker Compose, Flyway, ArchUnit, health check, configuração de segurança provisória e CORS. O projeto do front-end (React e Tailwind CSS) é criado e acompanhado no repositório próprio dele, fora deste plano. | **Parcial.** Feitos: Docker Compose, Flyway, ArchUnit, `Makefile` e a validação do esquema. Pendentes: integração contínua (RNF06) e CORS (RNF09). |
+| 0. Base | Projeto configurado, banco com Docker Compose, Flyway, ArchUnit, health check, configuração de segurança provisória e CORS. O projeto do front-end (React e Tailwind CSS) é criado e acompanhado no repositório próprio dele, fora deste plano. | **Parcial.** Feitos: Docker Compose, Flyway, ArchUnit, `Makefile` e a validação do esquema. Pendente: integração contínua (RNF06). |
 | 1. Catálogo | Livros, autores, categorias e exemplares, com migrações, interface e testes. | **Concluída na API**, com cadastro, consulta, listagem, edição e inativação dos quatro recursos. Pendentes: a pesquisa de livros com exemplares disponíveis (RF05); a interface fica no repositório do front-end. |
 | 2. Leitores e acesso | Cadastro de leitores, usuários do sistema, login e perfis, na API e no front-end. | Não iniciada. |
 | 3. Empréstimos | Configuração da biblioteca (política de penalidade), empréstimo, devolução, renovação, penalidades por atraso (multa ou suspensão) e relatório de atrasos, com o domínio completo e testes. | Não iniciada. |
