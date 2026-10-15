@@ -7,6 +7,8 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.mockito.BDDMockito.willThrow;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -20,6 +22,7 @@ import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.PageResult;
 import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
 import com.riverfount.booksmanager.shared.domain.SortDirection;
+import com.riverfount.booksmanager.user.application.port.in.DeactivateReaderUseCase;
 import com.riverfount.booksmanager.user.application.port.in.GetReaderUseCase;
 import com.riverfount.booksmanager.user.application.port.in.ListReadersQuery;
 import com.riverfount.booksmanager.user.application.port.in.ListReadersUseCase;
@@ -65,6 +68,9 @@ class ReaderControllerTest {
 
     @MockitoBean
     private UpdateReaderUseCase updateReaderUseCase;
+
+    @MockitoBean
+    private DeactivateReaderUseCase deactivateReaderUseCase;
 
     private MockHttpServletRequestBuilder update(long id, String json) {
         return patch("/api/v1/readers/" + id).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(json);
@@ -498,5 +504,44 @@ class ReaderControllerTest {
         mockMvc.perform(update(1, "{\"birthDate\":\"2015-03-01\"}"))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").value(containsString("responsável")));
+    }
+
+    // deactivation (HU27, RN14)
+
+    @Test
+    @WithMockUser
+    void shouldDeactivateReaderAndReturn204WithoutBody() throws Exception {
+        mockMvc.perform(delete("/api/v1/readers/1").with(csrf()))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+
+        then(deactivateReaderUseCase).should().deactivate(1L);
+    }
+
+    @Test
+    @WithMockUser
+    void deactivatingAnAlreadyInactiveReaderShouldAlsoReturn204() throws Exception {
+        mockMvc.perform(delete("/api/v1/readers/1").with(csrf())).andExpect(status().isNoContent());
+        mockMvc.perform(delete("/api/v1/readers/1").with(csrf())).andExpect(status().isNoContent());
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn404WhenDeactivatingANonExistentReader() throws Exception {
+        willThrow(new ResourceNotFoundException("leitor não encontrado: 99"))
+                .given(deactivateReaderUseCase).deactivate(99L);
+
+        mockMvc.perform(delete("/api/v1/readers/99").with(csrf()))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+                .andExpect(jsonPath("$.detail").value("leitor não encontrado: 99"));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn400WhenDeactivatingWithANonNumericId() throws Exception {
+        mockMvc.perform(delete("/api/v1/readers/abc").with(csrf())).andExpect(status().isBadRequest());
+
+        then(deactivateReaderUseCase).should(never()).deactivate(any());
     }
 }

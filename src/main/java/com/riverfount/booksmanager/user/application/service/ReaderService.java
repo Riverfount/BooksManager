@@ -1,5 +1,6 @@
 package com.riverfount.booksmanager.user.application.service;
 
+import com.riverfount.booksmanager.user.application.port.in.DeactivateReaderUseCase;
 import com.riverfount.booksmanager.user.application.port.in.GetReaderUseCase;
 import com.riverfount.booksmanager.shared.domain.PageResult;
 import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
@@ -28,7 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 class ReaderService implements RegisterReaderUseCase, GetReaderUseCase, ListReadersUseCase,
-        UpdateReaderUseCase {
+        UpdateReaderUseCase, DeactivateReaderUseCase {
 
     private final ReaderRepository readerRepository;
     private final Clock clock;
@@ -77,6 +78,14 @@ class ReaderService implements RegisterReaderUseCase, GetReaderUseCase, ListRead
         Reader.validateUniqueDocument(reader.getDocument(),
                 readerRepository.existsByDocumentAndIdNot(reader.getDocument(), reader.getId()));
         return readerRepository.save(reader);
+    }
+
+    @Override
+    public void deactivate(Long id) {
+        var reader = readerRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("leitor não encontrado: " + id));
+        reader.deactivate();
+        readerRepository.save(reader);
     }
 
     /**

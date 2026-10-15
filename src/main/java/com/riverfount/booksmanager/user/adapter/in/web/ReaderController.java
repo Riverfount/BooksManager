@@ -3,6 +3,7 @@ package com.riverfount.booksmanager.user.adapter.in.web;
 import com.riverfount.booksmanager.shared.adapter.in.web.PageResponse;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
+import com.riverfount.booksmanager.user.application.port.in.DeactivateReaderUseCase;
 import com.riverfount.booksmanager.user.application.port.in.GetReaderUseCase;
 import com.riverfount.booksmanager.user.application.port.in.ListReadersQuery;
 import com.riverfount.booksmanager.user.application.port.in.ListReadersUseCase;
@@ -18,8 +19,10 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,6 +30,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -39,13 +43,16 @@ class ReaderController {
     private final GetReaderUseCase getReaderUseCase;
     private final ListReadersUseCase listReadersUseCase;
     private final UpdateReaderUseCase updateReaderUseCase;
+    private final DeactivateReaderUseCase deactivateReaderUseCase;
 
     ReaderController(RegisterReaderUseCase registerReaderUseCase, GetReaderUseCase getReaderUseCase,
-            ListReadersUseCase listReadersUseCase, UpdateReaderUseCase updateReaderUseCase) {
+            ListReadersUseCase listReadersUseCase, UpdateReaderUseCase updateReaderUseCase,
+            DeactivateReaderUseCase deactivateReaderUseCase) {
         this.registerReaderUseCase = registerReaderUseCase;
         this.getReaderUseCase = getReaderUseCase;
         this.listReadersUseCase = listReadersUseCase;
         this.updateReaderUseCase = updateReaderUseCase;
+        this.deactivateReaderUseCase = deactivateReaderUseCase;
     }
 
     @PostMapping
@@ -157,5 +164,22 @@ class ReaderController {
                 guardian == null ? null : guardian.email(),
                 guardian == null ? null : guardian.phone()));
         return ReaderResponse.from(reader);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Inativar leitor",
+            description = "Inativa o leitor, sem excluí-lo fisicamente (RN14): o registro e o histórico continuam, "
+                    + "o leitor sai da listagem padrão e não pode fazer empréstimos nem reservas (RN11). Inativar "
+                    + "um leitor já inativo não tem efeito. Um leitor bloqueado pode ser inativado e continua "
+                    + "bloqueado.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Leitor inativado"),
+            @ApiResponse(responseCode = "404", description = "Leitor não encontrado",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    void deactivate(@PathVariable Long id) {
+        deactivateReaderUseCase.deactivate(id);
     }
 }
