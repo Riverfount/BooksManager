@@ -112,4 +112,16 @@ class OpenApiSecurityTest {
                 .andExpect(jsonPath("$.paths['/api/v1/users'].post.description")
                         .value(org.hamcrest.Matchers.containsString("administrador")));
     }
+
+    @Test
+    void theGetAndListUserOperationsShouldDocumentTheirResponses() throws Exception {
+        for (var status : new String[] {"200", "400", "401", "403"}) {
+            mockMvc.perform(get("/v3/api-docs"))
+                    .andExpect(jsonPath("$.paths['/api/v1/users'].get.responses['" + status + "']").exists());
+        }
+        for (var status : new String[] {"200", "401", "403", "404"}) {
+            mockMvc.perform(get("/v3/api-docs"))
+                    .andExpect(jsonPath("$.paths['/api/v1/users/{id}'].get.responses['" + status + "']").exists());
+        }
+    }
 }

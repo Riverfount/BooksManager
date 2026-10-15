@@ -72,9 +72,11 @@ class OpenApiRequiredFieldsTest {
     @Test
     void theUserContractShouldRequireWhatItAlwaysSendsAndDemandsAndCarryNoSecret() throws Exception {
         apiDocs.andExpect(requiredOf("CreateUserRequest", "login", "password", "role"))
-                .andExpect(requiredOf("UserResponse", "id", "login", "role", "active"))
+                .andExpect(requiredOf("UserResponse", "id", "login", "role", "active", "blocked"))
                 .andExpect(jsonPath("$.components.schemas.UserResponse.properties.password").doesNotExist())
-                .andExpect(jsonPath("$.components.schemas.UserResponse.properties.passwordHash").doesNotExist());
+                .andExpect(jsonPath("$.components.schemas.UserResponse.properties.passwordHash").doesNotExist())
+                .andExpect(jsonPath("$.components.schemas.UserResponse.properties.failedLoginAttempts").doesNotExist())
+                .andExpect(jsonPath("$.components.schemas.UserResponse.properties.blockedUntil").exists());
     }
 
     @Test
@@ -86,7 +88,8 @@ class OpenApiRequiredFieldsTest {
     @Test
     void everyPageShouldRequireItsItemsAndMetadata() throws Exception {
         for (var schema : new String[] {"PageResponseBookResponse", "PageResponseAuthorResponse",
-                "PageResponseCategoryResponse", "PageResponseCopyResponse", "PageResponseReaderSummaryResponse"}) {
+                "PageResponseCategoryResponse", "PageResponseCopyResponse", "PageResponseReaderSummaryResponse",
+                "PageResponseUserResponse"}) {
             apiDocs.andExpect(requiredOf(schema, "items", "page", "size", "totalItems", "totalPages"));
         }
     }
