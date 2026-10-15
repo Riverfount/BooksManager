@@ -9,7 +9,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 class BCryptPasswordHasherTest {
 
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
-    private final BCryptPasswordHasher hasher = new BCryptPasswordHasher(encoder);
+    private final BCryptPasswordHasher hasher = new BCryptPasswordHasher();
 
     @Test
     void shouldProduceABcryptHashThatChecksAgainstThePassword() {
