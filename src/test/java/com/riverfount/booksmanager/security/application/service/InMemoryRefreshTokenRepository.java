@@ -41,6 +41,24 @@ class InMemoryRefreshTokenRepository implements RefreshTokenRepository {
                 .map(token -> copyWithId(token, token.getId()));
     }
 
+    @Override
+    public Optional<RefreshToken> findByTokenHashForUpdate(String tokenHash) {
+        return findByTokenHash(tokenHash);
+    }
+
+    @Override
+    public int revokeAllActiveOfUser(Long userId, java.time.Instant now) {
+        var revoked = 0;
+        for (var token : new java.util.ArrayList<>(tokens.values())) {
+            if (token.getUserId().equals(userId) && !token.isRevoked()) {
+                token.revoke(now);
+                tokens.put(token.getId(), copyWithId(token, token.getId()));
+                revoked++;
+            }
+        }
+        return revoked;
+    }
+
     int count() {
         return tokens.size();
     }

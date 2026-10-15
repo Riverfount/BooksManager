@@ -118,4 +118,63 @@ class RefreshTokenPersistenceAdapterTest {
 
         assertThatThrownBy(() -> adapter.save(orphan)).isInstanceOf(DataIntegrityViolationException.class);
     }
+
+    // lock, rotation and bulk revocation (RF08)
+
+    @Test
+    void shouldFindATokenByItsHashForUpdateWithTheSameState() {
+        var saved = adapter.save(newToken("raw-1"));
+
+        var found = adapter.findByTokenHashForUpdate(TokenHash.sha256Hex("raw-1")).orElseThrow();
+
+        assertThat(found.getId()).isEqualTo(saved.getId());
+        assertThat(found.getUserId()).isEqualTo(userId);
+        assertThat(adapter.findByTokenHashForUpdate(TokenHash.sha256Hex("another"))).isEmpty();
+        assertThat(adapter.findByTokenHashForUpdate(null)).isEmpty();
+    }
+
+    @Test
+    void shouldPersistARotation() {
+        var first = adapter.save(newToken("raw-1"));
+        var second = adapter.save(newToken("raw-2"));
+        first.rotate(NOW.plusSeconds(30), second.getId());
+        adapter.save(first);
+
+        var found = adapter.findByTokenHashForUpdate(first.getTokenHash()).orElseThrow();
+
+        assertThat(found.isRevoked()).isTrue();
+        assertThat(found.getRevokedAt()).isEqualTo(NOW.plusSeconds(30));
+        assertThat(found.getReplacedBy()).isEqualTo(second.getId());
+    }
+
+    @Test
+    void shouldRevokeEveryActiveTokenOfTheUserAndOnlyThose() {
+        var otherUser = jdbcTemplate.queryForObject(
+                "insert into app_user (login, password_hash, role) values ('joao', 'x', 'OPERATOR') returning id",
+                Long.class);
+        adapter.save(newToken("raw-1"));
+        adapter.save(newToken("raw-2"));
+        var alreadyRevoked = adapter.save(newToken("raw-3"));
+        alreadyRevoked.revoke(NOW.plusSeconds(5));
+        adapter.save(alreadyRevoked);
+        adapter.save(RefreshToken.issue(otherUser, TokenHash.sha256Hex("raw-4"), NOW, Duration.ofDays(7)));
+
+        var revoked = adapter.revokeAllActiveOfUser(userId, NOW.plusSeconds(60));
+
+        assertThat(revoked).isEqualTo(2);
+        assertThat(adapter.findByTokenHash(TokenHash.sha256Hex("raw-1")).orElseThrow().getRevokedAt())
+                .isEqualTo(NOW.plusSeconds(60));
+        assertThat(adapter.findByTokenHash(TokenHash.sha256Hex("raw-2")).orElseThrow().isRevoked()).isTrue();
+        // an earlier revocation keeps its own date
+        assertThat(adapter.findByTokenHash(TokenHash.sha256Hex("raw-3")).orElseThrow().getRevokedAt())
+                .isEqualTo(NOW.plusSeconds(5));
+        // another user's token is untouched
+        assertThat(adapter.findByTokenHash(TokenHash.sha256Hex("raw-4")).orElseThrow().isRevoked()).isFalse();
+    }
+
+    @Test
+    void revokingForAUserWithNoActiveTokensShouldChangeNothing() {
+        assertThat(adapter.revokeAllActiveOfUser(userId, NOW)).isZero();
+        assertThat(adapter.revokeAllActiveOfUser(999_999L, NOW)).isZero();
+    }
 }
