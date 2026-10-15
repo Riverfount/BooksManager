@@ -137,4 +137,16 @@ class OpenApiSecurityTest {
                             .exists());
         }
     }
+
+    @Test
+    void theDeactivateOperationShouldDocumentItsResponsesAndTheLimitOfTheIssuedToken() throws Exception {
+        for (var status : new String[] {"204", "401", "403", "404", "422"}) {
+            mockMvc.perform(get("/v3/api-docs"))
+                    .andExpect(jsonPath("$.paths['/api/v1/users/{id}'].delete.responses['" + status + "']")
+                            .exists());
+        }
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(jsonPath("$.paths['/api/v1/users/{id}'].delete.description")
+                        .value(org.hamcrest.Matchers.containsString("15 minutos")));
+    }
 }

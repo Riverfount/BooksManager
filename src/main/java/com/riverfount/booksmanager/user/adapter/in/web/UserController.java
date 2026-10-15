@@ -6,6 +6,8 @@ import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
 import com.riverfount.booksmanager.user.application.port.in.CreateUserCommand;
 import com.riverfount.booksmanager.user.application.port.in.CreateUserUseCase;
+import com.riverfount.booksmanager.user.application.port.in.DeactivateUserCommand;
+import com.riverfount.booksmanager.user.application.port.in.DeactivateUserUseCase;
 import com.riverfount.booksmanager.user.application.port.in.GetUserUseCase;
 import com.riverfount.booksmanager.user.application.port.in.ListUsersQuery;
 import com.riverfount.booksmanager.user.application.port.in.ListUsersUseCase;
@@ -25,6 +27,10 @@ import java.time.Instant;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -47,16 +53,18 @@ class UserController {
     private final ListUsersUseCase listUsersUseCase;
     private final UpdateUserUseCase updateUserUseCase;
     private final UnblockUserUseCase unblockUserUseCase;
+    private final DeactivateUserUseCase deactivateUserUseCase;
     private final Clock clock;
 
     UserController(CreateUserUseCase createUserUseCase, GetUserUseCase getUserUseCase,
             ListUsersUseCase listUsersUseCase, UpdateUserUseCase updateUserUseCase,
-            UnblockUserUseCase unblockUserUseCase, Clock clock) {
+            UnblockUserUseCase unblockUserUseCase, DeactivateUserUseCase deactivateUserUseCase, Clock clock) {
         this.createUserUseCase = createUserUseCase;
         this.getUserUseCase = getUserUseCase;
         this.listUsersUseCase = listUsersUseCase;
         this.updateUserUseCase = updateUserUseCase;
         this.unblockUserUseCase = unblockUserUseCase;
+        this.deactivateUserUseCase = deactivateUserUseCase;
         this.clock = clock;
     }
 
@@ -175,5 +183,45 @@ class UserController {
     })
     void unblock(@PathVariable Long id) {
         unblockUserUseCase.unblock(id);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Inativar usuário",
+            description = "Inativa o usuário, sem excluí-lo fisicamente (RN14): o registro fica, o usuário deixa "
+                    + "de poder entrar ou renovar o token, e todos os seus refresh tokens são revogados. Só para "
+                    + "administrador. Inativar quem já está inativo não tem efeito (204). Não é possível inativar "
+                    + "a si mesmo nem o último administrador ativo (422). O access token que o usuário já recebeu "
+                    + "continua valendo até expirar (no máximo 15 minutos), pois não há consulta ao banco a cada "
+                    + "requisição.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Usuário inativado"),
+            @ApiResponse(responseCode = "404", description = "Usuário não encontrado",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "422",
+                    description = "O próprio usuário ou o último administrador ativo não podem ser inativados",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    void deactivate(@PathVariable Long id, @AuthenticationPrincipal Jwt caller) {
+        deactivateUserUseCase.deactivate(new DeactivateUserCommand(id, idOf(caller)));
+    }
+
+    /**
+     * The id of the user doing the request, which the token carries as its subject. Without
+     * it the rule "nobody deactivates themselves" could not be applied, so the request is
+     * refused (the chain only lets a token issued by the login through, so this does not
+     * happen in practice).
+     */
+    private static Long idOf(Jwt caller) {
+        if (caller == null || caller.getSubject() == null) {
+            throw new AccessDeniedException("unknown caller");
+        }
+        try {
+            return Long.valueOf(caller.getSubject());
+        } catch (NumberFormatException e) {
+            throw new AccessDeniedException("unknown caller");
+        }
     }
 }

@@ -1,6 +1,8 @@
 package com.riverfount.booksmanager.user.application.service;
 
+import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.InvalidCredentialsException;
+import com.riverfount.booksmanager.security.application.port.in.RevokeRefreshTokensUseCase;
 import com.riverfount.booksmanager.shared.domain.PageResult;
 import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
 import com.riverfount.booksmanager.user.application.port.in.AuthenticateUserCommand;
@@ -10,7 +12,8 @@ import com.riverfount.booksmanager.user.application.port.in.CreateInitialAdminCo
 import com.riverfount.booksmanager.user.application.port.in.CreateInitialAdminUseCase;
 import com.riverfount.booksmanager.user.application.port.in.CreateUserCommand;
 import com.riverfount.booksmanager.user.application.port.in.CreateUserUseCase;
-import com.riverfount.booksmanager.user.application.port.in.FindActiveUserUseCase;
+import com.riverfount.booksmanager.user.application.port.in.DeactivateUserCommand;
+import com.riverfount.booksmanager.user.application.port.in.DeactivateUserUseCase;
 import com.riverfount.booksmanager.user.application.port.in.GetUserUseCase;
 import com.riverfount.booksmanager.user.application.port.in.ListUsersQuery;
 import com.riverfount.booksmanager.user.application.port.in.ListUsersUseCase;
@@ -38,21 +41,23 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 @Transactional
-class UserService implements CreateInitialAdminUseCase, AuthenticateUserUseCase, FindActiveUserUseCase,
-        CreateUserUseCase, GetUserUseCase, ListUsersUseCase, UpdateUserUseCase, UnblockUserUseCase {
+class UserService implements CreateInitialAdminUseCase, AuthenticateUserUseCase, CreateUserUseCase,
+        GetUserUseCase, ListUsersUseCase, UpdateUserUseCase, UnblockUserUseCase, DeactivateUserUseCase {
 
     private final UserRepository userRepository;
     private final PasswordHasher passwordHasher;
     private final Clock clock;
     private final LoginLockoutProperties lockout;
+    private final RevokeRefreshTokensUseCase refreshTokens;
     private volatile String fakeHash;
 
     UserService(UserRepository userRepository, PasswordHasher passwordHasher, Clock clock,
-            LoginLockoutProperties lockout) {
+            LoginLockoutProperties lockout, RevokeRefreshTokensUseCase refreshTokens) {
         this.userRepository = userRepository;
         this.passwordHasher = passwordHasher;
         this.clock = clock;
         this.lockout = lockout;
+        this.refreshTokens = refreshTokens;
     }
 
     @Override
@@ -142,6 +147,28 @@ class UserService implements CreateInitialAdminUseCase, AuthenticateUserUseCase,
         return userRepository.save(user);
     }
 
+    /**
+     * Same locks as the profile edit (the active administrators, then the user), so
+     * two administrators deactivating each other at the same time are handled one
+     * after the other and the system keeps an active administrator. The refresh
+     * tokens are revoked in the same transaction, even when the user was already
+     * inactive (so a token left behind is revoked too); if the revocation fails,
+     * the deactivation is rolled back with it.
+     */
+    @Override
+    public void deactivate(DeactivateUserCommand command) {
+        var administrators = userRepository.findActiveByRoleForUpdate(Role.ADMIN);
+        var user = loadForUpdate(command.id());
+        if (user.getId().equals(command.actingUserId())) {
+            throw new BusinessRuleException("não é possível inativar o próprio usuário");
+        }
+        var others = administrators.stream().filter(admin -> !admin.getId().equals(user.getId())).count();
+        if (user.deactivateKeepingAnAdministrator(others)) {
+            userRepository.save(user);
+        }
+        refreshTokens.revokeAllOf(user.getId());
+    }
+
     @Override
     public void unblock(Long id) {
         var user = loadForUpdate(id);
@@ -153,17 +180,6 @@ class UserService implements CreateInitialAdminUseCase, AuthenticateUserUseCase,
     private User loadForUpdate(Long id) {
         return userRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException("usuário não encontrado: " + id));
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public Optional<AuthenticatedUser> findActiveUser(Long id) {
-        if (id == null) {
-            return Optional.empty();
-        }
-        return userRepository.findById(id)
-                .filter(User::isActive)
-                .map(user -> new AuthenticatedUser(user.getId(), user.getRole()));
     }
 
     /**

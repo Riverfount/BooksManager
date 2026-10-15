@@ -9,7 +9,9 @@ import com.riverfount.booksmanager.user.application.port.in.AuthenticateUserComm
 import com.riverfount.booksmanager.user.application.port.in.AuthenticatedUser;
 import com.riverfount.booksmanager.user.application.port.in.CreateInitialAdminCommand;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
+import com.riverfount.booksmanager.security.application.port.in.RevokeRefreshTokensUseCase;
 import com.riverfount.booksmanager.user.application.port.in.CreateUserCommand;
+import com.riverfount.booksmanager.user.application.port.in.DeactivateUserCommand;
 import com.riverfount.booksmanager.user.application.port.in.ListUsersQuery;
 import com.riverfount.booksmanager.user.application.port.in.UpdateUserCommand;
 import com.riverfount.booksmanager.user.application.port.in.InitialAdminResult;
@@ -71,6 +73,9 @@ class UserServiceTest {
     private static final java.time.Instant START = java.time.Instant.parse("2026-10-15T12:00:00Z");
     private static final java.time.Duration BLOCK = java.time.Duration.ofMinutes(15);
 
+    /** The ids whose refresh tokens the service asked the security module to revoke. */
+    private final java.util.List<Long> revokedFor = new java.util.ArrayList<>();
+
     private InMemoryUserRepository repository;
     private FakePasswordHasher hasher;
     private MutableClock clock;
@@ -81,7 +86,12 @@ class UserServiceTest {
         repository = new InMemoryUserRepository();
         hasher = new FakePasswordHasher();
         clock = new MutableClock(START);
-        service = new UserService(repository, hasher, clock, new LoginLockoutProperties(3, BLOCK));
+        revokedFor.clear();
+        RevokeRefreshTokensUseCase revoker = userId -> {
+            revokedFor.add(userId);
+            return 1;
+        };
+        service = new UserService(repository, hasher, clock, new LoginLockoutProperties(3, BLOCK), revoker);
     }
 
     // initial administrator (RF08, RNF10)
@@ -504,48 +514,14 @@ class UserServiceTest {
 
     @Test
     void shouldHonorAnotherLimitAndDuration() {
-        var strict = new UserService(repository, hasher, clock, new LoginLockoutProperties(1, java.time.Duration.ofHours(1)));
+        var strict = new UserService(repository, hasher, clock, new LoginLockoutProperties(1, java.time.Duration.ofHours(1)),
+                userId -> 0);
         registerUser("maria", Role.OPERATOR);
 
         messageOf(() -> strict.authenticate(new AuthenticateUserCommand("maria", WRONG)));
 
         assertThat(repository.findByLogin("maria").orElseThrow().getBlockedUntil())
                 .isEqualTo(START.plus(java.time.Duration.ofHours(1)));
-    }
-
-    // finding an active user for a token renewal (RF08)
-
-    @Test
-    void shouldFindAnActiveUserByIdWithItsCurrentRole() {
-        registerUser("maria", Role.OPERATOR);
-        var id = repository.findByLogin("maria").orElseThrow().getId();
-
-        assertThat(service.findActiveUser(id)).contains(new AuthenticatedUser(id, Role.OPERATOR));
-
-        var user = repository.findById(id).orElseThrow();
-        user.changeRole(Role.ADMIN);
-        repository.save(user);
-        assertThat(service.findActiveUser(id)).contains(new AuthenticatedUser(id, Role.ADMIN));
-    }
-
-    @Test
-    void shouldNotFindAnInactiveOrUnknownUser() {
-        registerUser("maria", Role.OPERATOR);
-        var id = repository.findByLogin("maria").orElseThrow().getId();
-        deactivate("maria");
-
-        assertThat(service.findActiveUser(id)).isEmpty();
-        assertThat(service.findActiveUser(99_999L)).isEmpty();
-        assertThat(service.findActiveUser(null)).isEmpty();
-    }
-
-    @Test
-    void aUserBlockedByTheLockoutIsStillFoundSinceTheBlockOnlyGuardsThePassword() {
-        registerUser("maria", Role.OPERATOR);
-        wrongPassword("maria", 3);
-        var id = repository.findByLogin("maria").orElseThrow().getId();
-
-        assertThat(service.findActiveUser(id)).isPresent();
     }
 
     // creating a user (RF09, HU28)
@@ -884,5 +860,138 @@ class UserServiceTest {
     void shouldRejectTheUnblockOfAnUnknownUser() {
         assertThatThrownBy(() -> service.unblock(99_999L))
                 .isInstanceOf(com.riverfount.booksmanager.shared.domain.ResourceNotFoundException.class);
+    }
+
+    // deactivating a user (RF09, HU28, RN14)
+
+    private DeactivateUserCommand deactivation(String login, Long actingUserId) {
+        return new DeactivateUserCommand(stored(login).getId(), actingUserId);
+    }
+
+    private static final Long SOMEONE_ELSE = 9_999L;
+
+    @Test
+    void shouldDeactivateTheUserKeepingTheRecordAndRevokeItsRefreshTokens() {
+        registerUser("maria", Role.OPERATOR);
+        var before = stored("maria");
+
+        service.deactivate(deactivation("maria", SOMEONE_ELSE));
+
+        var after = stored("maria");
+        assertThat(after.isActive()).isFalse();
+        assertThat(after.getLogin()).isEqualTo("maria");
+        assertThat(after.getRole()).isEqualTo(Role.OPERATOR);
+        assertThat(after.getPasswordHash()).isEqualTo(before.getPasswordHash());
+        assertThat(revokedFor).containsExactly(before.getId());
+    }
+
+    @Test
+    void anInactiveUserCannotLogInAnymore() {
+        registerUser("maria", Role.OPERATOR);
+        service.deactivate(deactivation("maria", SOMEONE_ELSE));
+
+        assertThat(canLogIn("maria")).isFalse();
+    }
+
+    @Test
+    void deactivatingAnInactiveUserAgainIsIdempotentAndStillRevokesAnyTokenLeft() {
+        registerUser("maria", Role.OPERATOR);
+        service.deactivate(deactivation("maria", SOMEONE_ELSE));
+        var savesBefore = repository.saves();
+
+        service.deactivate(deactivation("maria", SOMEONE_ELSE));
+
+        assertThat(repository.saves()).isEqualTo(savesBefore);
+        assertThat(stored("maria").isActive()).isFalse();
+        assertThat(revokedFor).hasSize(2);
+    }
+
+    @Test
+    void shouldRefuseToDeactivateTheUserWhoIsDoingIt() {
+        registerUser("chefe", Role.ADMIN);
+        registerUser("vice", Role.ADMIN);
+        var chefe = stored("chefe").getId();
+
+        assertThatThrownBy(() -> service.deactivate(new DeactivateUserCommand(chefe, chefe)))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("próprio usuário");
+
+        assertThat(stored("chefe").isActive()).isTrue();
+        assertThat(revokedFor).isEmpty();
+    }
+
+    @Test
+    void shouldRefuseToDeactivateTheLastActiveAdministrator() {
+        registerUser("chefe", Role.ADMIN);
+        registerUser("maria", Role.OPERATOR);
+
+        assertThatThrownBy(() -> service.deactivate(deactivation("chefe", SOMEONE_ELSE)))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("último administrador");
+
+        assertThat(stored("chefe").isActive()).isTrue();
+        assertThat(revokedFor).isEmpty();
+    }
+
+    @Test
+    void shouldDeactivateAnAdministratorWhenAnotherActiveOneRemains() {
+        registerUser("chefe", Role.ADMIN);
+        registerUser("vice", Role.ADMIN);
+
+        service.deactivate(deactivation("chefe", stored("vice").getId()));
+
+        assertThat(stored("chefe").isActive()).isFalse();
+        assertThat(stored("vice").isActive()).isTrue();
+    }
+
+    @Test
+    void whenDeactivatingAnInactiveAdministratorDoesNotCountAsTheOneWhoRemains() {
+        registerUser("chefe", Role.ADMIN);
+        registerUser("antigo", Role.ADMIN);
+        deactivate("antigo");
+
+        assertThatThrownBy(() -> service.deactivate(deactivation("chefe", SOMEONE_ELSE)))
+                .isInstanceOf(BusinessRuleException.class);
+    }
+
+    @Test
+    void whenDeactivatingABlockedAdministratorStillCountsSoTheLockoutDoesNotStopTheRule() {
+        registerUser("chefe", Role.ADMIN);
+        registerUser("vice", Role.ADMIN);
+        wrongPassword("vice", 3);
+
+        service.deactivate(deactivation("chefe", SOMEONE_ELSE));
+
+        assertThat(stored("chefe").isActive()).isFalse();
+    }
+
+    @Test
+    void shouldDeactivateABlockedUserToo() {
+        registerUser("maria", Role.OPERATOR);
+        wrongPassword("maria", 3);
+
+        service.deactivate(deactivation("maria", SOMEONE_ELSE));
+
+        assertThat(stored("maria").isActive()).isFalse();
+    }
+
+    @Test
+    void shouldRejectTheDeactivationOfAnUnknownUserAndRevokeNothing() {
+        assertThatThrownBy(() -> service.deactivate(new DeactivateUserCommand(99_999L, SOMEONE_ELSE)))
+                .isInstanceOf(com.riverfount.booksmanager.shared.domain.ResourceNotFoundException.class)
+                .hasMessageContaining("99999");
+
+        assertThat(revokedFor).isEmpty();
+    }
+
+    @Test
+    void deactivatingAnOperatorNeverTouchesTheAdministrators() {
+        registerUser("chefe", Role.ADMIN);
+        registerUser("maria", Role.OPERATOR);
+
+        service.deactivate(deactivation("maria", stored("chefe").getId()));
+
+        assertThat(stored("chefe").isActive()).isTrue();
+        assertThat(stored("chefe").getRole()).isEqualTo(Role.ADMIN);
     }
 }

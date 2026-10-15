@@ -487,4 +487,65 @@ class UserTest {
         assertThat(blocked.isBlocked(NOW)).isFalse();
         assertThat(withFailures.getFailedLoginAttempts()).isZero();
     }
+
+    // deactivating without leaving the system with no administrator (RF09, RN14)
+
+    @Test
+    void shouldDeactivateAnOperatorWhateverTheNumberOfAdministrators() {
+        var user = operator();
+
+        var changed = user.deactivateKeepingAnAdministrator(0);
+
+        assertThat(changed).isTrue();
+        assertThat(user.isActive()).isFalse();
+    }
+
+    @Test
+    void shouldDeactivateAnAdministratorWhenAnotherActiveOneRemains() {
+        var user = admin();
+
+        assertThat(user.deactivateKeepingAnAdministrator(1)).isTrue();
+        assertThat(user.isActive()).isFalse();
+    }
+
+    @Test
+    void shouldRefuseToDeactivateTheLastActiveAdministratorAndKeepItActive() {
+        var user = admin();
+
+        assertThatThrownBy(() -> user.deactivateKeepingAnAdministrator(0))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("último administrador");
+
+        assertThat(user.isActive()).isTrue();
+    }
+
+    @Test
+    void deactivatingAnAlreadyInactiveUserIsAlwaysAllowedAndChangesNothing() {
+        var user = admin();
+        user.deactivate();
+
+        var changed = user.deactivateKeepingAnAdministrator(0);
+
+        assertThat(changed).isFalse();
+        assertThat(user.isActive()).isFalse();
+    }
+
+    @Test
+    void aBlockedAdministratorStillCountsAsTheOneWhoRemains() {
+        var other = admin();
+
+        // the caller counts a blocked administrator among the others, so this is allowed
+        assertThat(other.deactivateKeepingAnAdministrator(1)).isTrue();
+    }
+
+    @Test
+    void deactivationShouldKeepTheLoginTheProfileAndTheHash() {
+        var user = User.create("chefe", HASH, Role.ADMIN);
+
+        user.deactivateKeepingAnAdministrator(1);
+
+        assertThat(user.getLogin()).isEqualTo("chefe");
+        assertThat(user.getRole()).isEqualTo(Role.ADMIN);
+        assertThat(user.getPasswordHash()).isEqualTo(HASH);
+    }
 }
