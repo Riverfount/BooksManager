@@ -2,10 +2,13 @@ package com.riverfount.booksmanager.user.application.service;
 
 import com.riverfount.booksmanager.user.application.port.in.GetReaderUseCase;
 import com.riverfount.booksmanager.shared.domain.PageResult;
+import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
 import com.riverfount.booksmanager.user.application.port.in.ListReadersQuery;
 import com.riverfount.booksmanager.user.application.port.in.ListReadersUseCase;
 import com.riverfount.booksmanager.user.application.port.in.RegisterReaderCommand;
 import com.riverfount.booksmanager.user.application.port.in.RegisterReaderUseCase;
+import com.riverfount.booksmanager.user.application.port.in.UpdateReaderCommand;
+import com.riverfount.booksmanager.user.application.port.in.UpdateReaderUseCase;
 import com.riverfount.booksmanager.user.application.port.out.ReaderFilter;
 import com.riverfount.booksmanager.user.application.port.out.ReaderRepository;
 import com.riverfount.booksmanager.user.domain.Guardian;
@@ -24,7 +27,8 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 @Transactional
-class ReaderService implements RegisterReaderUseCase, GetReaderUseCase, ListReadersUseCase {
+class ReaderService implements RegisterReaderUseCase, GetReaderUseCase, ListReadersUseCase,
+        UpdateReaderUseCase {
 
     private final ReaderRepository readerRepository;
     private final Clock clock;
@@ -53,6 +57,41 @@ class ReaderService implements RegisterReaderUseCase, GetReaderUseCase, ListRead
     public PageResult<Reader> list(ListReadersQuery query) {
         var filter = new ReaderFilter(query.name(), query.document(), query.active(), query.blocked());
         return readerRepository.findAll(filter, query.page());
+    }
+
+    @Override
+    public Reader update(UpdateReaderCommand command) {
+        var reader = readerRepository.findById(command.id())
+                .orElseThrow(() -> new ResourceNotFoundException("leitor não encontrado: " + command.id()));
+        // a null field keeps the current value; the rules (a minor needs the
+        // guardian, valid formats) are checked by the domain on the resulting state
+        reader.updateDetails(
+                command.name() != null ? command.name() : reader.getName(),
+                command.document() != null ? command.document() : reader.getDocument(),
+                command.email() != null ? command.email() : reader.getEmail(),
+                command.phone() != null ? command.phone() : reader.getPhone(),
+                command.birthDate() != null ? command.birthDate() : reader.getBirthDate(),
+                mergedGuardian(reader.getGuardian(), command),
+                LocalDate.now(clock));
+        // the check ignores the reader itself: keeping its own document is not a repetition
+        Reader.validateUniqueDocument(reader.getDocument(),
+                readerRepository.existsByDocumentAndIdNot(reader.getDocument(), reader.getId()));
+        return readerRepository.save(reader);
+    }
+
+    /**
+     * The guardian fields sent replace the current ones, one by one; none sent
+     * keeps the current guardian (or the lack of one).
+     */
+    private static Guardian mergedGuardian(Guardian current, UpdateReaderCommand command) {
+        if (command.guardianName() == null && command.guardianEmail() == null
+                && command.guardianPhone() == null) {
+            return current;
+        }
+        return new Guardian(
+                command.guardianName() != null || current == null ? command.guardianName() : current.name(),
+                command.guardianEmail() != null || current == null ? command.guardianEmail() : current.email(),
+                command.guardianPhone() != null || current == null ? command.guardianPhone() : current.phone());
     }
 
     /** No guardian fields at all means no guardian; any of them present builds (and validates) one. */
