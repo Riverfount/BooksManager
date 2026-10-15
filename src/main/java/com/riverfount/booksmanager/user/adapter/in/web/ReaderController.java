@@ -1,10 +1,15 @@
 package com.riverfount.booksmanager.user.adapter.in.web;
 
+import com.riverfount.booksmanager.shared.adapter.in.web.PageResponse;
+import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
 import com.riverfount.booksmanager.user.application.port.in.GetReaderUseCase;
+import com.riverfount.booksmanager.user.application.port.in.ListReadersQuery;
+import com.riverfount.booksmanager.user.application.port.in.ListReadersUseCase;
 import com.riverfount.booksmanager.user.application.port.in.RegisterReaderCommand;
 import com.riverfount.booksmanager.user.application.port.in.RegisterReaderUseCase;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -18,6 +23,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -28,10 +34,13 @@ class ReaderController {
 
     private final RegisterReaderUseCase registerReaderUseCase;
     private final GetReaderUseCase getReaderUseCase;
+    private final ListReadersUseCase listReadersUseCase;
 
-    ReaderController(RegisterReaderUseCase registerReaderUseCase, GetReaderUseCase getReaderUseCase) {
+    ReaderController(RegisterReaderUseCase registerReaderUseCase, GetReaderUseCase getReaderUseCase,
+            ListReadersUseCase listReadersUseCase) {
         this.registerReaderUseCase = registerReaderUseCase;
         this.getReaderUseCase = getReaderUseCase;
+        this.listReadersUseCase = listReadersUseCase;
     }
 
     @PostMapping
@@ -61,6 +70,40 @@ class ReaderController {
                 .buildAndExpand(reader.getId())
                 .toUri();
         return ResponseEntity.created(location).body(ReaderResponse.from(reader));
+    }
+
+    @GetMapping
+    @Operation(summary = "Listar leitores",
+            description = "Lista os leitores de forma paginada (máximo de 100 por página). O nome casa por trecho, "
+                    + "sem diferenciar maiúsculas, e o documento por igualdade, depois de normalizado. Por padrão, "
+                    + "só os ativos e em ordem de nome. Cada item traz o documento mascarado e não traz a data de "
+                    + "nascimento nem o responsável; a consulta por id devolve tudo.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Página de leitores"),
+            @ApiResponse(responseCode = "400",
+                    description = "Paginação, ordenação ou filtro inválidos (inclusive tamanho acima de 100)",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    PageResponse<ReaderSummaryResponse> list(
+            @Parameter(description = "Trecho do nome, sem diferenciar maiúsculas", example = "maria")
+            @RequestParam(required = false) String name,
+            @Parameter(description = "Documento completo (pontuação e espaços são ignorados)",
+                    example = "123.456.789-00")
+            @RequestParam(required = false) String document,
+            @Parameter(description = "Listar ativos (true) ou inativos (false)")
+            @RequestParam(defaultValue = "true") boolean active,
+            @Parameter(description = "Só bloqueados (true) ou só não bloqueados (false); sem o parâmetro, ambos")
+            @RequestParam(required = false) Boolean blocked,
+            @Parameter(description = "Número da página, a partir de 0")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Tamanho da página, de 1 a 100")
+            @RequestParam(defaultValue = "" + PageQuery.DEFAULT_SIZE) int size,
+            @Parameter(description = "Ordenação no formato campo[,asc|desc]; campos: id, name",
+                    example = "name,asc")
+            @RequestParam(defaultValue = ListReadersQuery.DEFAULT_SORT) String sort) {
+        var query = new ListReadersQuery(name, document, active, blocked, PageQuery.of(page, size, sort));
+        return PageResponse.from(listReadersUseCase.list(query), ReaderSummaryResponse::from);
     }
 
     @GetMapping("/{id}")
