@@ -8,6 +8,7 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -17,12 +18,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.riverfount.booksmanager.shared.adapter.in.web.GlobalExceptionHandler;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.PageResult;
+import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
 import com.riverfount.booksmanager.shared.domain.SortDirection;
 import com.riverfount.booksmanager.user.application.port.in.GetReaderUseCase;
 import com.riverfount.booksmanager.user.application.port.in.ListReadersQuery;
 import com.riverfount.booksmanager.user.application.port.in.ListReadersUseCase;
 import com.riverfount.booksmanager.user.application.port.in.RegisterReaderCommand;
 import com.riverfount.booksmanager.user.application.port.in.RegisterReaderUseCase;
+import com.riverfount.booksmanager.user.application.port.in.UpdateReaderCommand;
+import com.riverfount.booksmanager.user.application.port.in.UpdateReaderUseCase;
 import com.riverfount.booksmanager.user.domain.Guardian;
 import com.riverfount.booksmanager.user.domain.Reader;
 import java.time.LocalDate;
@@ -58,6 +62,13 @@ class ReaderControllerTest {
 
     @MockitoBean
     private ListReadersUseCase listReadersUseCase;
+
+    @MockitoBean
+    private UpdateReaderUseCase updateReaderUseCase;
+
+    private MockHttpServletRequestBuilder update(long id, String json) {
+        return patch("/api/v1/readers/" + id).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(json);
+    }
 
     private MockHttpServletRequestBuilder register(String json) {
         return post("/api/v1/readers").with(csrf()).contentType(MediaType.APPLICATION_JSON).content(json);
@@ -366,5 +377,126 @@ class ReaderControllerTest {
         mockMvc.perform(get("/api/v1/readers").param("blocked", "maybe")).andExpect(status().isBadRequest());
 
         then(listReadersUseCase).should(never()).list(any());
+    }
+
+    // partial update (HU26)
+
+    private static Reader updatedReader() {
+        return Reader.reconstitute(1L, "Maria Souza", "12345678900", "maria@example.com", "11 91234-5678",
+                LocalDate.of(1990, 5, 10), null, true, false);
+    }
+
+    @Test
+    @WithMockUser
+    void shouldUpdateAndReturn200WithTheReader() throws Exception {
+        given(updateReaderUseCase.update(any())).willReturn(updatedReader());
+
+        mockMvc.perform(update(1, "{\"name\":\"Maria Souza\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.name").value("Maria Souza"))
+                .andExpect(jsonPath("$.document").value("12345678900"))
+                .andExpect(jsonPath("$.birthDate").value("1990-05-10"))
+                .andExpect(jsonPath("$.active").value(true))
+                .andExpect(jsonPath("$.blocked").value(false));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldSendOnlyTheSentFieldsToTheUseCase() throws Exception {
+        given(updateReaderUseCase.update(any())).willReturn(updatedReader());
+
+        mockMvc.perform(update(1, "{\"name\":\"Maria Souza\"}")).andExpect(status().isOk());
+
+        var captor = ArgumentCaptor.forClass(UpdateReaderCommand.class);
+        then(updateReaderUseCase).should().update(captor.capture());
+        assertThat(captor.getValue()).isEqualTo(new UpdateReaderCommand(1L, "Maria Souza", null, null, null, null,
+                null, null, null));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldMapEveryFieldIncludingTheGuardian() throws Exception {
+        given(updateReaderUseCase.update(any())).willReturn(updatedReader());
+
+        mockMvc.perform(update(1, """
+                {"name":"Júlia","document":"MAT-2","email":"j@example.com","phone":"11 91234-5678",
+                 "birthDate":"2015-03-01",
+                 "guardian":{"name":"Ana Souza","email":"ana@example.com","phone":"11 99999-0000"}}"""))
+                .andExpect(status().isOk());
+
+        var captor = ArgumentCaptor.forClass(UpdateReaderCommand.class);
+        then(updateReaderUseCase).should().update(captor.capture());
+        assertThat(captor.getValue()).isEqualTo(new UpdateReaderCommand(1L, "Júlia", "MAT-2", "j@example.com",
+                "11 91234-5678", LocalDate.of(2015, 3, 1), "Ana Souza", "ana@example.com", "11 99999-0000"));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldIgnoreFieldsThatAreNotEditableHere() throws Exception {
+        given(updateReaderUseCase.update(any())).willReturn(updatedReader());
+
+        mockMvc.perform(update(1, "{\"name\":\"Maria Souza\",\"active\":false,\"blocked\":true,\"id\":99}"))
+                .andExpect(status().isOk());
+
+        var captor = ArgumentCaptor.forClass(UpdateReaderCommand.class);
+        then(updateReaderUseCase).should().update(captor.capture());
+        assertThat(captor.getValue().id()).isEqualTo(1L);
+        assertThat(captor.getValue()).isEqualTo(new UpdateReaderCommand(1L, "Maria Souza", null, null, null, null,
+                null, null, null));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn400WhenASentFieldIsBlankOrHasSurroundingSpaces() throws Exception {
+        for (var json : new String[] {"{\"name\":\"  \"}", "{\"name\":\" Maria\"}", "{\"document\":\"\"}",
+                "{\"email\":\" \"}"}) {
+            mockMvc.perform(update(1, json))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(content().contentTypeCompatibleWith("application/problem+json"));
+        }
+
+        then(updateReaderUseCase).should(never()).update(any());
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn400OnUpdateWhenTheBirthDateIsNotAnIsoDate() throws Exception {
+        mockMvc.perform(update(1, "{\"birthDate\":\"10/05/1990\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn404ForANonExistentReader() throws Exception {
+        given(updateReaderUseCase.update(any())).willThrow(new ResourceNotFoundException("leitor não encontrado: 99"));
+
+        mockMvc.perform(update(99, "{\"name\":\"Maria\"}"))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+                .andExpect(jsonPath("$.detail").value("leitor não encontrado: 99"));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn422WhenTheDocumentBelongsToAnotherReader() throws Exception {
+        given(updateReaderUseCase.update(any()))
+                .willThrow(new BusinessRuleException("já existe um leitor com o documento '12345678900'"));
+
+        mockMvc.perform(update(1, "{\"document\":\"123.456.789-00\"}"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+                .andExpect(jsonPath("$.detail").value(containsString("já existe um leitor")));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn422WhenTheEditLeavesAMinorWithoutTheGuardian() throws Exception {
+        given(updateReaderUseCase.update(any())).willThrow(
+                new BusinessRuleException("o responsável é obrigatório para leitor menor de 18 anos"));
+
+        mockMvc.perform(update(1, "{\"birthDate\":\"2015-03-01\"}"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.detail").value(containsString("responsável")));
     }
 }

@@ -92,7 +92,7 @@ class OpenApiRequiredFieldsTest {
     @Test
     void partialUpdateRequestsShouldRequireNothing() throws Exception {
         for (var schema : new String[] {"UpdateBookRequest", "UpdateAuthorRequest", "UpdateCategoryRequest",
-                "UpdateCopyRequest"}) {
+                "UpdateCopyRequest", "UpdateReaderRequest"}) {
             apiDocs.andExpect(jsonPath("$.components.schemas." + schema + ".required").doesNotExist());
         }
     }

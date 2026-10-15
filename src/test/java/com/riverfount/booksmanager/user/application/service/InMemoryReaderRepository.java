@@ -30,17 +30,24 @@ class InMemoryReaderRepository implements ReaderRepository {
     private final Map<Long, Reader> readers = new HashMap<>();
     private long nextId = 1;
 
+    /**
+     * Like the JPA adapter, the repository never hands out the stored
+     * instance: changing a loaded reader has no effect until it is saved.
+     */
+    private static Reader copyWithId(Reader reader, Long id) {
+        return Reader.reconstitute(id, reader.getName(), reader.getDocument(), reader.getEmail(),
+                reader.getPhone(), reader.getBirthDate(), reader.getGuardian(), reader.isActive(),
+                reader.isBlocked());
+    }
+
     @Override
     public Reader save(Reader reader) {
         if (existsByDocumentAndIdNot(reader.getDocument(), reader.getId())) {
             throw new BusinessRuleException("já existe um leitor com o documento '" + reader.getDocument() + "'");
         }
         var id = reader.getId() != null ? reader.getId() : nextId++;
-        var saved = Reader.reconstitute(id, reader.getName(), reader.getDocument(), reader.getEmail(),
-                reader.getPhone(), reader.getBirthDate(), reader.getGuardian(), reader.isActive(),
-                reader.isBlocked());
-        readers.put(id, saved);
-        return saved;
+        readers.put(id, copyWithId(reader, id));
+        return copyWithId(reader, id);
     }
 
     @Override
@@ -48,7 +55,7 @@ class InMemoryReaderRepository implements ReaderRepository {
         if (id == null) {
             throw new IllegalArgumentException("o id não pode ser nulo");
         }
-        return Optional.ofNullable(readers.get(id));
+        return Optional.ofNullable(readers.get(id)).map(reader -> copyWithId(reader, id));
     }
 
     @Override
@@ -79,7 +86,8 @@ class InMemoryReaderRepository implements ReaderRepository {
                 .filter(reader -> filter.blocked() == null || reader.isBlocked() == filter.blocked())
                 .sorted(comparator.thenComparing(Reader::getId))
                 .toList();
-        var items = sorted.stream().skip((long) page.page() * page.size()).limit(page.size()).toList();
+        var items = sorted.stream().skip((long) page.page() * page.size()).limit(page.size())
+                .map(reader -> copyWithId(reader, reader.getId())).toList();
         return new PageResult<>(items, page.page(), page.size(), sorted.size());
     }
 }

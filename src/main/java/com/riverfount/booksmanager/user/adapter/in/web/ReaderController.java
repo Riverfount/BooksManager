@@ -8,6 +8,8 @@ import com.riverfount.booksmanager.user.application.port.in.ListReadersQuery;
 import com.riverfount.booksmanager.user.application.port.in.ListReadersUseCase;
 import com.riverfount.booksmanager.user.application.port.in.RegisterReaderCommand;
 import com.riverfount.booksmanager.user.application.port.in.RegisterReaderUseCase;
+import com.riverfount.booksmanager.user.application.port.in.UpdateReaderCommand;
+import com.riverfount.booksmanager.user.application.port.in.UpdateReaderUseCase;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -19,6 +21,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -35,12 +38,14 @@ class ReaderController {
     private final RegisterReaderUseCase registerReaderUseCase;
     private final GetReaderUseCase getReaderUseCase;
     private final ListReadersUseCase listReadersUseCase;
+    private final UpdateReaderUseCase updateReaderUseCase;
 
     ReaderController(RegisterReaderUseCase registerReaderUseCase, GetReaderUseCase getReaderUseCase,
-            ListReadersUseCase listReadersUseCase) {
+            ListReadersUseCase listReadersUseCase, UpdateReaderUseCase updateReaderUseCase) {
         this.registerReaderUseCase = registerReaderUseCase;
         this.getReaderUseCase = getReaderUseCase;
         this.listReadersUseCase = listReadersUseCase;
+        this.updateReaderUseCase = updateReaderUseCase;
     }
 
     @PostMapping
@@ -120,5 +125,37 @@ class ReaderController {
         return getReaderUseCase.findById(id)
                 .map(ReaderResponse::from)
                 .orElseThrow(() -> new ResourceNotFoundException("leitor não encontrado: " + id));
+    }
+
+    @PatchMapping("/{id}")
+    @Operation(summary = "Editar leitor",
+            description = "Altera só os campos enviados; os omitidos (ou nulos) mantêm o valor atual, então nenhum "
+                    + "campo é apagado por esta rota. Só os dados pessoais são editáveis (nome, documento, e-mail, "
+                    + "telefone, data de nascimento e responsável); a situação (`active`, `blocked`) tem rotas "
+                    + "próprias e é ignorada se vier no corpo. O documento continua único (manter o próprio não é "
+                    + "repetição) e o leitor menor de 18 anos precisa ficar com o responsável. Os campos enviados "
+                    + "do responsável substituem os atuais, um a um.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Leitor atualizado"),
+            @ApiResponse(responseCode = "400", description = "Requisição inválida",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "404", description = "Leitor não encontrado",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "422",
+                    description = "Documento de outro leitor, dado inválido ou leitor menor de 18 anos sem o "
+                            + "nome ou o e-mail do responsável",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    ReaderResponse update(@PathVariable Long id, @Valid @RequestBody UpdateReaderRequest request) {
+        var guardian = request.guardian();
+        var reader = updateReaderUseCase.update(new UpdateReaderCommand(id, request.name(), request.document(),
+                request.email(), request.phone(), request.birthDate(),
+                guardian == null ? null : guardian.name(),
+                guardian == null ? null : guardian.email(),
+                guardian == null ? null : guardian.phone()));
+        return ReaderResponse.from(reader);
     }
 }
