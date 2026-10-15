@@ -108,6 +108,25 @@ public class User {
         this.passwordHash = newPasswordHash;
     }
 
+    /**
+     * Deactivates without leaving the system with no administrator (RF09): an active
+     * administrator cannot be deactivated when no other active one remains. The caller
+     * counts the others (a user blocked by the login lockout still counts, since the
+     * block ends by itself). Deactivating a user who is already inactive changes nothing.
+     *
+     * @return whether the user changed and has to be saved
+     */
+    public boolean deactivateKeepingAnAdministrator(long otherActiveAdministrators) {
+        if (!active) {
+            return false;
+        }
+        if (role == Role.ADMIN && otherActiveAdministrators < 1) {
+            throw new BusinessRuleException("não é possível inativar o último administrador ativo");
+        }
+        this.active = false;
+        return true;
+    }
+
     public void deactivate() {
         this.active = false;
     }
