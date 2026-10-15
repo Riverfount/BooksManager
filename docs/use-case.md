@@ -65,8 +65,10 @@
 
 ## Leitores e acesso
 
-**HU04 —** Como operador, quero cadastrar um leitor com nome, documento, e-mail e telefone, para poder registrar empréstimos em nome dele.
+**HU04 —** Como operador, quero cadastrar um leitor com nome, documento, e-mail, telefone e data de nascimento, para poder registrar empréstimos em nome dele.
 - Critério de aceite: o documento é obrigatório e deve ser único por leitor (RF07).
+- Critério de aceite: o e-mail e a data de nascimento são obrigatórios; o telefone é opcional (RF07, RNF11).
+- Critério de aceite: para leitor menor de 18 anos, o nome e o e-mail do responsável são obrigatórios e o telefone dele é opcional (RF07, RNF11).
 - Critério de aceite: um leitor com histórico de empréstimos é inativado, nunca excluído fisicamente (RN14).
 
 **HU25 —** Como operador, quero listar e consultar os leitores, para encontrar rapidamente quem vai fazer um empréstimo.
@@ -74,8 +76,8 @@
 - Critério de aceite: a consulta mostra a situação do leitor (ativo, inativo ou bloqueado) (RF07, RF10).
 
 **HU26 —** Como operador, quero editar os dados de um leitor, para manter o contato dele atualizado.
-- Critério de aceite: posso alterar nome, documento, e-mail e telefone; o documento continua único por leitor (RF07).
-- Critério de aceite: não são coletados dados pessoais além de nome, documento e contato (RNF11).
+- Critério de aceite: posso alterar nome, documento, e-mail, telefone, data de nascimento e dados do responsável; o documento continua único por leitor, e o menor de 18 anos continua com o responsável informado (RF07).
+- Critério de aceite: não são coletados dados pessoais além de nome, documento, contato, data de nascimento e, para menores, o responsável (RNF11).
 
 **HU27 —** Como operador, quero inativar um leitor que não frequenta mais a biblioteca, sem perder o histórico dele.
 - Critério de aceite: o leitor é inativado, nunca excluído fisicamente (RN14).
