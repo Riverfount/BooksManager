@@ -8,6 +8,7 @@ import com.riverfount.booksmanager.catalog.application.port.in.RegisterCategoryC
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterCategoryUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateCategoryCommand;
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateCategoryUseCase;
+import com.riverfount.booksmanager.shared.adapter.in.web.AdminOrOperator;
 import com.riverfount.booksmanager.shared.adapter.in.web.PageResponse;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
@@ -34,6 +35,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+@AdminOrOperator
 @RestController
 @RequestMapping("/api/v1/categories")
 @Tag(name = "Categories", description = "Cadastro, consulta, listagem, edição e inativação de categorias do acervo (RF03).")

@@ -67,4 +67,38 @@ class OpenApiSecurityTest {
                 .andExpect(jsonPath("$.paths['/api/v1/auth/refresh'].post.responses['401']").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/auth/logout'].post.responses['204']").exists());
     }
+
+    @Test
+    void everyProtectedOperationShouldDocumentThe401AndThe403AsProblemDetail() throws Exception {
+        for (var path : new String[] {"/api/v1/books", "/api/v1/authors", "/api/v1/categories", "/api/v1/readers",
+                "/api/v1/copies"}) {
+            for (var status : new String[] {"401", "403"}) {
+                mockMvc.perform(get("/v3/api-docs"))
+                        .andExpect(jsonPath("$.paths['" + path + "'].get.responses['" + status + "']").exists())
+                        .andExpect(jsonPath("$.paths['" + path + "'].get.responses['" + status
+                                + "'].content['application/problem+json'].schema.$ref")
+                                .value("#/components/schemas/ProblemDetail"));
+            }
+        }
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(jsonPath("$.paths['/api/v1/readers/{id}'].delete.responses['403']").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/readers/{id}/block'].post.responses['401']").exists());
+    }
+
+    @Test
+    void thePublicOperationsShouldNotGetTheGenericAuthorizationResponses() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(jsonPath("$.paths['/api/v1/auth/login'].post.responses['403']").doesNotExist())
+                .andExpect(jsonPath("$.paths['/api/v1/auth/logout'].post.responses['401']").doesNotExist());
+    }
+
+    @Test
+    void anExistingResponseShouldNeverBeOverwrittenByTheGenericOne() throws Exception {
+        // the login documents its own 401 (wrong credentials), and refresh its own 401 and 403
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(jsonPath("$.paths['/api/v1/auth/login'].post.responses['401'].description")
+                        .value("Login ou senha inválidos"))
+                .andExpect(jsonPath("$.paths['/api/v1/auth/refresh'].post.responses['403'].description")
+                        .value(org.hamcrest.Matchers.containsString("X-Requested-With")));
+    }
 }

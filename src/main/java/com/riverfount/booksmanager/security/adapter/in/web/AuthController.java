@@ -9,6 +9,7 @@ import com.riverfount.booksmanager.security.application.port.in.RefreshCommand;
 import com.riverfount.booksmanager.security.application.port.in.RefreshTokenUseCase;
 import com.riverfount.booksmanager.security.application.port.in.TokenPair;
 import com.riverfount.booksmanager.security.configuration.AuthProperties;
+import com.riverfount.booksmanager.shared.adapter.in.web.PublicEndpoint;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -32,6 +33,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+@PublicEndpoint
 @RestController
 @RequestMapping("/api/v1/auth")
 @Tag(name = "Authentication", description = "Login, renovação do token e logout (RF08).")

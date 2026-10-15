@@ -8,6 +8,7 @@ import com.riverfount.booksmanager.catalog.application.port.in.RegisterBookComma
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterBookUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateBookCommand;
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateBookUseCase;
+import com.riverfount.booksmanager.shared.adapter.in.web.AdminOrOperator;
 import com.riverfount.booksmanager.shared.adapter.in.web.PageResponse;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
@@ -34,6 +35,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+@AdminOrOperator
 @RestController
 @RequestMapping("/api/v1/books")
 @Tag(name = "Books", description = "Cadastro, consulta, listagem, edição e inativação de livros do acervo (RF01).")

@@ -1,5 +1,6 @@
 package com.riverfount.booksmanager.catalog.adapter.in.web;
 
+import static org.mockito.Mockito.never;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
@@ -17,6 +18,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.riverfount.booksmanager.security.configuration.MethodSecurityConfiguration;
+import com.riverfount.booksmanager.WithOperator;
+import com.riverfount.booksmanager.WithAdmin;
 import com.riverfount.booksmanager.catalog.application.port.in.DeactivateCopyUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.GetCopyUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ListCopiesQuery;
@@ -44,7 +48,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(CopyController.class)
-@Import(GlobalExceptionHandler.class)
+@Import({GlobalExceptionHandler.class, MethodSecurityConfiguration.class})
 class CopyControllerTest {
 
     @Autowired
@@ -66,7 +70,7 @@ class CopyControllerTest {
     private DeactivateCopyUseCase deactivateCopyUseCase;
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldRegisterCopyAndReturn201WithLocation() throws Exception {
         given(registerCopyUseCase.register(any())).willReturn(Copy.create(1L, "PAT-1"));
 
@@ -83,7 +87,7 @@ class CopyControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400WithProblemDetailForBlankAssetCode() throws Exception {
         mockMvc.perform(post("/api/v1/copies")
                         .with(csrf())
@@ -94,7 +98,7 @@ class CopyControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400ForNullBookId() throws Exception {
         mockMvc.perform(post("/api/v1/copies")
                         .with(csrf())
@@ -105,7 +109,7 @@ class CopyControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn422ForNonExistentBook() throws Exception {
         given(registerCopyUseCase.register(any()))
                 .willThrow(new BusinessRuleException("livro não encontrado: 999999"));
@@ -120,7 +124,7 @@ class CopyControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn422ForDuplicateAssetCode() throws Exception {
         given(registerCopyUseCase.register(any()))
                 .willThrow(new BusinessRuleException("já existe um exemplar com o código de patrimônio 'PAT-1'"));
@@ -133,7 +137,7 @@ class CopyControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldFindExistingCopyById() throws Exception {
         given(getCopyUseCase.findById(eq(1L))).willReturn(Optional.of(Copy.create(1L, "PAT-1")));
 
@@ -143,7 +147,7 @@ class CopyControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn404ForNonExistentId() throws Exception {
         given(getCopyUseCase.findById(eq(99L))).willReturn(Optional.empty());
 
@@ -153,7 +157,7 @@ class CopyControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldListCopiesWithPaginationMetadata() throws Exception {
         given(listCopiesUseCase.list(any())).willReturn(new PageResult<>(
                 List.of(Copy.reconstitute(1L, 7L, "PAT-1", CopyStatus.AVAILABLE, true, 0L),
@@ -172,7 +176,7 @@ class CopyControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldListOnlyActiveCopiesSortedByAssetCodeByDefault() throws Exception {
         given(listCopiesUseCase.list(any())).willReturn(new PageResult<>(List.of(), 0, 20, 0));
 
@@ -189,7 +193,7 @@ class CopyControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldPassFiltersPaginationAndSortToTheUseCase() throws Exception {
         given(listCopiesUseCase.list(any())).willReturn(new PageResult<>(List.of(), 1, 5, 0));
 
@@ -213,7 +217,7 @@ class CopyControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400ForPageSizeAbove100() throws Exception {
         mockMvc.perform(get("/api/v1/copies").param("size", "101"))
                 .andExpect(status().isBadRequest())
@@ -222,7 +226,7 @@ class CopyControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400ForUnknownSortField() throws Exception {
         mockMvc.perform(get("/api/v1/copies").param("sort", "bookId,asc"))
                 .andExpect(status().isBadRequest())
@@ -231,7 +235,7 @@ class CopyControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400ForInvalidStatus() throws Exception {
         mockMvc.perform(get("/api/v1/copies").param("status", "BROKEN"))
                 .andExpect(status().isBadRequest())
@@ -239,7 +243,7 @@ class CopyControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400ForInvalidBookId() throws Exception {
         mockMvc.perform(get("/api/v1/copies").param("bookId", "abc"))
                 .andExpect(status().isBadRequest())
@@ -247,7 +251,7 @@ class CopyControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldUpdateCopyStatusAndReturn200() throws Exception {
         given(updateCopyUseCase.update(any()))
                 .willReturn(Copy.reconstitute(1L, 7L, "PAT-1", CopyStatus.DAMAGED, true, 1L));
@@ -264,7 +268,7 @@ class CopyControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldSendNullStatusWhenItIsOmitted() throws Exception {
         given(updateCopyUseCase.update(any())).willReturn(Copy.create(7L, "PAT-1"));
 
@@ -278,7 +282,7 @@ class CopyControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldIgnoreAssetCodeAndBookIdSentOnUpdate() throws Exception {
         given(updateCopyUseCase.update(any())).willReturn(Copy.create(7L, "PAT-1"));
 
@@ -292,7 +296,7 @@ class CopyControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400WhenUpdatingWithUnknownStatus() throws Exception {
         mockMvc.perform(patch("/api/v1/copies/1")
                         .with(csrf())
@@ -305,7 +309,7 @@ class CopyControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn404WhenUpdatingNonExistentCopy() throws Exception {
         given(updateCopyUseCase.update(any()))
                 .willThrow(new ResourceNotFoundException("exemplar não encontrado: 99"));
@@ -319,7 +323,7 @@ class CopyControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn422WhenStatusTransitionIsNotAllowed() throws Exception {
         given(updateCopyUseCase.update(any())).willThrow(new BusinessRuleException(
                 "o status BORROWED só muda pelos fluxos de empréstimo, devolução e reserva"));
@@ -334,7 +338,7 @@ class CopyControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldDeactivateCopyAndReturn204WithoutBody() throws Exception {
         mockMvc.perform(delete("/api/v1/copies/1").with(csrf()))
                 .andExpect(status().isNoContent())
@@ -344,7 +348,7 @@ class CopyControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn404WhenDeactivatingNonExistentCopy() throws Exception {
         willThrow(new ResourceNotFoundException("exemplar não encontrado: 99"))
                 .given(deactivateCopyUseCase).deactivate(99L);
@@ -355,7 +359,7 @@ class CopyControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn422WhenDeactivatingBorrowedCopy() throws Exception {
         willThrow(new BusinessRuleException("o exemplar não pode ser inativado enquanto estiver emprestado"))
                 .given(deactivateCopyUseCase).deactivate(1L);
@@ -370,5 +374,40 @@ class CopyControllerTest {
         var captor = ArgumentCaptor.forClass(ListCopiesQuery.class);
         then(listCopiesUseCase).should().list(captor.capture());
         return captor.getValue();
+    }
+
+    // authorization by profile (RNF08): the whole controller is for an administrator or an operator
+
+    @Test
+    @WithMockUser(roles = "USER")
+    void shouldRefuseAnAuthenticatedUserWithoutAnAllowedProfileWith403() throws Exception {
+        mockMvc.perform(get("/api/v1/copies"))
+                .andExpect(status().isForbidden())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.detail").value("Você não tem permissão para acessar este recurso."));
+        mockMvc.perform(delete("/api/v1/copies/1").with(csrf())).andExpect(status().isForbidden());
+
+        then(deactivateCopyUseCase).should(never()).deactivate(any());
+    }
+
+    @Test
+    @WithMockUser(roles = {})
+    void shouldRefuseAnAuthenticatedUserWithNoProfileAtAllWith403() throws Exception {
+        mockMvc.perform(delete("/api/v1/copies/1").with(csrf())).andExpect(status().isForbidden());
+
+        then(deactivateCopyUseCase).should(never()).deactivate(any());
+    }
+
+    @Test
+    @WithAdmin
+    void anAdministratorMayCallTheRoutesToo() throws Exception {
+        mockMvc.perform(delete("/api/v1/copies/1").with(csrf())).andExpect(status().isNoContent());
+    }
+
+    @Test
+    @WithOperator
+    void anOperatorMayCallTheRoutes() throws Exception {
+        mockMvc.perform(delete("/api/v1/copies/1").with(csrf())).andExpect(status().isNoContent());
     }
 }

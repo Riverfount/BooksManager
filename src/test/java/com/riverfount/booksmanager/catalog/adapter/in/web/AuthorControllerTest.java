@@ -18,6 +18,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.riverfount.booksmanager.security.configuration.MethodSecurityConfiguration;
+import com.riverfount.booksmanager.WithOperator;
+import com.riverfount.booksmanager.WithAdmin;
 import com.riverfount.booksmanager.catalog.application.port.in.DeactivateAuthorUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.GetAuthorUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ListAuthorsQuery;
@@ -43,7 +46,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(AuthorController.class)
-@Import(GlobalExceptionHandler.class)
+@Import({GlobalExceptionHandler.class, MethodSecurityConfiguration.class})
 class AuthorControllerTest {
 
     @Autowired
@@ -65,7 +68,7 @@ class AuthorControllerTest {
     private DeactivateAuthorUseCase deactivateAuthorUseCase;
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldRegisterAuthorAndReturn201WithLocation() throws Exception {
         given(registerAuthorUseCase.register(any())).willReturn(Author.reconstitute(1L, "Machado de Assis", true));
 
@@ -81,7 +84,7 @@ class AuthorControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400WithProblemDetailForBlankName() throws Exception {
         mockMvc.perform(post("/api/v1/authors")
                         .with(csrf())
@@ -92,7 +95,7 @@ class AuthorControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400ForNameWithLeadingSpace() throws Exception {
         // the DTO needs to catch this as a format error (400), and not let
         // it fall through to the domain as a business rule (422)
@@ -105,7 +108,7 @@ class AuthorControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400ForNameLongerThanDomainLimit() throws Exception {
         var nameOneCharacterAboveTheLimit = "A".repeat(Author.MAX_NAME_LENGTH + 1);
 
@@ -118,7 +121,7 @@ class AuthorControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldFindExistingAuthorById() throws Exception {
         given(getAuthorUseCase.findById(eq(1L)))
                 .willReturn(Optional.of(Author.reconstitute(1L, "Machado de Assis", true)));
@@ -130,7 +133,7 @@ class AuthorControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn404ForNonExistentId() throws Exception {
         given(getAuthorUseCase.findById(eq(99L))).willReturn(Optional.empty());
 
@@ -140,7 +143,7 @@ class AuthorControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldListAuthorsWithPaginationMetadata() throws Exception {
         given(listAuthorsUseCase.list(any())).willReturn(new PageResult<>(
                 List.of(Author.reconstitute(1L, "Clarice Lispector", true),
@@ -160,7 +163,7 @@ class AuthorControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldListOnlyActiveAuthorsSortedByNameByDefault() throws Exception {
         given(listAuthorsUseCase.list(any())).willReturn(new PageResult<>(List.of(), 0, 20, 0));
 
@@ -176,7 +179,7 @@ class AuthorControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldPassFiltersPaginationAndSortToTheUseCase() throws Exception {
         given(listAuthorsUseCase.list(any())).willReturn(new PageResult<>(List.of(), 1, 5, 0));
 
@@ -198,7 +201,7 @@ class AuthorControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400ForPageSizeAbove100() throws Exception {
         mockMvc.perform(get("/api/v1/authors").param("size", "101"))
                 .andExpect(status().isBadRequest())
@@ -207,7 +210,7 @@ class AuthorControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400ForNegativePage() throws Exception {
         mockMvc.perform(get("/api/v1/authors").param("page", "-1"))
                 .andExpect(status().isBadRequest())
@@ -215,7 +218,7 @@ class AuthorControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400ForUnknownSortField() throws Exception {
         mockMvc.perform(get("/api/v1/authors").param("sort", "birthDate,asc"))
                 .andExpect(status().isBadRequest())
@@ -224,7 +227,7 @@ class AuthorControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400ForInvalidActiveValue() throws Exception {
         mockMvc.perform(get("/api/v1/authors").param("active", "maybe"))
                 .andExpect(status().isBadRequest())
@@ -232,7 +235,7 @@ class AuthorControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldUpdateAuthorNameAndReturn200() throws Exception {
         given(updateAuthorUseCase.update(any())).willReturn(Author.reconstitute(1L, "Machado de Assis", true));
 
@@ -249,7 +252,7 @@ class AuthorControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldSendNullNameWhenItIsOmitted() throws Exception {
         given(updateAuthorUseCase.update(any())).willReturn(Author.reconstitute(1L, "Machado de Assis", true));
 
@@ -263,7 +266,7 @@ class AuthorControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn404WhenUpdatingNonExistentAuthor() throws Exception {
         given(updateAuthorUseCase.update(any())).willThrow(new ResourceNotFoundException("autor não encontrado: 99"));
 
@@ -276,7 +279,7 @@ class AuthorControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400WhenUpdatingWithBlankName() throws Exception {
         mockMvc.perform(patch("/api/v1/authors/1")
                         .with(csrf())
@@ -289,7 +292,7 @@ class AuthorControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400WhenUpdatingWithEmptyName() throws Exception {
         mockMvc.perform(patch("/api/v1/authors/1")
                         .with(csrf())
@@ -300,7 +303,7 @@ class AuthorControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400WhenUpdatingWithNameLongerThanDomainLimit() throws Exception {
         var nameOneCharacterAboveTheLimit = "A".repeat(Author.MAX_NAME_LENGTH + 1);
 
@@ -313,7 +316,7 @@ class AuthorControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400WhenUpdatingWithMalformedJson() throws Exception {
         mockMvc.perform(patch("/api/v1/authors/1")
                         .with(csrf())
@@ -324,7 +327,7 @@ class AuthorControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldDeactivateAuthorAndReturn204WithoutBody() throws Exception {
         mockMvc.perform(delete("/api/v1/authors/1").with(csrf()))
                 .andExpect(status().isNoContent())
@@ -334,7 +337,7 @@ class AuthorControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn404WhenDeactivatingNonExistentAuthor() throws Exception {
         willThrow(new ResourceNotFoundException("autor não encontrado: 99"))
                 .given(deactivateAuthorUseCase).deactivate(99L);
@@ -345,7 +348,7 @@ class AuthorControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400WhenDeactivatingWithNonNumericId() throws Exception {
         mockMvc.perform(delete("/api/v1/authors/abc").with(csrf()))
                 .andExpect(status().isBadRequest())
@@ -358,5 +361,40 @@ class AuthorControllerTest {
         var captor = ArgumentCaptor.forClass(ListAuthorsQuery.class);
         then(listAuthorsUseCase).should().list(captor.capture());
         return captor.getValue();
+    }
+
+    // authorization by profile (RNF08): the whole controller is for an administrator or an operator
+
+    @Test
+    @WithMockUser(roles = "USER")
+    void shouldRefuseAnAuthenticatedUserWithoutAnAllowedProfileWith403() throws Exception {
+        mockMvc.perform(get("/api/v1/authors"))
+                .andExpect(status().isForbidden())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.detail").value("Você não tem permissão para acessar este recurso."));
+        mockMvc.perform(delete("/api/v1/authors/1").with(csrf())).andExpect(status().isForbidden());
+
+        then(deactivateAuthorUseCase).should(never()).deactivate(any());
+    }
+
+    @Test
+    @WithMockUser(roles = {})
+    void shouldRefuseAnAuthenticatedUserWithNoProfileAtAllWith403() throws Exception {
+        mockMvc.perform(delete("/api/v1/authors/1").with(csrf())).andExpect(status().isForbidden());
+
+        then(deactivateAuthorUseCase).should(never()).deactivate(any());
+    }
+
+    @Test
+    @WithAdmin
+    void anAdministratorMayCallTheRoutesToo() throws Exception {
+        mockMvc.perform(delete("/api/v1/authors/1").with(csrf())).andExpect(status().isNoContent());
+    }
+
+    @Test
+    @WithOperator
+    void anOperatorMayCallTheRoutes() throws Exception {
+        mockMvc.perform(delete("/api/v1/authors/1").with(csrf())).andExpect(status().isNoContent());
     }
 }

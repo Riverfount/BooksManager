@@ -8,6 +8,7 @@ import com.riverfount.booksmanager.catalog.application.port.in.RegisterAuthorCom
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterAuthorUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateAuthorCommand;
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateAuthorUseCase;
+import com.riverfount.booksmanager.shared.adapter.in.web.AdminOrOperator;
 import com.riverfount.booksmanager.shared.adapter.in.web.PageResponse;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
@@ -34,6 +35,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+@AdminOrOperator
 @RestController
 @RequestMapping("/api/v1/authors")
 @Tag(name = "Authors", description = "Cadastro, consulta, listagem, edição e inativação de autores do acervo (RF02).")
