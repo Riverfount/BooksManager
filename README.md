@@ -63,11 +63,11 @@ O front-end (React + Tailwind CSS) é um projeto separado que consome esta API a
 ### No GitHub Codespaces (recomendado)
 1. No repositório, clique em **Code → Codespaces → Create codespace on main** (ou abra o Codespace existente).
 2. Aguarde a preparação do ambiente.
-3. No terminal, execute o comando **./mvnw spring-boot:run**. O Spring Boot sobe o container do PostgreSQL automaticamente a partir do arquivo **compose.yaml**.
+3. Crie o arquivo **.env** a partir do **.env-sample** e preencha ao menos o **APP_JWT_SECRET** (veja a seção "Configuração e segredos"). No terminal, execute o comando **./mvnw spring-boot:run**. O Spring Boot sobe o container do PostgreSQL automaticamente a partir do arquivo **compose.yaml**.
 4. Quando aparecer o aviso da porta **8080**, clique em **Abrir no navegador**. Isso abre a raiz da API (sem nada para visualizar); para a documentação, acesse **/swagger-ui.html** (veja a seção "Documentação da API" abaixo).
 
 ### No computador (ferramentas instaladas)
-Abra o projeto na IDE e execute a classe principal **BooksManagerApplication**, ou use o comando **./mvnw spring-boot:run** na raiz do projeto. Com o Docker em execução, o banco sobe sozinho. A API fica disponível em http://localhost:8080.
+Abra o projeto na IDE e execute a classe principal **BooksManagerApplication**, ou use o comando **./mvnw spring-boot:run** na raiz do projeto. Antes, crie o arquivo **.env** a partir do **.env-sample** e preencha ao menos o **APP_JWT_SECRET** (veja a seção "Configuração e segredos"); sem ele a aplicação não sobe. Com o Docker em execução, o banco sobe sozinho. A API fica disponível em http://localhost:8080.
 
 ### Atalhos com Makefile
 Os comandos mais usados do dia a dia também estão disponíveis como alvos do `make` (`make` ou `make help` lista todos):
@@ -80,6 +80,18 @@ Os comandos mais usados do dia a dia também estão disponíveis como alvos do `
 | `make up` | `docker compose up -d` |
 | `make down` | `docker compose down` |
 | `make clean` | `./mvnw clean` |
+
+### Configuração e segredos
+As variáveis de ambiente da aplicação estão no **.env-sample**. Copie-o para **.env** (que o Git ignora) e preencha: ao rodar localmente, a aplicação lê o **.env** da raiz do projeto sozinha (perfil `local`, o padrão), e uma variável exportada no ambiente tem prioridade sobre o arquivo. Os testes não leem o **.env**. Em produção, defina `SPRING_PROFILES_ACTIVE` com outro perfil (por exemplo, `prod`) e passe as variáveis pelo ambiente.
+
+| Variável | Para quê |
+|---|---|
+| `APP_JWT_SECRET` | **Obrigatória.** Segredo que assina e valida os tokens JWT (HS256), com ao menos 32 bytes; a aplicação não sobe sem ele. Gere um com `openssl rand -base64 48`. |
+| `APP_CORS_ALLOWED_ORIGINS` | Origem do front-end liberada no CORS. |
+| `APP_ADMIN_LOGIN` e `APP_ADMIN_PASSWORD` | Administrador inicial (veja abaixo). |
+
+### Autenticação
+A API usa tokens JWT no cabeçalho `Authorization: Bearer <token>`; não há sessão no servidor. Todas as rotas exigem um token válido, exceto a documentação (Swagger e OpenAPI), o health check e as rotas `/api/v1/auth/**`. Sem token, com token expirado ou inválido, a resposta é 401 em ProblemDetail. O login que emite o token (`POST /api/v1/auth/login`) ainda será implementado nas próximas issues da Fase 2; até lá não há como obter um token pela API.
 
 ### Documentação da API
 A API é um back-end puro, sem páginas HTML; não há nada para visualizar na raiz **http://localhost:8080**. Com a aplicação em execução, a documentação Swagger fica em http://localhost:8080/swagger-ui.html, e as requisições à API usam o prefixo **/api/v1**.
@@ -110,7 +122,7 @@ Os erros seguem o formato ProblemDetail (400, 404 e 422). Os detalhes do contrat
 - Para rodar uma classe só: `./mvnw test -Dtest=BookTest`.
 
 ### CORS
-O navegador só deixa o front-end chamar a API se a origem dele estiver liberada. Defina a variável de ambiente **APP_CORS_ALLOWED_ORIGINS** com a origem do front-end (várias, separadas por vírgula), por exemplo `http://localhost:5173`. Sem ela, nenhuma origem é aceita. O `.env-sample` traz o exemplo; a variável precisa estar no ambiente do processo (exportada no terminal ou configurada na IDE), pois o Spring não lê o `.env` sozinho. São permitidos os métodos `GET`, `POST`, `PATCH`, `DELETE` e `OPTIONS` e os cabeçalhos `Authorization` e `Content-Type`.
+O navegador só deixa o front-end chamar a API se a origem dele estiver liberada. Defina a variável de ambiente **APP_CORS_ALLOWED_ORIGINS** com a origem do front-end (várias, separadas por vírgula), por exemplo `http://localhost:5173`. Sem ela, nenhuma origem é aceita. O `.env-sample` traz o exemplo. São permitidos os métodos `GET`, `POST`, `PATCH`, `DELETE` e `OPTIONS` e os cabeçalhos `Authorization` e `Content-Type`.
 
 ### Administrador inicial
 Sem nenhum usuário, ninguém consegue entrar para criar os outros. Por isso, na inicialização, a aplicação cria o administrador **se a tabela de usuários estiver vazia** e as duas variáveis de ambiente **APP_ADMIN_LOGIN** e **APP_ADMIN_PASSWORD** estiverem preenchidas (o `.env-sample` traz o exemplo; como no CORS, elas precisam estar no ambiente do processo). A senha precisa ter de 8 a 25 caracteres, com ao menos uma letra maiúscula, uma minúscula, um número e um caractere especial; se não cumprir, a inicialização falha com uma mensagem que diz o que falta (sem repetir a senha). A senha é gravada só como hash BCrypt e não aparece em log, em migração nem em arquivo versionado. Reiniciar a aplicação não cria um segundo administrador nem altera o existente; depois que o primeiro administrador entrar, as variáveis podem ser removidas. Se não houver usuário e as variáveis faltarem, a aplicação sobe normalmente e registra um aviso. O login é guardado em minúsculas.
