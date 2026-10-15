@@ -171,7 +171,7 @@ O livro (a obra) é separado do exemplar (a cópia física), o que permite vári
 | Autor | id, nome, ativo |
 | Categoria | id, nome, ativo |
 | Exemplar | id, livroId, código de patrimônio, status (DISPONÍVEL, EMPRESTADO, RESERVADO, DANIFICADO, EXTRAVIADO), ativo, versão (lock otimista) |
-| Leitor | id, nome, documento, e-mail, telefone, ativo, bloqueado, suspenso até (data) |
+| Leitor | id, nome, documento, e-mail, telefone, data de nascimento, responsável (nome, e-mail e telefone; só para menor de 18 anos), ativo, bloqueado, suspenso até (data) |
 | Empréstimo | id, data de retirada, data prevista de devolução, data de devolução, número de renovações |
 | Multa | id, valor, status (PENDENTE, PAGA, ABONADA), justificativa do abono |
 | Reserva | id, data da reserva, status (ATIVA, ATENDIDA, CANCELADA, EXPIRADA) |
@@ -232,7 +232,7 @@ O front-end é criado, executado e acompanhado separadamente, em seu próprio re
 | --- | --- | --- |
 | 0. Base | Projeto configurado, banco com Docker Compose, Flyway, ArchUnit, health check, configuração de segurança provisória, CORS e integração contínua. O projeto do front-end (React e Tailwind CSS) é criado e acompanhado no repositório próprio dele, fora deste plano. | **Concluída** neste repositório: Docker Compose, Flyway, ArchUnit, `Makefile`, validação do esquema, health check do banco (RNF23), CORS (RNF09) e integração contínua (RNF06). |
 | 1. Catálogo | Livros, autores, categorias e exemplares, com migrações, interface e testes. | **Concluída na API**, com cadastro, consulta, listagem, edição e inativação dos quatro recursos e a pesquisa de livros com exemplares disponíveis (RF05, issue #83). A interface fica no repositório do front-end. |
-| 2. Leitores e acesso | Cadastro de leitores, usuários do sistema, login e perfis, na API e no front-end. | Não iniciada. |
+| 2. Leitores e acesso | Cadastro de leitores, usuários do sistema, login e perfis, na API e no front-end. | **Em andamento** (issues #87 a #110): decisões registradas (#87); leitores (#88 a #96); usuários do sistema (#97 a #100); autenticação (#101 a #105); gestão de usuários (#106 a #110). Nenhuma parte implementada ainda. |
 | 3. Empréstimos | Configuração da biblioteca (política de penalidade), empréstimo, devolução, renovação, penalidades por atraso (multa ou suspensão) e relatório de atrasos, com o domínio completo e testes. | Não iniciada. |
 | 4. Complementos | Reservas, relatórios adicionais e demais parâmetros configuráveis. | Não iniciada. |
 | 5. Evolução | Notificações por e-mail, importação por ISBN, exportação de relatórios. | Não iniciada. |
@@ -255,6 +255,16 @@ Se no fim de dezembro a fase 3 ainda não estiver encaminhada, a fase 4 sai do p
 
 - **Java 25.** Versão confirmada para o projeto.
 - **Front-end separado, em repositório próprio.** React com Tailwind CSS, consumindo a API REST do backend, em um repositório diferente deste (decidido em 10/10/2026; descartada a opção de pasta `frontend/` no mesmo repo). A criação e o acompanhamento do projeto do front-end ficam nesse repositório, e por isso saem das pendências da Fase 0 deste (decidido em 14/10/2026). As dependências do Thymeleaf já saíram do `pom.xml`, e o backend expõe apenas a API. Ainda em aberto, e a decidir lá: build, TypeScript ou JavaScript, roteamento e cliente HTTP.
-- **Autenticação por JWT com refresh token** (decidido em 10/10/2026; descartada sessão com cookie).
+- **Autenticação por JWT com refresh token** (decidido em 10/10/2026; descartada a sessão no servidor, o backend não guarda sessão). Detalhes (decididos em 14/10/2026; RF08, RNF07, RNF08):
+  - Access token JWT assinado com HS256 (resource server do Spring Security, Nimbus), segredo na variável de ambiente `APP_JWT_SECRET`; vida de 15 minutos.
+  - Refresh token opaco (aleatório), guardado como hash em tabela, com rotação a cada uso e revogação (logout e inativação do usuário); vida de 7 dias. Entregue em cookie `httpOnly`, o que exige CORS com credenciais e proteção contra CSRF na rota de renovação; a confirmar com o front-end antes da issue do login (#103).
+  - Autorização por perfil em cada endpoint: usuários do sistema e configuração da biblioteca só para ADMIN; o restante, para ADMIN e OPERATOR.
+  - Primeiro administrador criado na inicialização, por `APP_ADMIN_LOGIN` e `APP_ADMIN_PASSWORD`, somente se não houver usuário algum.
+- **Leitores** (decidido em 14/10/2026; RF07, RF10, RNF11):
+  - O `Reader` é um agregado separado do `User` do sistema, ambos no módulo `user`. Estados `active` e `blocked` agora; `suspendedUntil` só na Fase 3.
+  - O documento é um texto genérico, normalizado e único (aceita CPF, matrícula etc.). O e-mail é obrigatório e o telefone é opcional, ambos validados. A data de nascimento é obrigatória, para saber se o leitor é menor de 18 anos.
+  - Busca por nome com "contém" e por documento com igualdade. A listagem devolve o documento mascarado e não traz nascimento nem responsável; a consulta individual traz tudo.
+  - Leitor menor de 18 anos exige os dados do responsável: nome e e-mail obrigatórios, telefone opcional. A idade vem da data de nascimento e de uma data de referência recebida por parâmetro, nunca de `LocalDate.now()` no domínio; ao completar 18 anos a exigência deixa de valer.
+  - Sem motivo de bloqueio. O esquema fica pronto para anonimização futura (RN14 com a LGPD), inclusive dos dados do responsável, sem implementá-la.
 - **Penalidade por atraso configurável.** A biblioteca escolhe, em configuração, entre multa, suspensão, ambas ou nenhuma (RF20, RF26, RN08 e RN16). O sistema não fixa essa escolha.
 - **Valores iniciais da política de penalidade** (decidido em 10/10/2026): multa de R$ 1,00 por dia de atraso com teto de R$ 10,00; suspensão de 1 dia por dia de atraso com teto de 1 ano (ver nota em RN08 sobre o modelo de acúmulo assumido).

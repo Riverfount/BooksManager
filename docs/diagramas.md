@@ -38,9 +38,16 @@ classDiagram
         String document
         String email
         String phone
+        LocalDate birthDate
+        Guardian guardian
         boolean active
         boolean blocked
         LocalDate suspendedUntil
+    }
+    class Guardian {
+        String name
+        String email
+        String phone
     }
     class Loan {
         Long id
@@ -83,6 +90,7 @@ classDiagram
     Category "1" --> "*" Book : classifies
     Book "1" --> "*" Copy : has
     Copy "1" --> "*" Loan : registers
+    Reader "1" --> "0..1" Guardian : has (if under 18)
     Reader "1" --> "*" Loan : performs
     Loan "1" --> "0..1" Fine : generates
     Reader "1" --> "*" Reservation : makes

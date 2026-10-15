@@ -21,7 +21,7 @@ Prioridade pelo método MoSCoW: **M** (deve, essencial na v1.0), **S** (deveria,
 
 | ID | Requisito | Prioridade |
 | --- | --- | --- |
-| RF07 | Cadastrar, listar, consultar, editar e inativar leitores (nome, documento, e-mail e telefone). | M |
+| RF07 | Cadastrar, listar, consultar, editar e inativar leitores (nome, documento, e-mail obrigatório, telefone opcional, data de nascimento e, para menores de 18 anos, o responsável). | M |
 | RF08 | Autenticar usuários por login e senha e controlar o acesso por perfil (administrador e operador). | M |
 | RF09 | Gerenciar os usuários do sistema (criar, listar, consultar, editar, inativar e redefinir senha), restrito ao administrador. | M |
 | RF10 | Bloquear e desbloquear leitores manualmente. | M |
@@ -113,7 +113,7 @@ Mesma escala de prioridade dos requisitos funcionais.
 | RNF08 | Exigir autenticação na API e autorizar o acesso por perfil em cada endpoint (administrador e operador). | M |
 | RNF09 | Validar toda entrada de dados (Bean Validation) e proteger contra as vulnerabilidades do OWASP Top 10, incluindo XSS e CSRF, e restringir o CORS à origem do front-end. | M |
 | RNF10 | Manter segredos (senhas de banco e chaves) fora do código-fonte, em variáveis de ambiente. | M |
-| RNF11 | Coletar apenas os dados pessoais mínimos dos leitores (nome, documento e contato), em respeito à LGPD. | M |
+| RNF11 | Coletar apenas os dados pessoais mínimos dos leitores (nome, documento, e-mail, telefone opcional, data de nascimento e, para menores de 18 anos, o responsável), em respeito à LGPD. | M |
 | RNF12 | Servir a aplicação exclusivamente via HTTPS em produção. | S |
 | RNF13 | Limitar tentativas de login e bloquear temporariamente após falhas repetidas. | C |
 
