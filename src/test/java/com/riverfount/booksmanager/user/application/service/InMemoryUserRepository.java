@@ -28,13 +28,16 @@ class InMemoryUserRepository implements UserRepository {
 
     private final Map<Long, User> users = new HashMap<>();
     private long nextId = 1;
+    private int saves;
 
     private static User copyWithId(User user, Long id) {
-        return User.reconstitute(id, user.getLogin(), user.getPasswordHash(), user.getRole(), user.isActive());
+        return User.reconstitute(id, user.getLogin(), user.getPasswordHash(), user.getRole(), user.isActive(),
+                user.getFailedLoginAttempts(), user.getBlockedUntil());
     }
 
     @Override
     public User save(User user) {
+        saves++;
         var duplicate = users.values().stream()
                 .anyMatch(other -> other.getLogin().equals(user.getLogin()) && !other.getId().equals(user.getId()));
         if (duplicate) {
@@ -58,6 +61,15 @@ class InMemoryUserRepository implements UserRepository {
         var normalized = User.normalizeLogin(login);
         return users.values().stream().filter(user -> user.getLogin().equals(normalized)).findFirst()
                 .map(user -> copyWithId(user, user.getId()));
+    }
+
+    @Override
+    public Optional<User> findByLoginForAuthentication(String login) {
+        return findByLogin(login);
+    }
+
+    int saves() {
+        return saves;
     }
 
     @Override

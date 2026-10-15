@@ -43,7 +43,8 @@ class AppUserMigrationTest {
                 "select column_name from information_schema.columns where table_name = 'app_user'",
                 String.class);
 
-        assertThat(columns).containsExactlyInAnyOrder("id", "login", "password_hash", "role", "active");
+        assertThat(columns).containsExactlyInAnyOrder("id", "login", "password_hash", "role", "active",
+                "failed_login_attempts", "blocked_until");
         assertThat(columns).noneMatch(column -> column.equals("password") || column.equals("plain_password"));
     }
 
@@ -114,6 +115,65 @@ class AppUserMigrationTest {
 
         assertThat(stored).isEqualTo(BCRYPT_HASH);
         assertThat(maxLength("password_hash")).isGreaterThanOrEqualTo(BCRYPT_HASH.length());
+    }
+
+    // login lockout (V5__add_login_lockout_to_app_user.sql, RF08)
+
+    @Test
+    void shouldHaveTheLockoutMigrationRegisteredSuccessfully() {
+        var success = jdbcTemplate.queryForObject(
+                "select success from flyway_schema_history where script = 'V5__add_login_lockout_to_app_user.sql'",
+                Boolean.class);
+
+        assertThat(success).isTrue();
+    }
+
+    @Test
+    void shouldStartWithNoFailedAttemptsAndNotBlocked() {
+        insertUser("maria", "OPERATOR");
+
+        var row = jdbcTemplate.queryForMap(
+                "select failed_login_attempts, blocked_until from app_user where login = 'maria'");
+
+        assertThat(row.get("failed_login_attempts")).isEqualTo(0);
+        assertThat(row.get("blocked_until")).isNull();
+    }
+
+    @Test
+    void theFailedAttemptsShouldBeRequiredAndTheBlockOptional() {
+        assertThat(isNullable("failed_login_attempts")).isFalse();
+        assertThat(isNullable("blocked_until")).isTrue();
+    }
+
+    @Test
+    void theBlockShouldKeepItsTimeZone() {
+        assertThat(jdbcTemplate.queryForObject(
+                "select data_type from information_schema.columns "
+                        + "where table_name = 'app_user' and column_name = 'blocked_until'",
+                String.class)).isEqualTo("timestamp with time zone");
+    }
+
+    @Test
+    void shouldStoreTheBlockUntilAnInstant() {
+        insertUser("maria", "OPERATOR");
+
+        jdbcTemplate.update("update app_user set failed_login_attempts = 3, "
+                + "blocked_until = timestamptz '2026-10-15 12:15:00+00' where login = 'maria'");
+
+        var row = jdbcTemplate.queryForMap(
+                "select failed_login_attempts, blocked_until from app_user where login = 'maria'");
+        assertThat(row.get("failed_login_attempts")).isEqualTo(3);
+        assertThat(((java.sql.Timestamp) row.get("blocked_until")).toInstant())
+                .isEqualTo(java.time.Instant.parse("2026-10-15T12:15:00Z"));
+    }
+
+    @Test
+    void theFailedAttemptsCannotBeNegative() {
+        insertUser("maria", "OPERATOR");
+
+        assertThatThrownBy(() -> jdbcTemplate.update(
+                "update app_user set failed_login_attempts = -1 where login = 'maria'"))
+                .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     private void insertUser(String login, String role) {

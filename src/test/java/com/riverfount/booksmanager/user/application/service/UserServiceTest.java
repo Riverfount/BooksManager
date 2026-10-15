@@ -10,6 +10,7 @@ import com.riverfount.booksmanager.user.application.port.in.AuthenticatedUser;
 import com.riverfount.booksmanager.user.application.port.in.CreateInitialAdminCommand;
 import com.riverfount.booksmanager.user.application.port.in.InitialAdminResult;
 import com.riverfount.booksmanager.user.application.port.out.PasswordHasher;
+import com.riverfount.booksmanager.user.configuration.LoginLockoutProperties;
 import com.riverfount.booksmanager.user.domain.Role;
 import com.riverfount.booksmanager.user.domain.User;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,15 +36,48 @@ class UserServiceTest {
         }
     }
 
+    /** A clock the tests move forward by hand. */
+    private static class MutableClock extends java.time.Clock {
+        private java.time.Instant now;
+
+        MutableClock(java.time.Instant now) {
+            this.now = now;
+        }
+
+        void advance(java.time.Duration duration) {
+            now = now.plus(duration);
+        }
+
+        @Override
+        public java.time.ZoneId getZone() {
+            return java.time.ZoneOffset.UTC;
+        }
+
+        @Override
+        public java.time.Clock withZone(java.time.ZoneId zone) {
+            return this;
+        }
+
+        @Override
+        public java.time.Instant instant() {
+            return now;
+        }
+    }
+
+    private static final java.time.Instant START = java.time.Instant.parse("2026-10-15T12:00:00Z");
+    private static final java.time.Duration BLOCK = java.time.Duration.ofMinutes(15);
+
     private InMemoryUserRepository repository;
     private FakePasswordHasher hasher;
+    private MutableClock clock;
     private UserService service;
 
     @BeforeEach
     void setUp() {
         repository = new InMemoryUserRepository();
         hasher = new FakePasswordHasher();
-        service = new UserService(repository, hasher);
+        clock = new MutableClock(START);
+        service = new UserService(repository, hasher, clock, new LoginLockoutProperties(3, BLOCK));
     }
 
     // initial administrator (RF08, RNF10)
@@ -301,5 +335,177 @@ class UserServiceTest {
         assertThat(AuthenticatedUser.class.getRecordComponents())
                 .extracting(java.lang.reflect.RecordComponent::getName)
                 .containsExactly("id", "role");
+    }
+
+    // login lockout after wrong passwords (RF08)
+
+    private static final String WRONG = "Wrong-Pass1!";
+
+    private void wrongPassword(String login, int times) {
+        for (var i = 0; i < times; i++) {
+            messageOf(() -> service.authenticate(new AuthenticateUserCommand(login, WRONG)));
+        }
+    }
+
+    private boolean canLogIn(String login) {
+        try {
+            service.authenticate(new AuthenticateUserCommand(login, RIGHT_PASSWORD));
+            return true;
+        } catch (InvalidCredentialsException e) {
+            return false;
+        }
+    }
+
+    @Test
+    void shouldBlockTheUserAfterThreeWrongPasswordsEvenForTheRightPasswordNext() {
+        registerUser("maria", Role.OPERATOR);
+
+        wrongPassword("maria", 3);
+
+        assertThat(repository.findByLogin("maria").orElseThrow().isBlocked(START)).isTrue();
+        assertThat(canLogIn("maria")).isFalse();
+    }
+
+    @Test
+    void shouldNotBlockBeforeTheThirdWrongPassword() {
+        registerUser("maria", Role.OPERATOR);
+
+        wrongPassword("maria", 2);
+
+        assertThat(repository.findByLogin("maria").orElseThrow().getFailedLoginAttempts()).isEqualTo(2);
+        assertThat(canLogIn("maria")).isTrue();
+    }
+
+    @Test
+    void aBlockedUserShouldGetExactlyTheSameRefusalAsAWrongPasswordOrAnUnknownLogin() {
+        registerUser("maria", Role.OPERATOR);
+        wrongPassword("maria", 3);
+
+        var blockedWithRightPassword = messageOf(() -> service.authenticate(
+                new AuthenticateUserCommand("maria", RIGHT_PASSWORD)));
+        var blockedWithWrongPassword = messageOf(() -> service.authenticate(new AuthenticateUserCommand("maria", WRONG)));
+        var unknown = messageOf(() -> service.authenticate(new AuthenticateUserCommand("nobody", WRONG)));
+
+        assertThat(blockedWithRightPassword).isEqualTo(blockedWithWrongPassword).isEqualTo(unknown);
+        assertThat(blockedWithRightPassword).doesNotContain("bloque").doesNotContain("tentativa");
+    }
+
+    @Test
+    void aCorrectPasswordBeforeTheLimitShouldResetTheCount() {
+        registerUser("maria", Role.OPERATOR);
+        wrongPassword("maria", 2);
+
+        assertThat(canLogIn("maria")).isTrue();
+        assertThat(repository.findByLogin("maria").orElseThrow().getFailedLoginAttempts()).isZero();
+
+        wrongPassword("maria", 2);
+        assertThat(canLogIn("maria")).isTrue();
+    }
+
+    @Test
+    void theBlockShouldEndAfterTheConfiguredTimeAndTheRightPasswordWorkAgain() {
+        registerUser("maria", Role.OPERATOR);
+        wrongPassword("maria", 3);
+
+        clock.advance(BLOCK.minusSeconds(1));
+        assertThat(canLogIn("maria")).isFalse();
+
+        clock.advance(java.time.Duration.ofSeconds(1));
+        assertThat(canLogIn("maria")).isTrue();
+        var user = repository.findByLogin("maria").orElseThrow();
+        assertThat(user.getFailedLoginAttempts()).isZero();
+        assertThat(user.getBlockedUntil()).isNull();
+    }
+
+    @Test
+    void wrongPasswordsWhileBlockedShouldNotExtendTheBlock() {
+        registerUser("maria", Role.OPERATOR);
+        wrongPassword("maria", 3);
+        var until = repository.findByLogin("maria").orElseThrow().getBlockedUntil();
+
+        clock.advance(java.time.Duration.ofMinutes(10));
+        wrongPassword("maria", 5);
+
+        assertThat(repository.findByLogin("maria").orElseThrow().getBlockedUntil()).isEqualTo(until);
+        clock.advance(java.time.Duration.ofMinutes(5));
+        assertThat(canLogIn("maria")).isTrue();
+    }
+
+    @Test
+    void afterTheBlockEndsItShouldTakeAFullNewRoundOfWrongPasswordsToBlockAgain() {
+        registerUser("maria", Role.OPERATOR);
+        wrongPassword("maria", 3);
+        clock.advance(BLOCK);
+
+        wrongPassword("maria", 2);
+        assertThat(repository.findByLogin("maria").orElseThrow().isBlocked(clock.instant())).isFalse();
+
+        wrongPassword("maria", 1);
+        assertThat(repository.findByLogin("maria").orElseThrow().isBlocked(clock.instant())).isTrue();
+    }
+
+    @Test
+    void wrongPasswordsOfAnInactiveUserShouldNotBeCounted() {
+        registerUser("maria", Role.OPERATOR);
+        deactivate("maria");
+
+        wrongPassword("maria", 5);
+
+        var user = repository.findByLogin("maria").orElseThrow();
+        assertThat(user.getFailedLoginAttempts()).isZero();
+        assertThat(user.getBlockedUntil()).isNull();
+    }
+
+    @Test
+    void wrongPasswordsOfAnUnknownLoginShouldLeaveNoTrace() {
+        var savesBefore = repository.saves();
+
+        wrongPassword("nobody", 5);
+
+        assertThat(repository.count()).isZero();
+        assertThat(repository.saves()).isEqualTo(savesBefore);
+    }
+
+    @Test
+    void theLockoutShouldBeOfEachUserAlone() {
+        registerUser("maria", Role.OPERATOR);
+        registerUser("joao", Role.OPERATOR);
+
+        wrongPassword("maria", 3);
+
+        assertThat(canLogIn("maria")).isFalse();
+        assertThat(canLogIn("joao")).isTrue();
+    }
+
+    @Test
+    void thePasswordShouldStillBeCheckedForABlockedUserSoTheTimeStaysTheSame() {
+        registerUser("maria", Role.OPERATOR);
+        wrongPassword("maria", 3);
+        var checksBefore = hasher.hashesChecked.size();
+
+        canLogIn("maria");
+
+        assertThat(hasher.hashesChecked.size() - checksBefore).isEqualTo(1);
+    }
+
+    @Test
+    void aLoginWithNothingToResetShouldNotWriteTheUser() {
+        registerUser("maria", Role.OPERATOR);
+        var savesBefore = repository.saves();
+
+        canLogIn("maria");
+
+        assertThat(repository.saves()).isEqualTo(savesBefore);
+    }
+
+    @Test
+    void shouldHonorAnotherLimitAndDuration() {
+        var strict = new UserService(repository, hasher, clock, new LoginLockoutProperties(1, java.time.Duration.ofHours(1)));
+        registerUser("maria", Role.OPERATOR);
+
+        messageOf(() -> strict.authenticate(new AuthenticateUserCommand("maria", WRONG)));
+
+        assertThat(repository.findByLogin("maria").orElseThrow().getBlockedUntil())
+                .isEqualTo(START.plus(java.time.Duration.ofHours(1)));
     }
 }

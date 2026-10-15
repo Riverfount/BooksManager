@@ -73,6 +73,8 @@ classDiagram
         String passwordHash
         Role role
         boolean active
+        int failedLoginAttempts
+        Instant blockedUntil
     }
     class LibraryConfiguration {
         Long id

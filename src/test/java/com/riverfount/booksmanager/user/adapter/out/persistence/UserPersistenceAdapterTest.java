@@ -164,7 +164,7 @@ class UserPersistenceAdapterTest {
         var found = adapter.findByLogin("maria").orElseThrow();
 
         assertThat(found.isActive()).isFalse();
-        assertThat(found.canAuthenticate()).isFalse();
+        assertThat(found.canAuthenticate(java.time.Instant.now())).isFalse();
     }
 
     @Test
@@ -264,5 +264,65 @@ class UserPersistenceAdapterTest {
 
         assertThat(page.items()).isEmpty();
         assertThat(page.totalItems()).isZero();
+    }
+
+    // login lockout (RF08)
+
+    private static final java.time.Instant BLOCKED_UNTIL = java.time.Instant.parse("2026-10-15T12:15:00Z");
+
+    @Test
+    void shouldPersistAndReadBackTheLockoutState() {
+        var saved = saveUser("maria", Role.OPERATOR);
+        var locked = User.reconstitute(saved.getId(), "maria", HASH, Role.OPERATOR, true, 3, BLOCKED_UNTIL);
+        adapter.save(locked);
+
+        var found = adapter.findById(saved.getId()).orElseThrow();
+
+        assertThat(found.getFailedLoginAttempts()).isEqualTo(3);
+        assertThat(found.getBlockedUntil()).isEqualTo(BLOCKED_UNTIL);
+        assertThat(jdbcTemplate.queryForObject("select failed_login_attempts from app_user where login = 'maria'",
+                Integer.class)).isEqualTo(3);
+    }
+
+    @Test
+    void shouldClearTheLockoutWhenTheUserIsSavedUnblocked() {
+        var saved = saveUser("maria", Role.OPERATOR);
+        adapter.save(User.reconstitute(saved.getId(), "maria", HASH, Role.OPERATOR, true, 3, BLOCKED_UNTIL));
+        var found = adapter.findById(saved.getId()).orElseThrow();
+        found.unblock();
+        adapter.save(found);
+
+        var again = adapter.findById(saved.getId()).orElseThrow();
+
+        assertThat(again.getFailedLoginAttempts()).isZero();
+        assertThat(again.getBlockedUntil()).isNull();
+    }
+
+    @Test
+    void anewUserStartsWithNoFailedAttemptsAndNotBlocked() {
+        var saved = saveUser("maria", Role.OPERATOR);
+
+        assertThat(saved.getFailedLoginAttempts()).isZero();
+        assertThat(saved.getBlockedUntil()).isNull();
+    }
+
+    @Test
+    void findByLoginForAuthenticationShouldIgnoreCaseAndGiveTheLockoutState() {
+        var saved = saveUser("maria", Role.OPERATOR);
+        adapter.save(User.reconstitute(saved.getId(), "maria", HASH, Role.OPERATOR, true, 2, null));
+
+        var found = adapter.findByLoginForAuthentication("  MARIA ").orElseThrow();
+
+        assertThat(found.getId()).isEqualTo(saved.getId());
+        assertThat(found.getFailedLoginAttempts()).isEqualTo(2);
+    }
+
+    @Test
+    void findByLoginForAuthenticationShouldReturnEmptyForAnUnknownOrMissingLogin() {
+        saveUser("maria", Role.OPERATOR);
+
+        assertThat(adapter.findByLoginForAuthentication("joao")).isEmpty();
+        assertThat(adapter.findByLoginForAuthentication(null)).isEmpty();
+        assertThat(adapter.findByLoginForAuthentication("")).isEmpty();
     }
 }

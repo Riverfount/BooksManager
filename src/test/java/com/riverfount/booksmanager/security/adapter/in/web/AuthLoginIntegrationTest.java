@@ -11,6 +11,7 @@ import com.riverfount.booksmanager.TestTokens;
 import com.riverfount.booksmanager.TestcontainersConfiguration;
 import com.riverfount.booksmanager.security.configuration.JwtProperties;
 import com.riverfount.booksmanager.security.domain.TokenHash;
+import jakarta.persistence.EntityManager;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -22,6 +23,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.MockMvcPrint;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -40,7 +42,9 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
-@AutoConfigureMockMvc
+// MockMvc prints the requests and responses of a failing test; here that would put logins, passwords and tokens in the
+// test output, and into the captured log that the last test checks for secrets.
+@AutoConfigureMockMvc(print = MockMvcPrint.NONE)
 @Transactional
 @ExtendWith(OutputCaptureExtension.class)
 class AuthLoginIntegrationTest {
@@ -52,6 +56,9 @@ class AuthLoginIntegrationTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private EntityManager entityManager;
 
     @Autowired
     private JwtDecoder jwtDecoder;
@@ -241,6 +248,77 @@ class AuthLoginIntegrationTest {
     void theOtherRoutesShouldStillRefuseAnInvalidAuthorizationHeader() throws Exception {
         mockMvc.perform(get("/api/v1/books").header("Authorization", "Bearer garbage"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    // lockout after three wrong passwords (RF08)
+
+    private void wrongPasswordTimes(String login, int times) throws Exception {
+        for (var i = 0; i < times; i++) {
+            login(login, "Wrong-Pass1!").andExpect(status().isUnauthorized());
+        }
+    }
+
+    @Test
+    void threeWrongPasswordsShouldBlockTheUserEvenForTheRightPassword() throws Exception {
+        wrongPasswordTimes("maria", 3);
+
+        var blocked = login("maria", PASSWORD).andExpect(status().isUnauthorized()).andReturn().getResponse();
+
+        assertThat(blocked.getHeaders("Set-Cookie")).isEmpty();
+        assertThat(refreshTokenRows()).isZero();
+        var row = jdbcTemplate.queryForMap(
+                "select failed_login_attempts, blocked_until from app_user where login = 'maria'");
+        assertThat(row.get("failed_login_attempts")).isEqualTo(3);
+        assertThat(((java.sql.Timestamp) row.get("blocked_until")).toInstant())
+                .isBetween(Instant.now().plus(Duration.ofMinutes(14)), Instant.now().plus(Duration.ofMinutes(16)));
+    }
+
+    @Test
+    void twoWrongPasswordsShouldNotBlockAndALoginShouldResetTheCount() throws Exception {
+        wrongPasswordTimes("maria", 2);
+
+        login("maria", PASSWORD).andExpect(status().isOk());
+
+        assertThat(jdbcTemplate.queryForObject("select failed_login_attempts from app_user where login = 'maria'",
+                Integer.class)).isZero();
+        wrongPasswordTimes("maria", 2);
+        login("maria", PASSWORD).andExpect(status().isOk());
+    }
+
+    @Test
+    void theRefusalOfABlockedUserShouldBeIdenticalToThatOfAnUnknownLogin() throws Exception {
+        wrongPasswordTimes("maria", 3);
+
+        var blocked = login("maria", PASSWORD).andReturn().getResponse().getContentAsString();
+        var unknown = login("nobody", PASSWORD).andReturn().getResponse().getContentAsString();
+
+        assertThat(blocked).isEqualTo(unknown).contains("Login ou senha inválidos.");
+    }
+
+    @Test
+    void theBlockEndsWhenItsTimeIsUp() throws Exception {
+        wrongPasswordTimes("maria", 3);
+        entityManager.flush();
+        jdbcTemplate.update("update app_user set blocked_until = now() - interval '1 second' where login = 'maria'");
+        // the raw SQL bypasses the session, which would still hand back the user it already loaded
+        entityManager.clear();
+
+        login("maria", PASSWORD).andExpect(status().isOk());
+
+        var row = jdbcTemplate.queryForMap(
+                "select failed_login_attempts, blocked_until from app_user where login = 'maria'");
+        assertThat(row.get("failed_login_attempts")).isEqualTo(0);
+        assertThat(row.get("blocked_until")).isNull();
+    }
+
+    @Test
+    void wrongPasswordsOfAnInactiveUserAreNotCounted() throws Exception {
+        insertUser("inativa", "OPERATOR", false);
+
+        wrongPasswordTimes("inativa", 4);
+
+        assertThat(jdbcTemplate.queryForObject("select failed_login_attempts from app_user where login = 'inativa'",
+                Integer.class)).isZero();
     }
 
     // no secret in the log

@@ -9,6 +9,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.time.Instant;
 
 /**
  * User JPA entity, mapped to the table created by migration
@@ -36,16 +37,25 @@ class UserJpaEntity {
     @Column(nullable = false)
     private boolean active;
 
+    @Column(name = "failed_login_attempts", nullable = false)
+    private int failedLoginAttempts;
+
+    @Column(name = "blocked_until")
+    private Instant blockedUntil;
+
     protected UserJpaEntity() {
         // required by JPA
     }
 
-    UserJpaEntity(Long id, String login, String passwordHash, Role role, boolean active) {
+    UserJpaEntity(Long id, String login, String passwordHash, Role role, boolean active,
+            int failedLoginAttempts, Instant blockedUntil) {
         this.id = id;
         this.login = login;
         this.passwordHash = passwordHash;
         this.role = role;
         this.active = active;
+        this.failedLoginAttempts = failedLoginAttempts;
+        this.blockedUntil = blockedUntil;
     }
 
     Long getId() {
@@ -66,5 +76,13 @@ class UserJpaEntity {
 
     boolean isActive() {
         return active;
+    }
+
+    int getFailedLoginAttempts() {
+        return failedLoginAttempts;
+    }
+
+    Instant getBlockedUntil() {
+        return blockedUntil;
     }
 }

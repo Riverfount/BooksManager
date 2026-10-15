@@ -9,6 +9,7 @@ import com.riverfount.booksmanager.security.application.port.out.RefreshTokenRep
 import com.riverfount.booksmanager.security.configuration.AuthProperties;
 import com.riverfount.booksmanager.security.domain.RefreshToken;
 import com.riverfount.booksmanager.security.domain.TokenHash;
+import com.riverfount.booksmanager.shared.domain.InvalidCredentialsException;
 import com.riverfount.booksmanager.user.application.port.in.AuthenticateUserCommand;
 import com.riverfount.booksmanager.user.application.port.in.AuthenticateUserUseCase;
 import java.time.Clock;
@@ -25,7 +26,6 @@ import org.springframework.transaction.annotation.Transactional;
  * issued or stored when the credentials are refused. Never logs a secret.
  */
 @Service
-@Transactional
 class LoginService implements LoginUseCase {
 
     private final AuthenticateUserUseCase authentication;
@@ -53,7 +53,16 @@ class LoginService implements LoginUseCase {
         this.refreshTokenLifetime = refreshTokenLifetime;
     }
 
+    /**
+     * Not rolled back when the credentials are refused. Authenticating joins this
+     * transaction, and it records the wrong password there (login lockout, RF08);
+     * the exception that reports the refusal would otherwise roll the whole
+     * transaction back and undo that record, so a user would never get blocked.
+     * Nothing else has been written by then, so there is nothing to undo. Any
+     * other failure still rolls back.
+     */
     @Override
+    @Transactional(noRollbackFor = InvalidCredentialsException.class)
     public LoginResult login(LoginCommand command) {
         var user = authentication.authenticate(new AuthenticateUserCommand(command.login(), command.password()));
         var now = Instant.now(clock);
