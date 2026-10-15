@@ -22,7 +22,7 @@ import org.springframework.security.oauth2.jwt.JwtEncoder;
 class JwtConfigurationTest {
 
     private static final String SECRET = "a-secret-with-more-than-thirty-two-bytes-in-it";
-    private static final JwtProperties PROPERTIES = new JwtProperties(SECRET, "booksmanager");
+    private static final JwtProperties PROPERTIES = new JwtProperties(SECRET, "booksmanager", java.time.Duration.ofMinutes(15));
 
     private final JwtConfiguration configuration = new JwtConfiguration();
     private final JwtEncoder encoder = configuration.jwtEncoder(PROPERTIES);
@@ -34,7 +34,7 @@ class JwtConfigurationTest {
     @NullAndEmptySource
     @ValueSource(strings = {"   "})
     void shouldNotBuildTheBeansWithoutTheSecret(String secret) {
-        var properties = new JwtProperties(secret, "booksmanager");
+        var properties = new JwtProperties(secret, "booksmanager", java.time.Duration.ofMinutes(15));
 
         assertThatThrownBy(() -> configuration.jwtDecoder(properties))
                 .isInstanceOf(IllegalStateException.class)
@@ -48,7 +48,7 @@ class JwtConfigurationTest {
     void shouldRefuseASecretShorterThan32BytesWithoutRepeatingIt() {
         var weak = "only-31-bytes-long-secret-12345";
         assertThat(weak.getBytes()).hasSize(31);
-        var properties = new JwtProperties(weak, "booksmanager");
+        var properties = new JwtProperties(weak, "booksmanager", java.time.Duration.ofMinutes(15));
 
         assertThatThrownBy(() -> configuration.jwtDecoder(properties))
                 .isInstanceOf(IllegalStateException.class)
@@ -58,7 +58,7 @@ class JwtConfigurationTest {
 
     @Test
     void shouldAcceptASecretOfExactly32Bytes() {
-        var properties = new JwtProperties("x".repeat(32), "booksmanager");
+        var properties = new JwtProperties("x".repeat(32), "booksmanager", java.time.Duration.ofMinutes(15));
 
         assertThat(configuration.jwtDecoder(properties)).isNotNull();
         assertThat(configuration.jwtEncoder(properties)).isNotNull();

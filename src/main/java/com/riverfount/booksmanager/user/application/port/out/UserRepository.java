@@ -23,6 +23,15 @@ public interface UserRepository {
     /** Finds by login, ignoring case; inactive users are found too, the caller decides (RF08). */
     Optional<User> findByLogin(String login);
 
+    /**
+     * Finds by login, ignoring case, for an authentication attempt: the row is
+     * locked until the end of the current transaction, so simultaneous attempts
+     * on the same user are counted one by one (otherwise parallel requests would
+     * all read the same count and get around the limit of wrong passwords).
+     * Inactive users are found too, the caller decides (RF08).
+     */
+    Optional<User> findByLoginForAuthentication(String login);
+
     boolean existsByLogin(String login);
 
     /** Total of users, active or not (the first administrator is only created when it is zero). */

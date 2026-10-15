@@ -134,8 +134,12 @@ class SecurityChainTest {
 
     @Test
     void theAuthRoutesShouldBePublicAndNeedNoCsrfToken() throws Exception {
-        // nothing is mapped there yet (login comes with issue #103), so the answer is 404, not 401 or 403
+        // an empty body is refused by validation (400), which proves the request got past the security chain
+        // without a token and without a CSRF token
         mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isBadRequest());
+        // a route that does not exist is a 404 there, not a 401 or a 403
+        mockMvc.perform(post("/api/v1/auth/nothing-here").contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isNotFound());
     }
 

@@ -1,6 +1,8 @@
 package com.riverfount.booksmanager.user.domain;
 
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Locale;
 
 /**
@@ -12,6 +14,14 @@ import java.util.Locale;
  *
  * <p>The login is stored in lowercase, so it is not case sensitive; lookups
  * must use {@link #normalizeLogin(String)}.
+ *
+ * <p>Login lockout (RF08): wrong passwords are counted, and when the limit is
+ * reached the user is blocked until a given instant. The block ends by itself
+ * when that instant passes (so nobody can be locked out forever by someone
+ * guessing passwords), and a new round of attempts starts. Failures of an
+ * inactive or already blocked user are not counted. The limit and the
+ * duration come by parameter, and so does the current instant: the domain
+ * never reads the clock.
  */
 public class User {
 
@@ -23,23 +33,34 @@ public class User {
     private String passwordHash;
     private Role role;
     private boolean active;
+    private int failedLoginAttempts;
+    private Instant blockedUntil;
 
-    private User(Long id, String login, String passwordHash, Role role, boolean active) {
+    private User(Long id, String login, String passwordHash, Role role, boolean active, int failedLoginAttempts,
+            Instant blockedUntil) {
         this.id = id;
         this.login = login;
         this.passwordHash = passwordHash;
         this.role = role;
         this.active = active;
+        this.failedLoginAttempts = failedLoginAttempts;
+        this.blockedUntil = blockedUntil;
     }
 
     public static User create(String login, String passwordHash, Role role) {
         validatePasswordHash(passwordHash);
         validateRole(role);
-        return new User(null, validLogin(login), passwordHash, role, true);
+        return new User(null, validLogin(login), passwordHash, role, true, 0, null);
     }
 
+    /** A persisted user with no failed attempts and not blocked. */
     public static User reconstitute(Long id, String login, String passwordHash, Role role, boolean active) {
-        return new User(id, login, passwordHash, role, active);
+        return new User(id, login, passwordHash, role, active, 0, null);
+    }
+
+    public static User reconstitute(Long id, String login, String passwordHash, Role role, boolean active,
+            int failedLoginAttempts, Instant blockedUntil) {
+        return new User(id, login, passwordHash, role, active, failedLoginAttempts, blockedUntil);
     }
 
     /**
@@ -65,9 +86,63 @@ public class User {
         this.active = false;
     }
 
-    /** Whether the user may be authenticated (RF08): only active users. */
-    public boolean canAuthenticate() {
-        return active;
+    /** Whether the user may be authenticated (RF08): active and not blocked at the given instant. */
+    public boolean canAuthenticate(Instant now) {
+        return active && !isBlocked(now);
+    }
+
+    /** Whether the login lockout is in force at the given instant; it ends exactly at {@code blockedUntil}. */
+    public boolean isBlocked(Instant now) {
+        return blockedUntil != null && blockedUntil.isAfter(now);
+    }
+
+    /**
+     * Counts a wrong password. The attempt that reaches {@code maxAttempts}
+     * blocks the user for {@code blockDuration}. Nothing is counted for an
+     * inactive or currently blocked user (so the block is not extended); a
+     * block that already ended is cleared first, which starts a new round.
+     *
+     * @return whether the user changed and has to be saved
+     */
+    public boolean registerFailedLogin(Instant now, int maxAttempts, Duration blockDuration) {
+        if (now == null || maxAttempts < 1 || blockDuration == null || blockDuration.isZero()
+                || blockDuration.isNegative()) {
+            throw new IllegalArgumentException("o instante, o limite de tentativas e a duração do bloqueio são "
+                    + "obrigatórios e devem ser positivos");
+        }
+        if (!active || isBlocked(now)) {
+            return false;
+        }
+        if (blockedUntil != null) {
+            this.failedLoginAttempts = 0;
+            this.blockedUntil = null;
+        }
+        this.failedLoginAttempts++;
+        if (failedLoginAttempts >= maxAttempts) {
+            this.blockedUntil = now.plus(blockDuration);
+        }
+        return true;
+    }
+
+    /**
+     * A correct password, for a user who may authenticate: resets the count and
+     * clears a block that already ended.
+     *
+     * @return whether the user changed and has to be saved
+     */
+    public boolean registerSuccessfulLogin() {
+        if (failedLoginAttempts == 0 && blockedUntil == null) {
+            return false;
+        }
+        this.failedLoginAttempts = 0;
+        this.blockedUntil = null;
+        return true;
+    }
+
+    /** Lifts the lockout right away and resets the count (the manual unblock by an administrator). */
+    public void unblock() {
+        this.failedLoginAttempts = 0;
+        this.blockedUntil = null;
     }
 
     private static String validLogin(String login) {
@@ -117,5 +192,13 @@ public class User {
 
     public boolean isActive() {
         return active;
+    }
+
+    public int getFailedLoginAttempts() {
+        return failedLoginAttempts;
+    }
+
+    public Instant getBlockedUntil() {
+        return blockedUntil;
     }
 }

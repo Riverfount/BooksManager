@@ -8,7 +8,10 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
+import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
+import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 
 /**
  * The security chain (RF08, RNF08): stateless, with the JWT bearer token as
@@ -47,10 +50,23 @@ public class SecurityConfiguration {
                         .authenticationEntryPoint(entryPoint)
                         .accessDeniedHandler(accessDeniedHandler))
                 .oauth2ResourceServer(resourceServer -> resourceServer
+                        .bearerTokenResolver(bearerTokenResolver())
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(converter))
                         .authenticationEntryPoint(entryPoint)
                         .accessDeniedHandler(accessDeniedHandler));
         return http.build();
+    }
+
+    /**
+     * Reads the bearer token from the Authorization header, except on the
+     * authentication routes. There the header is ignored: a client that logs in
+     * again may still send its old, expired access token, and an invalid token
+     * would otherwise be answered with 401 even on a public route.
+     */
+    private static BearerTokenResolver bearerTokenResolver() {
+        var authRoutes = PathPatternRequestMatcher.withDefaults().matcher("/api/v1/auth/**");
+        var header = new DefaultBearerTokenResolver();
+        return request -> authRoutes.matches(request) ? null : header.resolve(request);
     }
 
     /** The profile travels in the {@code role} claim and becomes the {@code ROLE_*} authority. */

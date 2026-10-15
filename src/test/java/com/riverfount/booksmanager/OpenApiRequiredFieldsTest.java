@@ -70,6 +70,12 @@ class OpenApiRequiredFieldsTest {
     }
 
     @Test
+    void theLoginContractShouldRequireWhatItAlwaysSendsAndDemands() throws Exception {
+        apiDocs.andExpect(requiredOf("LoginRequest", "login", "password"))
+                .andExpect(requiredOf("LoginResponse", "accessToken", "tokenType", "expiresIn"));
+    }
+
+    @Test
     void everyPageShouldRequireItsItemsAndMetadata() throws Exception {
         for (var schema : new String[] {"PageResponseBookResponse", "PageResponseAuthorResponse",
                 "PageResponseCategoryResponse", "PageResponseCopyResponse", "PageResponseReaderSummaryResponse"}) {

@@ -24,7 +24,7 @@ class UserPersistenceAdapter implements UserRepository {
     @Override
     public User save(User user) {
         var entity = new UserJpaEntity(user.getId(), user.getLogin(), user.getPasswordHash(), user.getRole(),
-                user.isActive());
+                user.isActive(), user.getFailedLoginAttempts(), user.getBlockedUntil());
         try {
             return toDomain(jpaRepository.saveAndFlush(entity));
         } catch (DataIntegrityViolationException e) {
@@ -47,6 +47,11 @@ class UserPersistenceAdapter implements UserRepository {
     @Override
     public Optional<User> findByLogin(String login) {
         return jpaRepository.findByLogin(User.normalizeLogin(login)).map(this::toDomain);
+    }
+
+    @Override
+    public Optional<User> findByLoginForAuthentication(String login) {
+        return jpaRepository.findByLoginForUpdate(User.normalizeLogin(login)).map(this::toDomain);
     }
 
     @Override
@@ -77,6 +82,6 @@ class UserPersistenceAdapter implements UserRepository {
 
     private User toDomain(UserJpaEntity entity) {
         return User.reconstitute(entity.getId(), entity.getLogin(), entity.getPasswordHash(), entity.getRole(),
-                entity.isActive());
+                entity.isActive(), entity.getFailedLoginAttempts(), entity.getBlockedUntil());
     }
 }

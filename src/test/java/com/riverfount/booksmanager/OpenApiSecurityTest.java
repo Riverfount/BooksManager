@@ -37,4 +37,18 @@ class OpenApiSecurityTest {
         mockMvc.perform(get("/v3/api-docs"))
                 .andExpect(jsonPath("$.security[0].bearerAuth").isArray());
     }
+
+    @Test
+    void theLoginOperationShouldNeedNoToken() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(jsonPath("$.paths['/api/v1/auth/login'].post.security").isEmpty());
+    }
+
+    @Test
+    void theLoginOperationShouldDescribeTheCookieAndTheErrors() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(jsonPath("$.paths['/api/v1/auth/login'].post.responses['200']").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/auth/login'].post.responses['400']").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/auth/login'].post.responses['401']").exists());
+    }
 }

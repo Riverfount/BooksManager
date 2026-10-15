@@ -1,6 +1,7 @@
 package com.riverfount.booksmanager.shared.adapter.in.web;
 
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
+import com.riverfount.booksmanager.shared.domain.InvalidCredentialsException;
 import com.riverfount.booksmanager.shared.domain.InvalidQueryException;
 import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
 import org.springframework.http.HttpStatus;
@@ -32,6 +33,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(InvalidQueryException.class)
     ProblemDetail handleInvalidQuery(InvalidQueryException exception) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
+    }
+
+    /** 401 at login (RF08): the same fixed answer whatever was wrong, so it cannot be used to find out logins. */
+    @ExceptionHandler(InvalidCredentialsException.class)
+    ProblemDetail handleInvalidCredentials(InvalidCredentialsException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, "Login ou senha inválidos.");
     }
 
     /**
