@@ -21,4 +21,12 @@ class BCryptPasswordHasher implements PasswordHasher {
     public String hash(String rawPassword) {
         return passwordEncoder.encode(rawPassword);
     }
+
+    @Override
+    public boolean matches(String rawPassword, String storedHash) {
+        if (rawPassword == null || storedHash == null || storedHash.isEmpty()) {
+            return false;
+        }
+        return passwordEncoder.matches(rawPassword, storedHash);
+    }
 }

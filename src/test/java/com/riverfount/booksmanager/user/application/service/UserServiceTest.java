@@ -4,6 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
+import com.riverfount.booksmanager.shared.domain.InvalidCredentialsException;
+import com.riverfount.booksmanager.user.application.port.in.AuthenticateUserCommand;
+import com.riverfount.booksmanager.user.application.port.in.AuthenticatedUser;
 import com.riverfount.booksmanager.user.application.port.in.CreateInitialAdminCommand;
 import com.riverfount.booksmanager.user.application.port.in.InitialAdminResult;
 import com.riverfount.booksmanager.user.application.port.out.PasswordHasher;
@@ -17,10 +20,18 @@ class UserServiceTest {
     /** Stands for BCrypt: never returns the raw password and differs on each call, like a salted hash. */
     private static class FakePasswordHasher implements PasswordHasher {
         private int calls;
+        private final java.util.List<String> hashesChecked = new java.util.ArrayList<>();
 
         @Override
         public String hash(String rawPassword) {
             return "{hash-" + (++calls) + "}" + new StringBuilder(rawPassword).reverse();
+        }
+
+        @Override
+        public boolean matches(String rawPassword, String storedHash) {
+            hashesChecked.add(storedHash);
+            return rawPassword != null && storedHash != null
+                    && storedHash.endsWith("}" + new StringBuilder(rawPassword).reverse());
         }
     }
 
@@ -149,5 +160,146 @@ class UserServiceTest {
         var command = new CreateInitialAdminCommand("admin", "S3cret-Pass!");
 
         assertThat(command.toString()).doesNotContain("S3cret-Pass!").contains("admin");
+    }
+
+    // authentication (RF08, HU05, RNF07)
+
+    private static final String RIGHT_PASSWORD = "S3cret-Pass!";
+
+    private void registerUser(String login, Role role) {
+        repository.save(User.create(login, hasher.hash(RIGHT_PASSWORD), role));
+    }
+
+    private void deactivate(String login) {
+        var user = repository.findByLogin(login).orElseThrow();
+        user.deactivate();
+        repository.save(user);
+    }
+
+    private static String messageOf(Runnable attempt) {
+        try {
+            attempt.run();
+        } catch (InvalidCredentialsException e) {
+            return e.getMessage();
+        }
+        throw new AssertionError("expected InvalidCredentialsException");
+    }
+
+    @Test
+    void shouldAuthenticateWithTheRightCredentialsAndGiveTheIdAndTheRole() {
+        registerUser("maria", Role.OPERATOR);
+        registerUser("chefe", Role.ADMIN);
+
+        var maria = service.authenticate(new AuthenticateUserCommand("maria", RIGHT_PASSWORD));
+        var chefe = service.authenticate(new AuthenticateUserCommand("chefe", RIGHT_PASSWORD));
+
+        assertThat(maria).isEqualTo(new AuthenticatedUser(repository.findByLogin("maria").orElseThrow().getId(),
+                Role.OPERATOR));
+        assertThat(chefe.role()).isEqualTo(Role.ADMIN);
+    }
+
+    @Test
+    void theLoginShouldNotBeCaseSensitive() {
+        registerUser("maria", Role.OPERATOR);
+
+        assertThat(service.authenticate(new AuthenticateUserCommand("  MARIA ", RIGHT_PASSWORD)).role())
+                .isEqualTo(Role.OPERATOR);
+    }
+
+    @Test
+    void shouldRefuseAWrongPassword() {
+        registerUser("maria", Role.OPERATOR);
+
+        assertThatThrownBy(() -> service.authenticate(new AuthenticateUserCommand("maria", "Wrong-Pass1!")))
+                .isInstanceOf(InvalidCredentialsException.class);
+    }
+
+    @Test
+    void shouldRefuseAnUnknownLogin() {
+        assertThatThrownBy(() -> service.authenticate(new AuthenticateUserCommand("nobody", RIGHT_PASSWORD)))
+                .isInstanceOf(InvalidCredentialsException.class);
+    }
+
+    @Test
+    void shouldRefuseAnInactiveUserEvenWithTheRightPassword() {
+        registerUser("maria", Role.OPERATOR);
+        deactivate("maria");
+
+        assertThatThrownBy(() -> service.authenticate(new AuthenticateUserCommand("maria", RIGHT_PASSWORD)))
+                .isInstanceOf(InvalidCredentialsException.class);
+    }
+
+    @Test
+    void everyFailureShouldHaveTheSameMessageSoNothingTellsWhichPartWasWrong() {
+        registerUser("maria", Role.OPERATOR);
+        registerUser("inativa", Role.OPERATOR);
+        deactivate("inativa");
+
+        var wrongPassword = messageOf(() -> service.authenticate(new AuthenticateUserCommand("maria", "Wrong-Pass1!")));
+        var unknownLogin = messageOf(() -> service.authenticate(new AuthenticateUserCommand("nobody", RIGHT_PASSWORD)));
+        var inactive = messageOf(() -> service.authenticate(new AuthenticateUserCommand("inativa", RIGHT_PASSWORD)));
+
+        assertThat(wrongPassword).isEqualTo(unknownLogin).isEqualTo(inactive);
+        assertThat(wrongPassword).doesNotContain("maria").doesNotContain("nobody").doesNotContain(RIGHT_PASSWORD);
+    }
+
+    @Test
+    void shouldCheckAPasswordEvenWhenTheLoginDoesNotExistSoTheTimeDoesNotRevealWhichLoginsExist() {
+        registerUser("maria", Role.OPERATOR);
+        var hashOfMaria = repository.findByLogin("maria").orElseThrow().getPasswordHash();
+
+        messageOf(() -> service.authenticate(new AuthenticateUserCommand("nobody", RIGHT_PASSWORD)));
+
+        assertThat(hasher.hashesChecked).hasSize(1);
+        assertThat(hasher.hashesChecked.get(0)).isNotBlank().isNotEqualTo(hashOfMaria);
+    }
+
+    @Test
+    void shouldCheckThePasswordAlsoForAnInactiveUserSoItCostsTheSame() {
+        registerUser("maria", Role.OPERATOR);
+        deactivate("maria");
+
+        messageOf(() -> service.authenticate(new AuthenticateUserCommand("maria", RIGHT_PASSWORD)));
+
+        assertThat(hasher.hashesChecked).hasSize(1);
+    }
+
+    @Test
+    void shouldMakeTheFakeHashOnlyOnceNoMatterHowManyUnknownLogins() {
+        var before = hasher.calls;
+
+        for (var login : new String[] {"nobody1", "nobody2", "nobody3"}) {
+            messageOf(() -> service.authenticate(new AuthenticateUserCommand(login, RIGHT_PASSWORD)));
+        }
+
+        assertThat(hasher.calls - before).isEqualTo(1);
+        assertThat(hasher.hashesChecked).hasSize(3).containsOnly(hasher.hashesChecked.get(0));
+    }
+
+    @Test
+    void shouldRefuseMissingCredentialsWithoutFailingForAnotherReason() {
+        registerUser("maria", Role.OPERATOR);
+
+        for (var command : new AuthenticateUserCommand[] {
+                new AuthenticateUserCommand(null, null),
+                new AuthenticateUserCommand("", ""),
+                new AuthenticateUserCommand("maria", null),
+                new AuthenticateUserCommand("maria", "  "),
+                new AuthenticateUserCommand(null, RIGHT_PASSWORD)}) {
+            assertThatThrownBy(() -> service.authenticate(command)).isInstanceOf(InvalidCredentialsException.class);
+        }
+    }
+
+    @Test
+    void theLoginCommandShouldNotShowThePasswordInItsStringForm() {
+        assertThat(new AuthenticateUserCommand("maria", RIGHT_PASSWORD).toString())
+                .doesNotContain(RIGHT_PASSWORD).contains("maria");
+    }
+
+    @Test
+    void theAuthenticatedUserShouldCarryNoSecret() {
+        assertThat(AuthenticatedUser.class.getRecordComponents())
+                .extracting(java.lang.reflect.RecordComponent::getName)
+                .containsExactly("id", "role");
     }
 }
