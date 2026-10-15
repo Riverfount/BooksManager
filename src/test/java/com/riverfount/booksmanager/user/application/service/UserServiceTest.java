@@ -39,7 +39,7 @@ class UserServiceTest {
 
     @Test
     void shouldCreateTheAdministratorWhenThereIsNoUser() {
-        var result = service.createInitialAdmin(new CreateInitialAdminCommand("Admin", "s3cret-pass"));
+        var result = service.createInitialAdmin(new CreateInitialAdminCommand("Admin", "S3cret-Pass!"));
 
         assertThat(result).isEqualTo(InitialAdminResult.CREATED);
         var admin = repository.findByLogin("admin").orElseThrow();
@@ -51,19 +51,19 @@ class UserServiceTest {
 
     @Test
     void shouldStoreOnlyTheHashOfThePassword() {
-        service.createInitialAdmin(new CreateInitialAdminCommand("admin", "s3cret-pass"));
+        service.createInitialAdmin(new CreateInitialAdminCommand("admin", "S3cret-Pass!"));
 
         var stored = repository.findByLogin("admin").orElseThrow().getPasswordHash();
 
-        assertThat(stored).isEqualTo("{hash-1}ssap-terc3s");
-        assertThat(stored).isNotEqualTo("s3cret-pass");
+        assertThat(stored).isEqualTo("{hash-1}!ssaP-terc3S");
+        assertThat(stored).isNotEqualTo("S3cret-Pass!");
     }
 
     @Test
     void shouldNotCreateAnythingWhenThereIsAlreadyAUser() {
         repository.save(User.create("operator", "{existing}", Role.OPERATOR));
 
-        var result = service.createInitialAdmin(new CreateInitialAdminCommand("admin", "s3cret-pass"));
+        var result = service.createInitialAdmin(new CreateInitialAdminCommand("admin", "S3cret-Pass!"));
 
         assertThat(result).isEqualTo(InitialAdminResult.ALREADY_HAS_USERS);
         assertThat(repository.count()).isEqualTo(1);
@@ -74,17 +74,17 @@ class UserServiceTest {
     void shouldNotHashThePasswordWhenNothingIsCreated() {
         repository.save(User.create("operator", "{existing}", Role.OPERATOR));
 
-        service.createInitialAdmin(new CreateInitialAdminCommand("admin", "s3cret-pass"));
+        service.createInitialAdmin(new CreateInitialAdminCommand("admin", "S3cret-Pass!"));
 
         assertThat(hasher.calls).isZero();
     }
 
     @Test
     void runningAgainShouldNeitherDuplicateNorChangeTheAdministrator() {
-        service.createInitialAdmin(new CreateInitialAdminCommand("admin", "s3cret-pass"));
+        service.createInitialAdmin(new CreateInitialAdminCommand("admin", "S3cret-Pass!"));
         var before = repository.findByLogin("admin").orElseThrow();
 
-        var again = service.createInitialAdmin(new CreateInitialAdminCommand("admin", "another-pass"));
+        var again = service.createInitialAdmin(new CreateInitialAdminCommand("admin", "Another-Pass1!"));
         var againWithOtherLogin = service.createInitialAdmin(new CreateInitialAdminCommand("other", "x"));
 
         assertThat(again).isEqualTo(InitialAdminResult.ALREADY_HAS_USERS);
@@ -102,8 +102,8 @@ class UserServiceTest {
                 new CreateInitialAdminCommand("", ""),
                 new CreateInitialAdminCommand("admin", null),
                 new CreateInitialAdminCommand("admin", "   "),
-                new CreateInitialAdminCommand("  ", "s3cret-pass"),
-                new CreateInitialAdminCommand(null, "s3cret-pass")}) {
+                new CreateInitialAdminCommand("  ", "S3cret-Pass!"),
+                new CreateInitialAdminCommand(null, "S3cret-Pass!")}) {
             assertThat(service.createInitialAdmin(command)).isEqualTo(InitialAdminResult.NOT_CONFIGURED);
         }
 
@@ -112,19 +112,42 @@ class UserServiceTest {
     }
 
     @Test
+    void shouldRefuseAWeakPasswordWithoutCreatingAnythingNorShowingIt() {
+        for (var weak : new String[] {"Sh1!", "alllowercase1!", "ALLUPPERCASE1!", "NoDigitsHere!", "NoSpecial123x",
+                "Aa1!" + "x".repeat(30)}) {
+            assertThatThrownBy(() -> service.createInitialAdmin(new CreateInitialAdminCommand("admin", weak)))
+                    .isInstanceOf(BusinessRuleException.class)
+                    .hasMessageContaining("senha")
+                    .hasMessageNotContaining(weak);
+        }
+
+        assertThat(repository.count()).isZero();
+        assertThat(hasher.calls).isZero();
+    }
+
+    @Test
+    void aWeakPasswordShouldNotMatterOnceThereIsAlreadyAUser() {
+        repository.save(User.create("operator", "{existing}", Role.OPERATOR));
+
+        var result = service.createInitialAdmin(new CreateInitialAdminCommand("admin", "weak"));
+
+        assertThat(result).isEqualTo(InitialAdminResult.ALREADY_HAS_USERS);
+    }
+
+    @Test
     void shouldRefuseAnInvalidLoginWithoutCreatingAnything() {
-        assertThatThrownBy(() -> service.createInitialAdmin(new CreateInitialAdminCommand("ad min", "s3cret-pass")))
+        assertThatThrownBy(() -> service.createInitialAdmin(new CreateInitialAdminCommand("ad min", "S3cret-Pass!")))
                 .isInstanceOf(BusinessRuleException.class)
                 .hasMessageContaining("login")
-                .hasMessageNotContaining("s3cret-pass");
+                .hasMessageNotContaining("S3cret-Pass!");
 
         assertThat(repository.count()).isZero();
     }
 
     @Test
     void theCommandShouldNotShowThePasswordInItsStringForm() {
-        var command = new CreateInitialAdminCommand("admin", "s3cret-pass");
+        var command = new CreateInitialAdminCommand("admin", "S3cret-Pass!");
 
-        assertThat(command.toString()).doesNotContain("s3cret-pass").contains("admin");
+        assertThat(command.toString()).doesNotContain("S3cret-Pass!").contains("admin");
     }
 }

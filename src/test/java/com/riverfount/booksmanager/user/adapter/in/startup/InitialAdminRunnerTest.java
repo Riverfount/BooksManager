@@ -1,8 +1,10 @@
 package com.riverfount.booksmanager.user.adapter.in.startup;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.riverfount.booksmanager.TestcontainersConfiguration;
+import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.user.application.port.in.CreateInitialAdminUseCase;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,7 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 @ExtendWith(OutputCaptureExtension.class)
 class InitialAdminRunnerTest {
 
-    private static final String PASSWORD = "s3cret-pass-for-the-test";
+    private static final String PASSWORD = "S3cret-Pass-For-Test!";
 
     @Autowired
     private CreateInitialAdminUseCase useCase;
@@ -82,10 +84,23 @@ class InitialAdminRunnerTest {
         var before = jdbcTemplate.queryForMap("select id, password_hash from app_user");
 
         runner("admin", PASSWORD).run(null);
-        runner("admin", "a-different-password").run(null);
+        runner("admin", "Different-Pass9!").run(null);
 
         assertThat(countUsers()).isEqualTo(1);
         assertThat(jdbcTemplate.queryForMap("select id, password_hash from app_user")).isEqualTo(before);
+    }
+
+    @Test
+    void shouldFailTheStartupWithAClearMessageWhenThePasswordIsWeak(CapturedOutput output) {
+        var weakRunner = runner("admin", "weakpass");
+
+        assertThatThrownBy(() -> weakRunner.run(null))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("senha")
+                .hasMessageNotContaining("weakpass");
+
+        assertThat(countUsers()).isZero();
+        assertThat(output.getAll()).doesNotContain("weakpass");
     }
 
     @Test

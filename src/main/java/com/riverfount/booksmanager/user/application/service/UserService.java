@@ -5,6 +5,7 @@ import com.riverfount.booksmanager.user.application.port.in.CreateInitialAdminUs
 import com.riverfount.booksmanager.user.application.port.in.InitialAdminResult;
 import com.riverfount.booksmanager.user.application.port.out.PasswordHasher;
 import com.riverfount.booksmanager.user.application.port.out.UserRepository;
+import com.riverfount.booksmanager.user.domain.PasswordPolicy;
 import com.riverfount.booksmanager.user.domain.Role;
 import com.riverfount.booksmanager.user.domain.User;
 import org.springframework.stereotype.Service;
@@ -34,6 +35,7 @@ class UserService implements CreateInitialAdminUseCase {
         if (isBlank(command.login()) || isBlank(command.password())) {
             return InitialAdminResult.NOT_CONFIGURED;
         }
+        PasswordPolicy.validate(command.password());
         userRepository.save(User.create(command.login(), passwordHasher.hash(command.password()), Role.ADMIN));
         return InitialAdminResult.CREATED;
     }

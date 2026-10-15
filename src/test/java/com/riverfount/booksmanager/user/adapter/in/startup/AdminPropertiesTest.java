@@ -18,11 +18,11 @@ class AdminPropertiesTest {
 
     @Test
     void shouldBindTheLoginAndThePasswordFromTheProperties() {
-        runner.withPropertyValues("app.admin.login=admin", "app.admin.password=s3cret-pass")
+        runner.withPropertyValues("app.admin.login=admin", "app.admin.password=S3cret-Pass!")
                 .run(context -> {
                     var properties = context.getBean(AdminProperties.class);
                     assertThat(properties.login()).isEqualTo("admin");
-                    assertThat(properties.password()).isEqualTo("s3cret-pass");
+                    assertThat(properties.password()).isEqualTo("S3cret-Pass!");
                 });
     }
 
@@ -37,8 +37,8 @@ class AdminPropertiesTest {
 
     @Test
     void shouldNotShowThePasswordInItsStringForm() {
-        var properties = new AdminProperties("admin", "s3cret-pass");
+        var properties = new AdminProperties("admin", "S3cret-Pass!");
 
-        assertThat(properties.toString()).doesNotContain("s3cret-pass").contains("admin");
+        assertThat(properties.toString()).doesNotContain("S3cret-Pass!").contains("admin");
     }
 }
