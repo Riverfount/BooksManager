@@ -3,12 +3,14 @@ package com.riverfount.booksmanager.user.adapter.in.web;
 import com.riverfount.booksmanager.shared.adapter.in.web.PageResponse;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
+import com.riverfount.booksmanager.user.application.port.in.BlockReaderUseCase;
 import com.riverfount.booksmanager.user.application.port.in.DeactivateReaderUseCase;
 import com.riverfount.booksmanager.user.application.port.in.GetReaderUseCase;
 import com.riverfount.booksmanager.user.application.port.in.ListReadersQuery;
 import com.riverfount.booksmanager.user.application.port.in.ListReadersUseCase;
 import com.riverfount.booksmanager.user.application.port.in.RegisterReaderCommand;
 import com.riverfount.booksmanager.user.application.port.in.RegisterReaderUseCase;
+import com.riverfount.booksmanager.user.application.port.in.UnblockReaderUseCase;
 import com.riverfount.booksmanager.user.application.port.in.UpdateReaderCommand;
 import com.riverfount.booksmanager.user.application.port.in.UpdateReaderUseCase;
 import io.swagger.v3.oas.annotations.Operation;
@@ -44,15 +46,20 @@ class ReaderController {
     private final ListReadersUseCase listReadersUseCase;
     private final UpdateReaderUseCase updateReaderUseCase;
     private final DeactivateReaderUseCase deactivateReaderUseCase;
+    private final BlockReaderUseCase blockReaderUseCase;
+    private final UnblockReaderUseCase unblockReaderUseCase;
 
     ReaderController(RegisterReaderUseCase registerReaderUseCase, GetReaderUseCase getReaderUseCase,
             ListReadersUseCase listReadersUseCase, UpdateReaderUseCase updateReaderUseCase,
-            DeactivateReaderUseCase deactivateReaderUseCase) {
+            DeactivateReaderUseCase deactivateReaderUseCase, BlockReaderUseCase blockReaderUseCase,
+            UnblockReaderUseCase unblockReaderUseCase) {
         this.registerReaderUseCase = registerReaderUseCase;
         this.getReaderUseCase = getReaderUseCase;
         this.listReadersUseCase = listReadersUseCase;
         this.updateReaderUseCase = updateReaderUseCase;
         this.deactivateReaderUseCase = deactivateReaderUseCase;
+        this.blockReaderUseCase = blockReaderUseCase;
+        this.unblockReaderUseCase = unblockReaderUseCase;
     }
 
     @PostMapping
@@ -181,5 +188,39 @@ class ReaderController {
     })
     void deactivate(@PathVariable Long id) {
         deactivateReaderUseCase.deactivate(id);
+    }
+
+    @PostMapping("/{id}/block")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Bloquear leitor",
+            description = "Bloqueia o leitor manualmente (RF10): enquanto estiver bloqueado, ele não pode fazer "
+                    + "empréstimos nem reservas (RN11). Bloquear um leitor já bloqueado não tem efeito. Um leitor "
+                    + "inativo não pode ser bloqueado. O motivo do bloqueio não é guardado.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Leitor bloqueado"),
+            @ApiResponse(responseCode = "404", description = "Leitor não encontrado",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "422", description = "Leitor inativo não pode ser bloqueado",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    void block(@PathVariable Long id) {
+        blockReaderUseCase.block(id);
+    }
+
+    @PostMapping("/{id}/unblock")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Desbloquear leitor",
+            description = "Desbloqueia o leitor manualmente (RF10). Desbloquear um leitor que não está bloqueado "
+                    + "não tem efeito.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Leitor desbloqueado"),
+            @ApiResponse(responseCode = "404", description = "Leitor não encontrado",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    void unblock(@PathVariable Long id) {
+        unblockReaderUseCase.unblock(id);
     }
 }
