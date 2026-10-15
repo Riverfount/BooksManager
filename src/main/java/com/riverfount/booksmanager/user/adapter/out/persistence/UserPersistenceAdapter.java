@@ -7,7 +7,9 @@ import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.PageResult;
 import com.riverfount.booksmanager.user.application.port.out.UserFilter;
 import com.riverfount.booksmanager.user.application.port.out.UserRepository;
+import com.riverfount.booksmanager.user.domain.Role;
 import com.riverfount.booksmanager.user.domain.User;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
@@ -52,6 +54,16 @@ class UserPersistenceAdapter implements UserRepository {
     @Override
     public Optional<User> findByLoginForAuthentication(String login) {
         return jpaRepository.findByLoginForUpdate(User.normalizeLogin(login)).map(this::toDomain);
+    }
+
+    @Override
+    public Optional<User> findByIdForUpdate(Long id) {
+        return jpaRepository.findByIdForUpdate(id).map(this::toDomain);
+    }
+
+    @Override
+    public List<User> findActiveByRoleForUpdate(Role role) {
+        return jpaRepository.findActiveByRoleForUpdate(role).stream().map(this::toDomain).toList();
     }
 
     @Override

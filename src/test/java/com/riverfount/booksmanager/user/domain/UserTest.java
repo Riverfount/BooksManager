@@ -396,4 +396,95 @@ class UserTest {
                 .hasMessageContaining("já existe um usuário")
                 .hasMessageContaining("maria");
     }
+
+    // changing the profile without leaving the system with no administrator (RF09)
+
+    private static User admin() {
+        return User.create("chefe", HASH, Role.ADMIN);
+    }
+
+    @Test
+    void shouldPromoteAnOperatorWhateverTheNumberOfAdministrators() {
+        var user = operator();
+
+        user.changeRoleKeepingAnAdministrator(Role.ADMIN, 0);
+
+        assertThat(user.getRole()).isEqualTo(Role.ADMIN);
+    }
+
+    @Test
+    void shouldDemoteAnAdministratorWhenAnotherActiveOneRemains() {
+        var user = admin();
+
+        user.changeRoleKeepingAnAdministrator(Role.OPERATOR, 1);
+
+        assertThat(user.getRole()).isEqualTo(Role.OPERATOR);
+    }
+
+    @Test
+    void shouldRefuseToDemoteTheLastActiveAdministratorAndKeepTheProfile() {
+        var user = admin();
+
+        assertThatThrownBy(() -> user.changeRoleKeepingAnAdministrator(Role.OPERATOR, 0))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("último administrador");
+
+        assertThat(user.getRole()).isEqualTo(Role.ADMIN);
+    }
+
+    @Test
+    void demotingAnInactiveAdministratorIsAlwaysAllowedSinceItCountedForNothing() {
+        var user = admin();
+        user.deactivate();
+
+        user.changeRoleKeepingAnAdministrator(Role.OPERATOR, 0);
+
+        assertThat(user.getRole()).isEqualTo(Role.OPERATOR);
+    }
+
+    @Test
+    void keepingTheSameProfileIsNeverRefusedEvenForTheLastAdministrator() {
+        var lastAdmin = admin();
+        var anOperator = operator();
+
+        lastAdmin.changeRoleKeepingAnAdministrator(Role.ADMIN, 0);
+        anOperator.changeRoleKeepingAnAdministrator(Role.OPERATOR, 0);
+
+        assertThat(lastAdmin.getRole()).isEqualTo(Role.ADMIN);
+        assertThat(anOperator.getRole()).isEqualTo(Role.OPERATOR);
+    }
+
+    @Test
+    void aBlockedAdministratorStillCountsAsAnAdministratorBecauseTheBlockEndsByItself() {
+        var blocked = failed(admin(), MAX_ATTEMPTS, NOW);
+        var other = admin();
+
+        // the caller counts the blocked one among the "others": the lockout is not a reason to refuse
+        other.changeRoleKeepingAnAdministrator(Role.OPERATOR, 1);
+
+        assertThat(blocked.isBlocked(NOW)).isTrue();
+        assertThat(other.getRole()).isEqualTo(Role.OPERATOR);
+    }
+
+    @Test
+    void shouldRequireAProfileEvenWhenChangingKeepingAnAdministrator() {
+        var user = operator();
+
+        assertThatThrownBy(() -> user.changeRoleKeepingAnAdministrator(null, 1))
+                .isInstanceOf(BusinessRuleException.class).hasMessageContaining("perfil");
+        assertThat(user.getRole()).isEqualTo(Role.OPERATOR);
+    }
+
+    @Test
+    void unblockShouldSayWhetherItChangedAnything() {
+        var blocked = failed(operator(), MAX_ATTEMPTS, NOW);
+        var withFailures = failed(operator(), 1, NOW);
+        var clean = operator();
+
+        assertThat(blocked.unblock()).isTrue();
+        assertThat(withFailures.unblock()).isTrue();
+        assertThat(clean.unblock()).isFalse();
+        assertThat(blocked.isBlocked(NOW)).isFalse();
+        assertThat(withFailures.getFailedLoginAttempts()).isZero();
+    }
 }

@@ -325,4 +325,62 @@ class UserPersistenceAdapterTest {
         assertThat(adapter.findByLoginForAuthentication(null)).isEmpty();
         assertThat(adapter.findByLoginForAuthentication("")).isEmpty();
     }
+
+    // loading for a change, with the row locked (RF09)
+
+    @Test
+    void shouldFindAUserByIdForUpdateWithTheSameState() {
+        var saved = saveUser("maria", Role.OPERATOR);
+
+        var found = adapter.findByIdForUpdate(saved.getId()).orElseThrow();
+
+        assertThat(found.getId()).isEqualTo(saved.getId());
+        assertThat(found.getLogin()).isEqualTo("maria");
+        assertThat(found.getRole()).isEqualTo(Role.OPERATOR);
+        assertThat(adapter.findByIdForUpdate(999_999L)).isEmpty();
+    }
+
+    @Test
+    void shouldFindOnlyTheActiveUsersOfTheProfileOrderedById() {
+        var second = saveUser("zeca", Role.ADMIN);
+        var first = saveUser("ana", Role.ADMIN);
+        saveUser("operador", Role.OPERATOR);
+        var inactive = saveUser("antigo", Role.ADMIN);
+        inactive.deactivate();
+        adapter.save(inactive);
+
+        var admins = adapter.findActiveByRoleForUpdate(Role.ADMIN);
+
+        assertThat(admins).extracting(User::getLogin).containsExactly("zeca", "ana");
+        assertThat(admins).extracting(User::getId).containsExactly(second.getId(), first.getId());
+        assertThat(adapter.findActiveByRoleForUpdate(Role.OPERATOR)).extracting(User::getLogin)
+                .containsExactly("operador");
+    }
+
+    @Test
+    void aBlockedAdministratorIsStillFoundSinceTheLockoutDoesNotChangeTheProfile() {
+        var saved = saveUser("chefe", Role.ADMIN);
+        adapter.save(User.reconstitute(saved.getId(), "chefe", HASH, Role.ADMIN, true, 3, BLOCKED_UNTIL));
+
+        assertThat(adapter.findActiveByRoleForUpdate(Role.ADMIN)).extracting(User::getLogin).containsExactly("chefe");
+    }
+
+    @Test
+    void shouldReturnAnEmptyListWhenNobodyHasTheProfile() {
+        saveUser("operador", Role.OPERATOR);
+
+        assertThat(adapter.findActiveByRoleForUpdate(Role.ADMIN)).isEmpty();
+    }
+
+    @Test
+    void shouldPersistAChangeOfProfileMadeOnAUserLoadedForUpdate() {
+        var saved = saveUser("maria", Role.OPERATOR);
+        var loaded = adapter.findByIdForUpdate(saved.getId()).orElseThrow();
+        loaded.changeRole(Role.ADMIN);
+        adapter.save(loaded);
+
+        assertThat(adapter.findById(saved.getId()).orElseThrow().getRole()).isEqualTo(Role.ADMIN);
+        assertThat(jdbcTemplate.queryForObject("select role from app_user where login = 'maria'", String.class))
+                .isEqualTo("ADMIN");
+    }
 }
