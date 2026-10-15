@@ -1,6 +1,7 @@
 package com.riverfount.booksmanager.user.application.service;
 
 import com.riverfount.booksmanager.shared.domain.InvalidCredentialsException;
+import com.riverfount.booksmanager.shared.domain.PageResult;
 import com.riverfount.booksmanager.user.application.port.in.AuthenticateUserCommand;
 import com.riverfount.booksmanager.user.application.port.in.AuthenticateUserUseCase;
 import com.riverfount.booksmanager.user.application.port.in.AuthenticatedUser;
@@ -9,8 +10,12 @@ import com.riverfount.booksmanager.user.application.port.in.CreateInitialAdminUs
 import com.riverfount.booksmanager.user.application.port.in.CreateUserCommand;
 import com.riverfount.booksmanager.user.application.port.in.CreateUserUseCase;
 import com.riverfount.booksmanager.user.application.port.in.FindActiveUserUseCase;
+import com.riverfount.booksmanager.user.application.port.in.GetUserUseCase;
+import com.riverfount.booksmanager.user.application.port.in.ListUsersQuery;
+import com.riverfount.booksmanager.user.application.port.in.ListUsersUseCase;
 import com.riverfount.booksmanager.user.application.port.in.InitialAdminResult;
 import com.riverfount.booksmanager.user.application.port.out.PasswordHasher;
+import com.riverfount.booksmanager.user.application.port.out.UserFilter;
 import com.riverfount.booksmanager.user.application.port.out.UserRepository;
 import com.riverfount.booksmanager.user.configuration.LoginLockoutProperties;
 import com.riverfount.booksmanager.user.domain.PasswordPolicy;
@@ -30,7 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 class UserService implements CreateInitialAdminUseCase, AuthenticateUserUseCase, FindActiveUserUseCase,
-        CreateUserUseCase {
+        CreateUserUseCase, GetUserUseCase, ListUsersUseCase {
 
     private final UserRepository userRepository;
     private final PasswordHasher passwordHasher;
@@ -103,6 +108,18 @@ class UserService implements CreateInitialAdminUseCase, AuthenticateUserUseCase,
             userRepository.save(user);
         }
         throw new InvalidCredentialsException();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<User> findById(Long id) {
+        return userRepository.findById(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResult<User> list(ListUsersQuery query) {
+        return userRepository.findAll(new UserFilter(query.login(), query.active()), query.page());
     }
 
     @Override
