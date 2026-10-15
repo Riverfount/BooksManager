@@ -126,6 +126,7 @@ O contrato da API é o OpenAPI gerado pelo SpringDoc (`/v3/api-docs`), e o front
 | --- | --- | --- | --- |
 | 14/10/2026 | `BookResponse` ganhou `availableCopies` (exemplares ativos e `AVAILABLE`), presente em cadastro, consulta, listagem e edição de livros. | Compatível | #83 |
 | 14/10/2026 | `GET /api/v1/books` ganhou os filtros opcionais `title`, `author`, `isbn` e `categoryId`. | Compatível | #83 |
+| 14/10/2026 | O OpenAPI passou a marcar como obrigatórios (`required`) os campos que as respostas sempre trazem. O JSON não muda; clientes gerados a partir do contrato passam a tipar esses campos sem `?`. | Compatível | #85 |
 
 #### Listagem e paginação (RNF14)
 
