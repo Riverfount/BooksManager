@@ -1,7 +1,7 @@
 package com.riverfount.booksmanager.security.application.service;
 
 import com.riverfount.booksmanager.security.application.port.in.LoginCommand;
-import com.riverfount.booksmanager.security.application.port.in.LoginResult;
+import com.riverfount.booksmanager.security.application.port.in.TokenPair;
 import com.riverfount.booksmanager.security.application.port.in.LoginUseCase;
 import com.riverfount.booksmanager.security.application.port.out.AccessTokenIssuer;
 import com.riverfount.booksmanager.security.application.port.out.OpaqueTokenGenerator;
@@ -63,7 +63,7 @@ class LoginService implements LoginUseCase {
      */
     @Override
     @Transactional(noRollbackFor = InvalidCredentialsException.class)
-    public LoginResult login(LoginCommand command) {
+    public TokenPair login(LoginCommand command) {
         var user = authentication.authenticate(new AuthenticateUserCommand(command.login(), command.password()));
         var now = Instant.now(clock);
 
@@ -72,7 +72,7 @@ class LoginService implements LoginUseCase {
                 refreshTokenLifetime));
 
         var accessToken = accessTokens.issue(user, now);
-        return new LoginResult(accessToken.value(), Duration.between(now, accessToken.expiresAt()).toSeconds(),
+        return new TokenPair(accessToken.value(), Duration.between(now, accessToken.expiresAt()).toSeconds(),
                 rawRefreshToken, refreshTokenLifetime);
     }
 }

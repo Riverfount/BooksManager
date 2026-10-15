@@ -1,7 +1,7 @@
 package com.riverfount.booksmanager.security.adapter.in.web;
 
 import com.riverfount.booksmanager.security.application.port.in.LoginCommand;
-import com.riverfount.booksmanager.security.application.port.in.LoginResult;
+import com.riverfount.booksmanager.security.application.port.in.TokenPair;
 import com.riverfount.booksmanager.security.application.port.in.LoginUseCase;
 import com.riverfount.booksmanager.security.configuration.AuthProperties;
 import io.swagger.v3.oas.annotations.Operation;
@@ -60,7 +60,7 @@ class AuthController {
                         result.accessTokenExpiresInSeconds()));
     }
 
-    private ResponseCookie refreshCookieOf(LoginResult result) {
+    private ResponseCookie refreshCookieOf(TokenPair result) {
         return ResponseCookie.from(refreshCookie.name(), result.refreshToken())
                 .httpOnly(true)
                 .secure(refreshCookie.secure())

@@ -13,7 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.riverfount.booksmanager.security.application.port.in.LoginCommand;
-import com.riverfount.booksmanager.security.application.port.in.LoginResult;
+import com.riverfount.booksmanager.security.application.port.in.TokenPair;
 import com.riverfount.booksmanager.security.application.port.in.LoginUseCase;
 import com.riverfount.booksmanager.security.configuration.AuthProperties;
 import com.riverfount.booksmanager.shared.adapter.in.web.GlobalExceptionHandler;
@@ -54,7 +54,7 @@ class AuthControllerTest {
 
     private void givenALoginThatSucceeds() {
         given(loginUseCase.login(any())).willReturn(
-                new LoginResult("the-access-token", 900, "the-refresh-token", Duration.ofDays(7)));
+                new TokenPair("the-access-token", 900, "the-refresh-token", Duration.ofDays(7)));
     }
 
     @Test
