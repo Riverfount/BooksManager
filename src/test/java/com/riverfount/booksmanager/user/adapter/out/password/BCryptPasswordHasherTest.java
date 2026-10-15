@@ -68,4 +68,12 @@ class BCryptPasswordHasherTest {
 
         assertThat(hasher.matches(null, hash)).isFalse();
     }
+
+    @Test
+    void matchesShouldRefuseAPasswordBiggerThanBcryptCanUseInsteadOfFailing() {
+        var hash = hasher.hash("S3cret-Pass!");
+
+        assertThat(hasher.matches("S3cret-Pass!" + "x".repeat(200), hash)).isFalse();
+        assertThat(hasher.matches("\uD83D\uDE00".repeat(40), hash)).isFalse();
+    }
 }

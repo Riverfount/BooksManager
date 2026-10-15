@@ -27,6 +27,11 @@ class BCryptPasswordHasher implements PasswordHasher {
         if (rawPassword == null || storedHash == null || storedHash.isEmpty()) {
             return false;
         }
-        return passwordEncoder.matches(rawPassword, storedHash);
+        try {
+            return passwordEncoder.matches(rawPassword, storedHash);
+        } catch (IllegalArgumentException e) {
+            // a password bigger than BCrypt can use (72 bytes) is simply not the right one
+            return false;
+        }
     }
 }

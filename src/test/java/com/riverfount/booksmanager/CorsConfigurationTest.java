@@ -94,4 +94,34 @@ class CorsConfigurationTest {
                 .andExpect(status().isForbidden())
                 .andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
     }
+
+    @Test
+    void shouldAllowCredentialsForTheAllowedOriginOnThePreflightAndOnTheActualRequest() throws Exception {
+        mockMvc.perform(options("/api/v1/auth/login")
+                        .header("Origin", ALLOWED_ORIGIN)
+                        .header("Access-Control-Request-Method", "POST"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", ALLOWED_ORIGIN))
+                .andExpect(header().string("Access-Control-Allow-Credentials", "true"));
+        mockMvc.perform(get("/api/v1/books").header("Origin", ALLOWED_ORIGIN).with(jwt()))
+                .andExpect(header().string("Access-Control-Allow-Credentials", "true"));
+    }
+
+    @Test
+    void shouldNeverAnswerWithAWildcardOriginSinceCredentialsAreAllowed() throws Exception {
+        mockMvc.perform(options("/api/v1/books")
+                        .header("Origin", ALLOWED_ORIGIN)
+                        .header("Access-Control-Request-Method", "GET"))
+                .andExpect(header().string("Access-Control-Allow-Origin", ALLOWED_ORIGIN));
+    }
+
+    @Test
+    void shouldNotAllowCredentialsToAnotherOrigin() throws Exception {
+        mockMvc.perform(options("/api/v1/auth/login")
+                        .header("Origin", OTHER_ORIGIN)
+                        .header("Access-Control-Request-Method", "POST"))
+                .andExpect(status().isForbidden())
+                .andExpect(header().doesNotExist("Access-Control-Allow-Credentials"))
+                .andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
+    }
 }

@@ -1,7 +1,8 @@
 package com.riverfount.booksmanager.security.configuration;
 
 import java.time.Duration;
-import java.util.Set;
+import java.util.Locale;
+import java.util.Map;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -23,12 +24,13 @@ public record AuthProperties(Duration refreshTokenTtl, RefreshCookie refreshCook
     }
 
     /**
-     * The refresh token cookie. {@code sameSite} is Strict, Lax or None (any case);
+     * The refresh token cookie. {@code sameSite} is Strict, Lax or None (any case; it is kept as written here);
      * {@code None} is only valid with {@code secure}, as browsers drop it otherwise.
      */
     public record RefreshCookie(String name, boolean secure, String sameSite, String path) {
 
-        private static final Set<String> SAME_SITE_VALUES = Set.of("strict", "lax", "none");
+        private static final Map<String, String> SAME_SITE_VALUES = Map.of("strict", "Strict", "lax", "Lax",
+                "none", "None");
 
         public RefreshCookie {
             if (name == null || name.isBlank()) {
@@ -37,13 +39,15 @@ public record AuthProperties(Duration refreshTokenTtl, RefreshCookie refreshCook
             if (path == null || path.isBlank()) {
                 throw new IllegalStateException("app.auth.refresh-cookie.path é obrigatório");
             }
-            if (sameSite == null || !SAME_SITE_VALUES.contains(sameSite.toLowerCase(java.util.Locale.ROOT))) {
+            var canonical = sameSite == null ? null : SAME_SITE_VALUES.get(sameSite.toLowerCase(Locale.ROOT));
+            if (canonical == null) {
                 throw new IllegalStateException("app.auth.refresh-cookie.same-site deve ser Strict, Lax ou None");
             }
-            if (sameSite.equalsIgnoreCase("none") && !secure) {
+            if (canonical.equals("None") && !secure) {
                 throw new IllegalStateException(
                         "app.auth.refresh-cookie.same-site=None exige app.auth.refresh-cookie.secure=true");
             }
+            sameSite = canonical;
         }
     }
 }
