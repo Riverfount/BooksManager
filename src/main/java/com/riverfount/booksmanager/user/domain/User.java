@@ -72,6 +72,16 @@ public class User {
         return login == null ? "" : login.strip().toLowerCase(Locale.ROOT);
     }
 
+    /**
+     * Unique login rule (RF09). Like {@code Reader.validateUniqueDocument}, the
+     * application service looks up whether the login exists and the domain decides.
+     */
+    public static void validateUniqueLogin(String login, boolean alreadyExistsWithThisLogin) {
+        if (alreadyExistsWithThisLogin) {
+            throw new BusinessRuleException("já existe um usuário com o login '" + normalizeLogin(login) + "'");
+        }
+    }
+
     public void changeRole(Role newRole) {
         validateRole(newRole);
         this.role = newRole;

@@ -381,4 +381,19 @@ class UserTest {
         assertThat(user.getPasswordHash()).isEqualTo(HASH);
         assertThat(user.isActive()).isTrue();
     }
+
+    // unique login (RF09)
+
+    @Test
+    void shouldAcceptALoginThatDoesNotExistYet() {
+        User.validateUniqueLogin("maria", false);
+    }
+
+    @Test
+    void shouldRejectALoginThatAlreadyExistsSayingWhichOneInTheNormalizedForm() {
+        assertThatThrownBy(() -> User.validateUniqueLogin("  Maria ", true))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("já existe um usuário")
+                .hasMessageContaining("maria");
+    }
 }
