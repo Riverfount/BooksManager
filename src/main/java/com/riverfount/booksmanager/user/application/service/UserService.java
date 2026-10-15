@@ -2,6 +2,7 @@ package com.riverfount.booksmanager.user.application.service;
 
 import com.riverfount.booksmanager.shared.domain.InvalidCredentialsException;
 import com.riverfount.booksmanager.shared.domain.PageResult;
+import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
 import com.riverfount.booksmanager.user.application.port.in.AuthenticateUserCommand;
 import com.riverfount.booksmanager.user.application.port.in.AuthenticateUserUseCase;
 import com.riverfount.booksmanager.user.application.port.in.AuthenticatedUser;
@@ -13,6 +14,9 @@ import com.riverfount.booksmanager.user.application.port.in.FindActiveUserUseCas
 import com.riverfount.booksmanager.user.application.port.in.GetUserUseCase;
 import com.riverfount.booksmanager.user.application.port.in.ListUsersQuery;
 import com.riverfount.booksmanager.user.application.port.in.ListUsersUseCase;
+import com.riverfount.booksmanager.user.application.port.in.UnblockUserUseCase;
+import com.riverfount.booksmanager.user.application.port.in.UpdateUserCommand;
+import com.riverfount.booksmanager.user.application.port.in.UpdateUserUseCase;
 import com.riverfount.booksmanager.user.application.port.in.InitialAdminResult;
 import com.riverfount.booksmanager.user.application.port.out.PasswordHasher;
 import com.riverfount.booksmanager.user.application.port.out.UserFilter;
@@ -35,7 +39,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 class UserService implements CreateInitialAdminUseCase, AuthenticateUserUseCase, FindActiveUserUseCase,
-        CreateUserUseCase, GetUserUseCase, ListUsersUseCase {
+        CreateUserUseCase, GetUserUseCase, ListUsersUseCase, UpdateUserUseCase, UnblockUserUseCase {
 
     private final UserRepository userRepository;
     private final PasswordHasher passwordHasher;
@@ -120,6 +124,35 @@ class UserService implements CreateInitialAdminUseCase, AuthenticateUserUseCase,
     @Transactional(readOnly = true)
     public PageResult<User> list(ListUsersQuery query) {
         return userRepository.findAll(new UserFilter(query.login(), query.active()), query.page());
+    }
+
+    /**
+     * The active administrators are locked first (in id order, so two edits cannot
+     * wait for each other), then the user: with the locks held, the count of
+     * "other administrators" cannot change under this edit.
+     */
+    @Override
+    public User update(UpdateUserCommand command) {
+        var administrators = userRepository.findActiveByRoleForUpdate(Role.ADMIN);
+        var user = loadForUpdate(command.id());
+        if (command.role() != null) {
+            var others = administrators.stream().filter(admin -> !admin.getId().equals(user.getId())).count();
+            user.changeRoleKeepingAnAdministrator(command.role(), others);
+        }
+        return userRepository.save(user);
+    }
+
+    @Override
+    public void unblock(Long id) {
+        var user = loadForUpdate(id);
+        if (user.unblock()) {
+            userRepository.save(user);
+        }
+    }
+
+    private User loadForUpdate(Long id) {
+        return userRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new ResourceNotFoundException("usuário não encontrado: " + id));
     }
 
     @Override

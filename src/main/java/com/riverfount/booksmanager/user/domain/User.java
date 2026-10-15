@@ -87,6 +87,22 @@ public class User {
         this.role = newRole;
     }
 
+    /**
+     * Changes the profile without leaving the system with no administrator (RF09):
+     * an active administrator cannot lose the profile when no other active one
+     * remains. The caller counts the others; a user blocked by the login lockout
+     * still counts, since the block ends by itself. Keeping the same profile, or
+     * demoting an inactive administrator (who counted for nothing), is always allowed.
+     */
+    public void changeRoleKeepingAnAdministrator(Role newRole, long otherActiveAdministrators) {
+        validateRole(newRole);
+        if (active && role == Role.ADMIN && newRole != Role.ADMIN && otherActiveAdministrators < 1) {
+            throw new BusinessRuleException(
+                    "não é possível tirar o perfil de administrador do último administrador ativo");
+        }
+        this.role = newRole;
+    }
+
     public void changePasswordHash(String newPasswordHash) {
         validatePasswordHash(newPasswordHash);
         this.passwordHash = newPasswordHash;
@@ -149,10 +165,19 @@ public class User {
         return true;
     }
 
-    /** Lifts the lockout right away and resets the count (the manual unblock by an administrator). */
-    public void unblock() {
+    /**
+     * Lifts the lockout right away and resets the count (the manual unblock by an
+     * administrator).
+     *
+     * @return whether the user changed and has to be saved
+     */
+    public boolean unblock() {
+        if (failedLoginAttempts == 0 && blockedUntil == null) {
+            return false;
+        }
         this.failedLoginAttempts = 0;
         this.blockedUntil = null;
+        return true;
     }
 
     private static String validLogin(String login) {

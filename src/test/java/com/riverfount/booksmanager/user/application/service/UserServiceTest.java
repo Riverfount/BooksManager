@@ -11,6 +11,7 @@ import com.riverfount.booksmanager.user.application.port.in.CreateInitialAdminCo
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.user.application.port.in.CreateUserCommand;
 import com.riverfount.booksmanager.user.application.port.in.ListUsersQuery;
+import com.riverfount.booksmanager.user.application.port.in.UpdateUserCommand;
 import com.riverfount.booksmanager.user.application.port.in.InitialAdminResult;
 import com.riverfount.booksmanager.user.application.port.out.PasswordHasher;
 import com.riverfount.booksmanager.user.configuration.LoginLockoutProperties;
@@ -723,5 +724,165 @@ class UserServiceTest {
         assertThat(users).filteredOn(User::isActive).hasSize(2);
         assertThat(users.stream().filter(user -> user.isBlocked(clock.instant())).map(User::getLogin))
                 .containsExactly("bloqueada");
+    }
+
+    // editing the profile and unblocking (RF09, HU28)
+
+    private User stored(String login) {
+        return repository.findByLogin(login).orElseThrow();
+    }
+
+    @Test
+    void shouldPromoteAnOperatorAndChangeNothingElse() {
+        registerUser("maria", Role.OPERATOR);
+        var before = stored("maria");
+
+        var updated = service.update(new UpdateUserCommand(before.getId(), Role.ADMIN));
+
+        assertThat(updated.getRole()).isEqualTo(Role.ADMIN);
+        assertThat(stored("maria").getRole()).isEqualTo(Role.ADMIN);
+        assertThat(stored("maria").getLogin()).isEqualTo("maria");
+        assertThat(stored("maria").getPasswordHash()).isEqualTo(before.getPasswordHash());
+        assertThat(stored("maria").isActive()).isTrue();
+    }
+
+    @Test
+    void shouldKeepTheProfileWhenNoneIsSent() {
+        registerUser("maria", Role.OPERATOR);
+
+        var updated = service.update(new UpdateUserCommand(stored("maria").getId(), null));
+
+        assertThat(updated.getRole()).isEqualTo(Role.OPERATOR);
+    }
+
+    @Test
+    void shouldDemoteAnAdministratorWhenAnotherActiveOneRemains() {
+        registerUser("chefe", Role.ADMIN);
+        registerUser("vice", Role.ADMIN);
+
+        service.update(new UpdateUserCommand(stored("chefe").getId(), Role.OPERATOR));
+
+        assertThat(stored("chefe").getRole()).isEqualTo(Role.OPERATOR);
+        assertThat(stored("vice").getRole()).isEqualTo(Role.ADMIN);
+    }
+
+    @Test
+    void shouldRefuseToDemoteTheLastActiveAdministrator() {
+        registerUser("chefe", Role.ADMIN);
+        registerUser("maria", Role.OPERATOR);
+        var id = stored("chefe").getId();
+
+        assertThatThrownBy(() -> service.update(new UpdateUserCommand(id, Role.OPERATOR)))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("último administrador");
+
+        assertThat(stored("chefe").getRole()).isEqualTo(Role.ADMIN);
+    }
+
+    @Test
+    void anInactiveAdministratorDoesNotCountAsTheOneWhoRemains() {
+        registerUser("chefe", Role.ADMIN);
+        registerUser("antigo", Role.ADMIN);
+        deactivate("antigo");
+        var id = stored("chefe").getId();
+
+        assertThatThrownBy(() -> service.update(new UpdateUserCommand(id, Role.OPERATOR)))
+                .isInstanceOf(BusinessRuleException.class);
+    }
+
+    @Test
+    void aBlockedAdministratorStillCountsSoTheLockoutDoesNotStopTheRule() {
+        registerUser("chefe", Role.ADMIN);
+        registerUser("vice", Role.ADMIN);
+        wrongPassword("vice", 3);
+
+        service.update(new UpdateUserCommand(stored("chefe").getId(), Role.OPERATOR));
+
+        assertThat(stored("chefe").getRole()).isEqualTo(Role.OPERATOR);
+    }
+
+    @Test
+    void keepingTheProfileOfTheLastAdministratorIsNotAnError() {
+        registerUser("chefe", Role.ADMIN);
+
+        var updated = service.update(new UpdateUserCommand(stored("chefe").getId(), Role.ADMIN));
+
+        assertThat(updated.getRole()).isEqualTo(Role.ADMIN);
+    }
+
+    @Test
+    void demotingAnInactiveAdministratorIsAllowedEvenIfItIsTheOnlyAdministrator() {
+        registerUser("antigo", Role.ADMIN);
+        deactivate("antigo");
+
+        service.update(new UpdateUserCommand(stored("antigo").getId(), Role.OPERATOR));
+
+        assertThat(stored("antigo").getRole()).isEqualTo(Role.OPERATOR);
+    }
+
+    @Test
+    void shouldRejectTheEditOfAnUnknownUser() {
+        assertThatThrownBy(() -> service.update(new UpdateUserCommand(99_999L, Role.ADMIN)))
+                .isInstanceOf(com.riverfount.booksmanager.shared.domain.ResourceNotFoundException.class)
+                .hasMessageContaining("99999");
+    }
+
+    @Test
+    void theEditCommandShouldCarryOnlyTheProfile() {
+        assertThat(UpdateUserCommand.class.getRecordComponents())
+                .extracting(java.lang.reflect.RecordComponent::getName).containsExactly("id", "role");
+    }
+
+    @Test
+    void unblockShouldLetTheRightPasswordInAtOnce() {
+        registerUser("maria", Role.OPERATOR);
+        wrongPassword("maria", 3);
+        assertThat(canLogIn("maria")).isFalse();
+
+        service.unblock(stored("maria").getId());
+
+        assertThat(stored("maria").getFailedLoginAttempts()).isZero();
+        assertThat(stored("maria").getBlockedUntil()).isNull();
+        assertThat(canLogIn("maria")).isTrue();
+    }
+
+    @Test
+    void unblockingAUserWhoIsNotBlockedChangesNothingAndWritesNothing() {
+        registerUser("maria", Role.OPERATOR);
+        var savesBefore = repository.saves();
+
+        service.unblock(stored("maria").getId());
+        service.unblock(stored("maria").getId());
+
+        assertThat(repository.saves()).isEqualTo(savesBefore);
+        assertThat(canLogIn("maria")).isTrue();
+    }
+
+    @Test
+    void unblockShouldClearWrongPasswordsThatDidNotReachTheLimitToo() {
+        registerUser("maria", Role.OPERATOR);
+        wrongPassword("maria", 2);
+
+        service.unblock(stored("maria").getId());
+
+        assertThat(stored("maria").getFailedLoginAttempts()).isZero();
+    }
+
+    @Test
+    void unblockShouldKeepAnInactiveUserInactive() {
+        registerUser("maria", Role.OPERATOR);
+        wrongPassword("maria", 1);
+        deactivate("maria");
+
+        service.unblock(stored("maria").getId());
+
+        assertThat(stored("maria").isActive()).isFalse();
+        assertThat(canLogIn("maria")).isFalse();
+    }
+
+    @Test
+    void shouldRejectTheUnblockOfAnUnknownUser() {
+        assertThatThrownBy(() -> service.unblock(99_999L))
+                .isInstanceOf(com.riverfount.booksmanager.shared.domain.ResourceNotFoundException.class);
     }
 }

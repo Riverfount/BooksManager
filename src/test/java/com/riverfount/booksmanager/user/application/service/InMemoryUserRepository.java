@@ -68,6 +68,20 @@ class InMemoryUserRepository implements UserRepository {
         return findByLogin(login);
     }
 
+    @Override
+    public Optional<User> findByIdForUpdate(Long id) {
+        return findById(id);
+    }
+
+    @Override
+    public List<User> findActiveByRoleForUpdate(com.riverfount.booksmanager.user.domain.Role role) {
+        return users.values().stream()
+                .filter(user -> user.isActive() && user.getRole() == role)
+                .sorted(Comparator.comparing(User::getId))
+                .map(user -> copyWithId(user, user.getId()))
+                .toList();
+    }
+
     int saves() {
         return saves;
     }

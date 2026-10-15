@@ -2,7 +2,9 @@ package com.riverfount.booksmanager.user.application.port.out;
 
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.PageResult;
+import com.riverfount.booksmanager.user.domain.Role;
 import com.riverfount.booksmanager.user.domain.User;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -31,6 +33,22 @@ public interface UserRepository {
      * Inactive users are found too, the caller decides (RF08).
      */
     Optional<User> findByLoginForAuthentication(String login);
+
+    /**
+     * Finds by id for a change, locking the row until the end of the current
+     * transaction. A change saves the whole row, so a stale read could overwrite what
+     * another administrator changed at the same time (a new password, for example).
+     */
+    Optional<User> findByIdForUpdate(Long id);
+
+    /**
+     * The active users with the given profile, ordered by id, with their rows
+     * locked until the end of the current transaction. The rule "the system always
+     * keeps an active administrator" counts them under this lock, so two
+     * administrators demoting each other at the same time are handled one after
+     * the other (otherwise each would see the other still there, and both would go through).
+     */
+    List<User> findActiveByRoleForUpdate(Role role);
 
     boolean existsByLogin(String login);
 
