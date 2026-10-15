@@ -18,6 +18,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.riverfount.booksmanager.security.configuration.MethodSecurityConfiguration;
+import com.riverfount.booksmanager.WithOperator;
+import com.riverfount.booksmanager.WithAdmin;
 import com.riverfount.booksmanager.catalog.application.port.in.DeactivateCategoryUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.GetCategoryUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ListCategoriesQuery;
@@ -44,7 +47,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(CategoryController.class)
-@Import(GlobalExceptionHandler.class)
+@Import({GlobalExceptionHandler.class, MethodSecurityConfiguration.class})
 class CategoryControllerTest {
 
     @Autowired
@@ -66,7 +69,7 @@ class CategoryControllerTest {
     private DeactivateCategoryUseCase deactivateCategoryUseCase;
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldRegisterCategoryAndReturn201WithLocation() throws Exception {
         given(registerCategoryUseCase.register(any())).willReturn(Category.reconstitute(1L, "Ficção", true));
 
@@ -82,7 +85,7 @@ class CategoryControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400WithProblemDetailForBlankName() throws Exception {
         mockMvc.perform(post("/api/v1/categories")
                         .with(csrf())
@@ -93,7 +96,7 @@ class CategoryControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400ForNameWithLeadingSpace() throws Exception {
         // the DTO needs to catch this as a format error (400), and not let
         // it fall through to the domain as a business rule (422)
@@ -106,7 +109,7 @@ class CategoryControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400ForNameLongerThanDomainLimit() throws Exception {
         // the DTO's limit needs to be the same as the business rule's
         // (Category.MAX_NAME_LENGTH), not a separately duplicated number
@@ -121,7 +124,7 @@ class CategoryControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn422WithClearMessageForDuplicateName() throws Exception {
         given(registerCategoryUseCase.register(any()))
                 .willThrow(new BusinessRuleException("já existe uma categoria com o nome 'Ficção'"));
@@ -136,7 +139,7 @@ class CategoryControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldFindExistingCategoryById() throws Exception {
         given(getCategoryUseCase.findById(eq(1L)))
                 .willReturn(Optional.of(Category.reconstitute(1L, "Ficção", true)));
@@ -148,7 +151,7 @@ class CategoryControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn404ForNonExistentId() throws Exception {
         given(getCategoryUseCase.findById(eq(99L))).willReturn(Optional.empty());
 
@@ -158,7 +161,7 @@ class CategoryControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldListCategoriesWithPaginationMetadata() throws Exception {
         given(listCategoriesUseCase.list(any())).willReturn(new PageResult<>(
                 List.of(Category.reconstitute(1L, "Ficção", true), Category.reconstitute(2L, "Romance", true)),
@@ -177,7 +180,7 @@ class CategoryControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldListOnlyActiveCategoriesSortedByNameByDefault() throws Exception {
         given(listCategoriesUseCase.list(any())).willReturn(new PageResult<>(List.of(), 0, 20, 0));
 
@@ -193,7 +196,7 @@ class CategoryControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldPassFiltersPaginationAndSortToTheUseCase() throws Exception {
         given(listCategoriesUseCase.list(any())).willReturn(new PageResult<>(List.of(), 1, 5, 0));
 
@@ -215,7 +218,7 @@ class CategoryControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400ForPageSizeAbove100() throws Exception {
         mockMvc.perform(get("/api/v1/categories").param("size", "101"))
                 .andExpect(status().isBadRequest())
@@ -224,7 +227,7 @@ class CategoryControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400ForNegativePage() throws Exception {
         mockMvc.perform(get("/api/v1/categories").param("page", "-1"))
                 .andExpect(status().isBadRequest())
@@ -232,7 +235,7 @@ class CategoryControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400ForUnknownSortField() throws Exception {
         mockMvc.perform(get("/api/v1/categories").param("sort", "createdAt,asc"))
                 .andExpect(status().isBadRequest())
@@ -241,7 +244,7 @@ class CategoryControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400ForInvalidActiveValue() throws Exception {
         mockMvc.perform(get("/api/v1/categories").param("active", "maybe"))
                 .andExpect(status().isBadRequest())
@@ -249,7 +252,7 @@ class CategoryControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldUpdateCategoryNameAndReturn200() throws Exception {
         given(updateCategoryUseCase.update(any())).willReturn(Category.reconstitute(1L, "Ficção", true));
 
@@ -266,7 +269,7 @@ class CategoryControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldSendNullNameWhenItIsOmitted() throws Exception {
         given(updateCategoryUseCase.update(any())).willReturn(Category.reconstitute(1L, "Ficção", true));
 
@@ -280,7 +283,7 @@ class CategoryControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn422WhenRenamingToNameUsedByAnotherCategory() throws Exception {
         given(updateCategoryUseCase.update(any()))
                 .willThrow(new BusinessRuleException("já existe uma categoria com o nome 'Romance'"));
@@ -295,7 +298,7 @@ class CategoryControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn404WhenUpdatingNonExistentCategory() throws Exception {
         given(updateCategoryUseCase.update(any()))
                 .willThrow(new ResourceNotFoundException("categoria não encontrada: 99"));
@@ -309,7 +312,7 @@ class CategoryControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400WhenUpdatingWithBlankName() throws Exception {
         mockMvc.perform(patch("/api/v1/categories/1")
                         .with(csrf())
@@ -322,7 +325,7 @@ class CategoryControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400WhenUpdatingWithEmptyName() throws Exception {
         mockMvc.perform(patch("/api/v1/categories/1")
                         .with(csrf())
@@ -333,7 +336,7 @@ class CategoryControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400WhenUpdatingWithNameLongerThanDomainLimit() throws Exception {
         var nameOneCharacterAboveTheLimit = "A".repeat(Category.MAX_NAME_LENGTH + 1);
 
@@ -346,7 +349,7 @@ class CategoryControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400WhenUpdatingWithMalformedJson() throws Exception {
         mockMvc.perform(patch("/api/v1/categories/1")
                         .with(csrf())
@@ -357,7 +360,7 @@ class CategoryControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldDeactivateCategoryAndReturn204WithoutBody() throws Exception {
         mockMvc.perform(delete("/api/v1/categories/1").with(csrf()))
                 .andExpect(status().isNoContent())
@@ -367,7 +370,7 @@ class CategoryControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn404WhenDeactivatingNonExistentCategory() throws Exception {
         willThrow(new ResourceNotFoundException("categoria não encontrada: 99"))
                 .given(deactivateCategoryUseCase).deactivate(99L);
@@ -378,7 +381,7 @@ class CategoryControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400WhenDeactivatingWithNonNumericId() throws Exception {
         mockMvc.perform(delete("/api/v1/categories/abc").with(csrf()))
                 .andExpect(status().isBadRequest())
@@ -391,5 +394,40 @@ class CategoryControllerTest {
         var captor = ArgumentCaptor.forClass(ListCategoriesQuery.class);
         then(listCategoriesUseCase).should().list(captor.capture());
         return captor.getValue();
+    }
+
+    // authorization by profile (RNF08): the whole controller is for an administrator or an operator
+
+    @Test
+    @WithMockUser(roles = "USER")
+    void shouldRefuseAnAuthenticatedUserWithoutAnAllowedProfileWith403() throws Exception {
+        mockMvc.perform(get("/api/v1/categories"))
+                .andExpect(status().isForbidden())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.detail").value("Você não tem permissão para acessar este recurso."));
+        mockMvc.perform(delete("/api/v1/categories/1").with(csrf())).andExpect(status().isForbidden());
+
+        then(deactivateCategoryUseCase).should(never()).deactivate(any());
+    }
+
+    @Test
+    @WithMockUser(roles = {})
+    void shouldRefuseAnAuthenticatedUserWithNoProfileAtAllWith403() throws Exception {
+        mockMvc.perform(delete("/api/v1/categories/1").with(csrf())).andExpect(status().isForbidden());
+
+        then(deactivateCategoryUseCase).should(never()).deactivate(any());
+    }
+
+    @Test
+    @WithAdmin
+    void anAdministratorMayCallTheRoutesToo() throws Exception {
+        mockMvc.perform(delete("/api/v1/categories/1").with(csrf())).andExpect(status().isNoContent());
+    }
+
+    @Test
+    @WithOperator
+    void anOperatorMayCallTheRoutes() throws Exception {
+        mockMvc.perform(delete("/api/v1/categories/1").with(csrf())).andExpect(status().isNoContent());
     }
 }

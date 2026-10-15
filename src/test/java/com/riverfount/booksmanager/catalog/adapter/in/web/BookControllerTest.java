@@ -1,5 +1,6 @@
 package com.riverfount.booksmanager.catalog.adapter.in.web;
 
+import static org.mockito.Mockito.never;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
@@ -17,6 +18,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.riverfount.booksmanager.security.configuration.MethodSecurityConfiguration;
+import com.riverfount.booksmanager.WithOperator;
+import com.riverfount.booksmanager.WithAdmin;
 import com.riverfount.booksmanager.catalog.application.port.in.BookWithAvailability;
 import com.riverfount.booksmanager.catalog.application.port.in.DeactivateBookUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.GetBookUseCase;
@@ -49,7 +53,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(BookController.class)
-@Import(GlobalExceptionHandler.class)
+@Import({GlobalExceptionHandler.class, MethodSecurityConfiguration.class})
 class BookControllerTest {
 
     private static final Clock FIXED_CLOCK = Clock.fixed(Instant.parse("2026-10-10T00:00:00Z"), ZoneOffset.UTC);
@@ -82,7 +86,7 @@ class BookControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldRegisterBookAndReturn201WithLocation() throws Exception {
         given(registerBookUseCase.register(any())).willReturn(new BookWithAvailability(plainBook(), 0));
 
@@ -103,7 +107,7 @@ class BookControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400WithProblemDetailForBlankTitle() throws Exception {
         mockMvc.perform(post("/api/v1/books")
                         .with(csrf())
@@ -116,7 +120,7 @@ class BookControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400ForEmptyAuthorIds() throws Exception {
         mockMvc.perform(post("/api/v1/books")
                         .with(csrf())
@@ -129,7 +133,7 @@ class BookControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400ForNullAuthorIdInsideTheSet() throws Exception {
         // authorIds:[null] goes through Jackson (Set<Long> accepts a null
         // element at runtime), and without this validation it would break
@@ -145,7 +149,7 @@ class BookControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn422ForNonExistentCategoryOrAuthor() throws Exception {
         given(registerBookUseCase.register(any()))
                 .willThrow(new BusinessRuleException("categoria não encontrada: 999999"));
@@ -162,7 +166,7 @@ class BookControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn422ForDuplicateIsbn() throws Exception {
         given(registerBookUseCase.register(any()))
                 .willThrow(new BusinessRuleException("já existe um livro com o ISBN '9788533302273'"));
@@ -177,7 +181,7 @@ class BookControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldFindExistingBookById() throws Exception {
         given(getBookUseCase.findById(eq(1L))).willReturn(Optional.of(sampleBook()));
 
@@ -188,7 +192,7 @@ class BookControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn404ForNonExistentId() throws Exception {
         given(getBookUseCase.findById(eq(99L))).willReturn(Optional.empty());
 
@@ -198,7 +202,7 @@ class BookControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldListBooksWithPaginationMetadata() throws Exception {
         given(listBooksUseCase.list(any())).willReturn(new PageResult<>(List.of(new BookWithAvailability(
                 Book.reconstitute(1L, new Isbn("9788533302273"), "Dom Casmurro", "Garnier", 1899, 3L, Set.of(7L),
@@ -221,7 +225,7 @@ class BookControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldListOnlyActiveBooksSortedByTitleByDefault() throws Exception {
         given(listBooksUseCase.list(any())).willReturn(new PageResult<>(List.of(), 0, 20, 0));
 
@@ -236,7 +240,7 @@ class BookControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldPassActiveFlagPaginationAndSortToTheUseCase() throws Exception {
         given(listBooksUseCase.list(any())).willReturn(new PageResult<>(List.of(), 2, 10, 0));
 
@@ -256,7 +260,7 @@ class BookControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400ForPageSizeAbove100() throws Exception {
         mockMvc.perform(get("/api/v1/books").param("size", "101"))
                 .andExpect(status().isBadRequest())
@@ -265,7 +269,7 @@ class BookControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400ForNegativePage() throws Exception {
         mockMvc.perform(get("/api/v1/books").param("page", "-1"))
                 .andExpect(status().isBadRequest())
@@ -273,7 +277,7 @@ class BookControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400ForUnknownSortField() throws Exception {
         mockMvc.perform(get("/api/v1/books").param("sort", "publisher,asc"))
                 .andExpect(status().isBadRequest())
@@ -282,7 +286,7 @@ class BookControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400ForInvalidActiveValue() throws Exception {
         mockMvc.perform(get("/api/v1/books").param("active", "maybe"))
                 .andExpect(status().isBadRequest())
@@ -290,7 +294,7 @@ class BookControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldUpdateBookAndReturn200() throws Exception {
         given(updateBookUseCase.update(any())).willReturn(sampleBook());
 
@@ -309,7 +313,7 @@ class BookControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldSendNullsForOmittedFieldsOnUpdate() throws Exception {
         given(updateBookUseCase.update(any())).willReturn(sampleBook());
 
@@ -324,7 +328,7 @@ class BookControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldIgnoreIsbnSentOnUpdate() throws Exception {
         given(updateBookUseCase.update(any())).willReturn(sampleBook());
 
@@ -339,7 +343,7 @@ class BookControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400WhenUpdatingWithBlankTitle() throws Exception {
         mockMvc.perform(patch("/api/v1/books/1")
                         .with(csrf())
@@ -352,7 +356,7 @@ class BookControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400WhenUpdatingWithEmptyAuthorIds() throws Exception {
         mockMvc.perform(patch("/api/v1/books/1")
                         .with(csrf())
@@ -365,7 +369,7 @@ class BookControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn404WhenUpdatingNonExistentBook() throws Exception {
         given(updateBookUseCase.update(any())).willThrow(new ResourceNotFoundException("livro não encontrado: 99"));
 
@@ -378,7 +382,7 @@ class BookControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn422WhenUpdatingWithInactiveCategory() throws Exception {
         given(updateBookUseCase.update(any())).willThrow(new BusinessRuleException("categoria inativa: 5"));
 
@@ -392,7 +396,7 @@ class BookControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldDeactivateBookAndReturn204WithoutBody() throws Exception {
         mockMvc.perform(delete("/api/v1/books/1").with(csrf()))
                 .andExpect(status().isNoContent())
@@ -402,7 +406,7 @@ class BookControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn404WhenDeactivatingNonExistentBook() throws Exception {
         willThrow(new ResourceNotFoundException("livro não encontrado: 99"))
                 .given(deactivateBookUseCase).deactivate(99L);
@@ -413,7 +417,7 @@ class BookControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldUpdateBookReturningTheAvailableCopies() throws Exception {
         given(updateBookUseCase.update(any())).willReturn(sampleBook());
 
@@ -426,7 +430,7 @@ class BookControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldNotFilterTheListingByDefault() throws Exception {
         given(listBooksUseCase.list(any())).willReturn(new PageResult<>(List.of(), 0, 20, 0));
 
@@ -440,7 +444,7 @@ class BookControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldPassTheSearchFiltersToTheUseCase() throws Exception {
         given(listBooksUseCase.list(any())).willReturn(new PageResult<>(List.of(), 0, 20, 0));
 
@@ -463,7 +467,7 @@ class BookControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400ForNonNumericCategoryId() throws Exception {
         mockMvc.perform(get("/api/v1/books").param("categoryId", "abc"))
                 .andExpect(status().isBadRequest())
@@ -476,5 +480,40 @@ class BookControllerTest {
         var captor = ArgumentCaptor.forClass(ListBooksQuery.class);
         then(listBooksUseCase).should().list(captor.capture());
         return captor.getValue();
+    }
+
+    // authorization by profile (RNF08): the whole controller is for an administrator or an operator
+
+    @Test
+    @WithMockUser(roles = "USER")
+    void shouldRefuseAnAuthenticatedUserWithoutAnAllowedProfileWith403() throws Exception {
+        mockMvc.perform(get("/api/v1/books"))
+                .andExpect(status().isForbidden())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.detail").value("Você não tem permissão para acessar este recurso."));
+        mockMvc.perform(delete("/api/v1/books/1").with(csrf())).andExpect(status().isForbidden());
+
+        then(deactivateBookUseCase).should(never()).deactivate(any());
+    }
+
+    @Test
+    @WithMockUser(roles = {})
+    void shouldRefuseAnAuthenticatedUserWithNoProfileAtAllWith403() throws Exception {
+        mockMvc.perform(delete("/api/v1/books/1").with(csrf())).andExpect(status().isForbidden());
+
+        then(deactivateBookUseCase).should(never()).deactivate(any());
+    }
+
+    @Test
+    @WithAdmin
+    void anAdministratorMayCallTheRoutesToo() throws Exception {
+        mockMvc.perform(delete("/api/v1/books/1").with(csrf())).andExpect(status().isNoContent());
+    }
+
+    @Test
+    @WithOperator
+    void anOperatorMayCallTheRoutes() throws Exception {
+        mockMvc.perform(delete("/api/v1/books/1").with(csrf())).andExpect(status().isNoContent());
     }
 }

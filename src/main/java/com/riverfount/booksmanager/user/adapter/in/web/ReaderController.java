@@ -1,5 +1,6 @@
 package com.riverfount.booksmanager.user.adapter.in.web;
 
+import com.riverfount.booksmanager.shared.adapter.in.web.AdminOrOperator;
 import com.riverfount.booksmanager.shared.adapter.in.web.PageResponse;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
@@ -36,6 +37,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+@AdminOrOperator
 @RestController
 @RequestMapping("/api/v1/readers")
 @Tag(name = "Readers", description = "Cadastro, consulta, listagem, edição, inativação e bloqueio de leitores (RF07, RF10).")

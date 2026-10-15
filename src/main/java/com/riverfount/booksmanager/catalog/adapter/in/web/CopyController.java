@@ -9,6 +9,7 @@ import com.riverfount.booksmanager.catalog.application.port.in.RegisterCopyUseCa
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateCopyCommand;
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateCopyUseCase;
 import com.riverfount.booksmanager.catalog.domain.CopyStatus;
+import com.riverfount.booksmanager.shared.adapter.in.web.AdminOrOperator;
 import com.riverfount.booksmanager.shared.adapter.in.web.PageResponse;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
@@ -35,6 +36,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+@AdminOrOperator
 @RestController
 @RequestMapping("/api/v1/copies")
 @Tag(name = "Copies", description = "Cadastro, consulta, listagem e edição de status e inativação de exemplares de um livro (RF04).")

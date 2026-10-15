@@ -17,6 +17,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.riverfount.booksmanager.security.configuration.MethodSecurityConfiguration;
+import com.riverfount.booksmanager.WithOperator;
+import com.riverfount.booksmanager.WithAdmin;
 import com.riverfount.booksmanager.shared.adapter.in.web.GlobalExceptionHandler;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.PageResult;
@@ -49,7 +52,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 @WebMvcTest(ReaderController.class)
-@Import(GlobalExceptionHandler.class)
+@Import({GlobalExceptionHandler.class, MethodSecurityConfiguration.class})
 class ReaderControllerTest {
 
     private static final String ADULT_JSON = """
@@ -89,7 +92,7 @@ class ReaderControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldRegisterReaderAndReturn201WithLocationAndTheFullDocument() throws Exception {
         given(registerReaderUseCase.register(any())).willReturn(Reader.reconstitute(1L, "Maria Silva",
                 "12345678900", "maria@example.com", "11 91234-5678", LocalDate.of(1990, 5, 10), null, true,
@@ -110,7 +113,7 @@ class ReaderControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldPassTheRequestToTheUseCaseAsACommand() throws Exception {
         given(registerReaderUseCase.register(any())).willReturn(Reader.reconstitute(1L, "Júlia", "MAT1",
                 "julia@example.com", null, LocalDate.of(2015, 3, 1),
@@ -132,7 +135,7 @@ class ReaderControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldSendNoGuardianFieldsWhenTheRequestHasNone() throws Exception {
         given(registerReaderUseCase.register(any())).willReturn(Reader.reconstitute(1L, "Maria Silva",
                 "12345678900", "maria@example.com", null, LocalDate.of(1990, 5, 10), null, true, false));
@@ -147,7 +150,7 @@ class ReaderControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400WhenTheEmailIsMissing() throws Exception {
         mockMvc.perform(register("""
                 {"name":"Maria","document":"123","birthDate":"1990-05-10"}"""))
@@ -158,7 +161,7 @@ class ReaderControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400WhenTheBirthDateIsMissing() throws Exception {
         mockMvc.perform(register("""
                 {"name":"Maria","document":"123","email":"maria@example.com"}"""))
@@ -169,7 +172,7 @@ class ReaderControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400WhenTheNameOrTheDocumentIsBlank() throws Exception {
         mockMvc.perform(register("""
                 {"name":"  ","document":"123","email":"maria@example.com","birthDate":"1990-05-10"}"""))
@@ -182,7 +185,7 @@ class ReaderControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400WhenTheNameHasSurroundingSpaces() throws Exception {
         mockMvc.perform(register("""
                 {"name":" Maria","document":"123","email":"maria@example.com","birthDate":"1990-05-10"}"""))
@@ -190,7 +193,7 @@ class ReaderControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400WhenTheBirthDateIsNotAnIsoDate() throws Exception {
         mockMvc.perform(register("""
                 {"name":"Maria","document":"123","email":"maria@example.com","birthDate":"10/05/1990"}"""))
@@ -199,7 +202,7 @@ class ReaderControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn422WithProblemDetailWhenTheDocumentIsDuplicate() throws Exception {
         given(registerReaderUseCase.register(any()))
                 .willThrow(new BusinessRuleException("já existe um leitor com o documento '12345678900'"));
@@ -211,7 +214,7 @@ class ReaderControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn422WhenAMinorHasNoGuardian() throws Exception {
         given(registerReaderUseCase.register(any())).willThrow(
                 new BusinessRuleException("o responsável é obrigatório para leitor menor de 18 anos"));
@@ -225,7 +228,7 @@ class ReaderControllerTest {
     // query (HU25)
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturnReaderWithFullDocumentBirthDateAndState() throws Exception {
         given(getReaderUseCase.findById(1L)).willReturn(Optional.of(Reader.reconstitute(1L, "Maria Silva",
                 "12345678900", "maria@example.com", "11 91234-5678", LocalDate.of(1990, 5, 10), null, true,
@@ -245,7 +248,7 @@ class ReaderControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturnTheGuardianOfAMinorReader() throws Exception {
         given(getReaderUseCase.findById(2L)).willReturn(Optional.of(Reader.reconstitute(2L, "Júlia", "MAT1",
                 "julia@example.com", null, LocalDate.of(2015, 3, 1),
@@ -259,7 +262,7 @@ class ReaderControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn200ForInactiveAndBlockedReaderShowingTheState() throws Exception {
         given(getReaderUseCase.findById(3L)).willReturn(Optional.of(Reader.reconstitute(3L, "Pedro", "999",
                 "pedro@example.com", null, LocalDate.of(1985, 1, 1), null, false, true)));
@@ -271,7 +274,7 @@ class ReaderControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn404WithProblemDetailForNonExistentId() throws Exception {
         given(getReaderUseCase.findById(99L)).willReturn(Optional.empty());
 
@@ -290,7 +293,7 @@ class ReaderControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldListReadersWithTheMaskedDocumentAndNoSensitiveDetail() throws Exception {
         var minor = Reader.reconstitute(2L, "Júlia", "MAT123", "julia@example.com", "11 91234-5678",
                 LocalDate.of(2015, 3, 1), new Guardian("Ana Souza", "ana@example.com", "11 99999-0000"), true,
@@ -325,7 +328,7 @@ class ReaderControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldListOnlyActiveReadersSortedByNameByDefault() throws Exception {
         given(listReadersUseCase.list(any())).willReturn(new PageResult<>(List.of(), 0, 20, 0));
 
@@ -343,7 +346,7 @@ class ReaderControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldPassFiltersPaginationAndSortToTheUseCase() throws Exception {
         given(listReadersUseCase.list(any())).willReturn(new PageResult<>(List.of(), 1, 5, 0));
 
@@ -369,7 +372,7 @@ class ReaderControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400WhenTheSizeIsAbove100() throws Exception {
         mockMvc.perform(get("/api/v1/readers").param("size", "101"))
                 .andExpect(status().isBadRequest())
@@ -379,7 +382,7 @@ class ReaderControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400ForInvalidPaginationSortOrFilter() throws Exception {
         mockMvc.perform(get("/api/v1/readers").param("page", "-1")).andExpect(status().isBadRequest());
         mockMvc.perform(get("/api/v1/readers").param("size", "0")).andExpect(status().isBadRequest());
@@ -401,7 +404,7 @@ class ReaderControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldUpdateAndReturn200WithTheReader() throws Exception {
         given(updateReaderUseCase.update(any())).willReturn(updatedReader());
 
@@ -416,7 +419,7 @@ class ReaderControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldSendOnlyTheSentFieldsToTheUseCase() throws Exception {
         given(updateReaderUseCase.update(any())).willReturn(updatedReader());
 
@@ -429,7 +432,7 @@ class ReaderControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldMapEveryFieldIncludingTheGuardian() throws Exception {
         given(updateReaderUseCase.update(any())).willReturn(updatedReader());
 
@@ -446,7 +449,7 @@ class ReaderControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldIgnoreFieldsThatAreNotEditableHere() throws Exception {
         given(updateReaderUseCase.update(any())).willReturn(updatedReader());
 
@@ -461,7 +464,7 @@ class ReaderControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400WhenASentFieldIsBlankOrHasSurroundingSpaces() throws Exception {
         for (var json : new String[] {"{\"name\":\"  \"}", "{\"name\":\" Maria\"}", "{\"document\":\"\"}",
                 "{\"email\":\" \"}"}) {
@@ -474,14 +477,14 @@ class ReaderControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400OnUpdateWhenTheBirthDateIsNotAnIsoDate() throws Exception {
         mockMvc.perform(update(1, "{\"birthDate\":\"10/05/1990\"}"))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn404ForANonExistentReader() throws Exception {
         given(updateReaderUseCase.update(any())).willThrow(new ResourceNotFoundException("leitor não encontrado: 99"));
 
@@ -492,7 +495,7 @@ class ReaderControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn422WhenTheDocumentBelongsToAnotherReader() throws Exception {
         given(updateReaderUseCase.update(any()))
                 .willThrow(new BusinessRuleException("já existe um leitor com o documento '12345678900'"));
@@ -504,7 +507,7 @@ class ReaderControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn422WhenTheEditLeavesAMinorWithoutTheGuardian() throws Exception {
         given(updateReaderUseCase.update(any())).willThrow(
                 new BusinessRuleException("o responsável é obrigatório para leitor menor de 18 anos"));
@@ -517,7 +520,7 @@ class ReaderControllerTest {
     // deactivation (HU27, RN14)
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldDeactivateReaderAndReturn204WithoutBody() throws Exception {
         mockMvc.perform(delete("/api/v1/readers/1").with(csrf()))
                 .andExpect(status().isNoContent())
@@ -527,14 +530,14 @@ class ReaderControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void deactivatingAnAlreadyInactiveReaderShouldAlsoReturn204() throws Exception {
         mockMvc.perform(delete("/api/v1/readers/1").with(csrf())).andExpect(status().isNoContent());
         mockMvc.perform(delete("/api/v1/readers/1").with(csrf())).andExpect(status().isNoContent());
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn404WhenDeactivatingANonExistentReader() throws Exception {
         willThrow(new ResourceNotFoundException("leitor não encontrado: 99"))
                 .given(deactivateReaderUseCase).deactivate(99L);
@@ -546,7 +549,7 @@ class ReaderControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400WhenDeactivatingWithANonNumericId() throws Exception {
         mockMvc.perform(delete("/api/v1/readers/abc").with(csrf())).andExpect(status().isBadRequest());
 
@@ -556,7 +559,7 @@ class ReaderControllerTest {
     // block and unblock (RF10, HU06)
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldBlockReaderAndReturn204WithoutBody() throws Exception {
         mockMvc.perform(post("/api/v1/readers/1/block").with(csrf()))
                 .andExpect(status().isNoContent())
@@ -566,7 +569,7 @@ class ReaderControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldUnblockReaderAndReturn204WithoutBody() throws Exception {
         mockMvc.perform(post("/api/v1/readers/1/unblock").with(csrf()))
                 .andExpect(status().isNoContent())
@@ -576,7 +579,7 @@ class ReaderControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void blockingAndUnblockingTwiceShouldKeepReturning204() throws Exception {
         for (var i = 0; i < 2; i++) {
             mockMvc.perform(post("/api/v1/readers/1/block").with(csrf())).andExpect(status().isNoContent());
@@ -585,7 +588,7 @@ class ReaderControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn404WhenBlockingOrUnblockingANonExistentReader() throws Exception {
         willThrow(new ResourceNotFoundException("leitor não encontrado: 99"))
                 .given(blockReaderUseCase).block(99L);
@@ -601,7 +604,7 @@ class ReaderControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn422WhenBlockingAnInactiveReader() throws Exception {
         willThrow(new BusinessRuleException("o leitor inativo não pode ser bloqueado"))
                 .given(blockReaderUseCase).block(1L);
@@ -613,12 +616,47 @@ class ReaderControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithOperator
     void shouldReturn400WhenBlockingOrUnblockingWithANonNumericId() throws Exception {
         mockMvc.perform(post("/api/v1/readers/abc/block").with(csrf())).andExpect(status().isBadRequest());
         mockMvc.perform(post("/api/v1/readers/abc/unblock").with(csrf())).andExpect(status().isBadRequest());
 
         then(blockReaderUseCase).should(never()).block(any());
         then(unblockReaderUseCase).should(never()).unblock(any());
+    }
+
+    // authorization by profile (RNF08): the whole controller is for an administrator or an operator
+
+    @Test
+    @WithMockUser(roles = "USER")
+    void shouldRefuseAnAuthenticatedUserWithoutAnAllowedProfileWith403() throws Exception {
+        mockMvc.perform(get("/api/v1/readers"))
+                .andExpect(status().isForbidden())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.detail").value("Você não tem permissão para acessar este recurso."));
+        mockMvc.perform(delete("/api/v1/readers/1").with(csrf())).andExpect(status().isForbidden());
+
+        then(deactivateReaderUseCase).should(never()).deactivate(any());
+    }
+
+    @Test
+    @WithMockUser(roles = {})
+    void shouldRefuseAnAuthenticatedUserWithNoProfileAtAllWith403() throws Exception {
+        mockMvc.perform(delete("/api/v1/readers/1").with(csrf())).andExpect(status().isForbidden());
+
+        then(deactivateReaderUseCase).should(never()).deactivate(any());
+    }
+
+    @Test
+    @WithAdmin
+    void anAdministratorMayCallTheRoutesToo() throws Exception {
+        mockMvc.perform(delete("/api/v1/readers/1").with(csrf())).andExpect(status().isNoContent());
+    }
+
+    @Test
+    @WithOperator
+    void anOperatorMayCallTheRoutes() throws Exception {
+        mockMvc.perform(delete("/api/v1/readers/1").with(csrf())).andExpect(status().isNoContent());
     }
 }

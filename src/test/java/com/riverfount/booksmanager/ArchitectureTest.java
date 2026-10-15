@@ -9,7 +9,8 @@ import com.tngtech.archunit.lang.ArchRule;
 
 /**
  * Ensures the hexagonal architecture's layer separation (RNF01, RNF02):
- * the domain is pure Java, and dependencies always point inward.
+ * the domain is pure Java, and dependencies always point inward. It also
+ * ensures that every controller declares who may call it (RNF08).
  */
 @AnalyzeClasses(packagesOf = BooksManagerApplication.class, importOptions = ImportOption.DoNotIncludeTests.class)
 class ArchitectureTest {
@@ -32,4 +33,8 @@ class ArchitectureTest {
             .that().resideInAPackage("..application..")
             .should().dependOnClassesThat().resideInAPackage("..adapter..")
             .allowEmptyShould(true);
+
+    /** A new controller that does not decide who may call it fails the build (see AccessRules). */
+    @ArchTest
+    static final ArchRule everyControllerDeclaresItsAccess = AccessRules.everyControllerDeclaresItsAccess();
 }

@@ -25,6 +25,11 @@ import org.springframework.test.web.servlet.MockMvc;
 @TestPropertySource(properties = "app.cors.allowed-origins=http://localhost:5173")
 class CorsConfigurationTest {
 
+    /** An authenticated caller with the profile the catalog routes require (RNF08). */
+    private static org.springframework.test.web.servlet.request.RequestPostProcessor operator() {
+        return jwt().authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_OPERATOR"));
+    }
+
     private static final String ALLOWED_ORIGIN = "http://localhost:5173";
     private static final String OTHER_ORIGIN = "http://evil.example.com";
 
@@ -83,14 +88,14 @@ class CorsConfigurationTest {
 
     @Test
     void shouldAddCorsHeadersToTheActualRequestOfTheAllowedOrigin() throws Exception {
-        mockMvc.perform(get("/api/v1/books").header("Origin", ALLOWED_ORIGIN).with(jwt()))
+        mockMvc.perform(get("/api/v1/books").header("Origin", ALLOWED_ORIGIN).with(operator()))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Access-Control-Allow-Origin", ALLOWED_ORIGIN));
     }
 
     @Test
     void shouldNotAddCorsHeadersToTheActualRequestOfAnotherOrigin() throws Exception {
-        mockMvc.perform(get("/api/v1/books").header("Origin", OTHER_ORIGIN).with(jwt()))
+        mockMvc.perform(get("/api/v1/books").header("Origin", OTHER_ORIGIN).with(operator()))
                 .andExpect(status().isForbidden())
                 .andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
     }
@@ -103,7 +108,7 @@ class CorsConfigurationTest {
                 .andExpect(status().isOk())
                 .andExpect(header().string("Access-Control-Allow-Origin", ALLOWED_ORIGIN))
                 .andExpect(header().string("Access-Control-Allow-Credentials", "true"));
-        mockMvc.perform(get("/api/v1/books").header("Origin", ALLOWED_ORIGIN).with(jwt()))
+        mockMvc.perform(get("/api/v1/books").header("Origin", ALLOWED_ORIGIN).with(operator()))
                 .andExpect(header().string("Access-Control-Allow-Credentials", "true"));
     }
 
