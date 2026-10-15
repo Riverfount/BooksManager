@@ -513,41 +513,6 @@ class UserServiceTest {
                 .isEqualTo(START.plus(java.time.Duration.ofHours(1)));
     }
 
-    // finding an active user for a token renewal (RF08)
-
-    @Test
-    void shouldFindAnActiveUserByIdWithItsCurrentRole() {
-        registerUser("maria", Role.OPERATOR);
-        var id = repository.findByLogin("maria").orElseThrow().getId();
-
-        assertThat(service.findActiveUser(id)).contains(new AuthenticatedUser(id, Role.OPERATOR));
-
-        var user = repository.findById(id).orElseThrow();
-        user.changeRole(Role.ADMIN);
-        repository.save(user);
-        assertThat(service.findActiveUser(id)).contains(new AuthenticatedUser(id, Role.ADMIN));
-    }
-
-    @Test
-    void shouldNotFindAnInactiveOrUnknownUser() {
-        registerUser("maria", Role.OPERATOR);
-        var id = repository.findByLogin("maria").orElseThrow().getId();
-        deactivate("maria");
-
-        assertThat(service.findActiveUser(id)).isEmpty();
-        assertThat(service.findActiveUser(99_999L)).isEmpty();
-        assertThat(service.findActiveUser(null)).isEmpty();
-    }
-
-    @Test
-    void aUserBlockedByTheLockoutIsStillFoundSinceTheBlockOnlyGuardsThePassword() {
-        registerUser("maria", Role.OPERATOR);
-        wrongPassword("maria", 3);
-        var id = repository.findByLogin("maria").orElseThrow().getId();
-
-        assertThat(service.findActiveUser(id)).isPresent();
-    }
-
     // creating a user (RF09, HU28)
 
     private static final String GOOD_PASSWORD = "N3w-Pass#word";

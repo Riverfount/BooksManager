@@ -10,7 +10,6 @@ import com.riverfount.booksmanager.user.application.port.in.CreateInitialAdminCo
 import com.riverfount.booksmanager.user.application.port.in.CreateInitialAdminUseCase;
 import com.riverfount.booksmanager.user.application.port.in.CreateUserCommand;
 import com.riverfount.booksmanager.user.application.port.in.CreateUserUseCase;
-import com.riverfount.booksmanager.user.application.port.in.FindActiveUserUseCase;
 import com.riverfount.booksmanager.user.application.port.in.GetUserUseCase;
 import com.riverfount.booksmanager.user.application.port.in.ListUsersQuery;
 import com.riverfount.booksmanager.user.application.port.in.ListUsersUseCase;
@@ -38,8 +37,8 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 @Transactional
-class UserService implements CreateInitialAdminUseCase, AuthenticateUserUseCase, FindActiveUserUseCase,
-        CreateUserUseCase, GetUserUseCase, ListUsersUseCase, UpdateUserUseCase, UnblockUserUseCase {
+class UserService implements CreateInitialAdminUseCase, AuthenticateUserUseCase, CreateUserUseCase,
+        GetUserUseCase, ListUsersUseCase, UpdateUserUseCase, UnblockUserUseCase {
 
     private final UserRepository userRepository;
     private final PasswordHasher passwordHasher;
@@ -153,17 +152,6 @@ class UserService implements CreateInitialAdminUseCase, AuthenticateUserUseCase,
     private User loadForUpdate(Long id) {
         return userRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException("usuário não encontrado: " + id));
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public Optional<AuthenticatedUser> findActiveUser(Long id) {
-        if (id == null) {
-            return Optional.empty();
-        }
-        return userRepository.findById(id)
-                .filter(User::isActive)
-                .map(user -> new AuthenticatedUser(user.getId(), user.getRole()));
     }
 
     /**
