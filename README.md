@@ -119,7 +119,7 @@ A rota pública **http://localhost:8080/actuator/health** informa se a aplicaç�
 O workflow `.github/workflows/ci.yml` roda `./mvnw verify` (testes, Testcontainers e ArchUnit) com JDK 25 a cada push na `main` e a cada pull request. Se o build falhar, os relatórios de teste ficam disponíveis como artefato da execução por 7 dias. Nenhum segredo é necessário.
 
 ### Banco de dados
-O PostgreSQL é executado em um container Docker, definido no arquivo **compose.yaml** na raiz do projeto. As tabelas são criadas e atualizadas por scripts do Flyway, na pasta **src/main/resources/db/migration**; a migração atual (**V1__create_catalog.sql**) cria as tabelas do catálogo (`category`, `author`, `book`, `book_author`, `copy`).
+O PostgreSQL é executado em um container Docker, definido no arquivo **compose.yaml** na raiz do projeto. As tabelas são criadas e atualizadas por scripts do Flyway, na pasta **src/main/resources/db/migration**; as migrações atuais são a **V1__create_catalog.sql**, que cria as tabelas do catálogo (`category`, `author`, `book`, `book_author`, `copy`), e a **V2__create_reader.sql**, que cria a tabela de leitores (`reader`).
 
 ---
 
