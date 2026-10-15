@@ -2,6 +2,7 @@ package com.riverfount.booksmanager.user.domain;
 
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import java.time.LocalDate;
+import java.util.Locale;
 
 /**
  * Reader of the library (RF07, RF10), separate from the system user. Holds
@@ -65,7 +66,7 @@ public class Reader {
     public void updateDetails(String name, String document, String email, String phone, LocalDate birthDate,
             Guardian guardian, LocalDate today) {
         PersonalData.validateName(name, "do leitor");
-        var normalizedDocument = normalizeDocument(document);
+        var normalizedDocument = validDocument(document);
         PersonalData.validateEmail(email, "do leitor");
         PersonalData.validateOptionalPhone(phone, "do leitor");
         validateBirthDate(birthDate, today);
@@ -115,11 +116,17 @@ public class Reader {
         return birthDate.plusYears(ADULT_AGE).isAfter(today);
     }
 
-    private static String normalizeDocument(String document) {
-        if (document == null) {
-            throw new BusinessRuleException("o documento do leitor é obrigatório");
-        }
-        var normalized = document.replaceAll("[^\\p{L}\\p{N}]", "").toUpperCase();
+    /**
+     * Document normalization (RF07): no punctuation or spaces, uppercase. A
+     * null document becomes empty. Public so that searches by document use
+     * the same rule as the registration.
+     */
+    public static String normalizeDocument(String document) {
+        return document == null ? "" : document.replaceAll("[^\\p{L}\\p{N}]", "").toUpperCase(Locale.ROOT);
+    }
+
+    private static String validDocument(String document) {
+        var normalized = normalizeDocument(document);
         if (normalized.isEmpty()) {
             throw new BusinessRuleException("o documento do leitor é obrigatório");
         }
