@@ -113,7 +113,7 @@ classDiagram
 | --- | --- | --- |
 | `Category`, `Author`, `Book`, `Copy` | `catalog` | Implementadas: domínio, persistência, casos de uso e endpoints REST de cadastro, consulta, listagem, edição e inativação (issues #5–#16, #35–#37 e #43–#58), inclusive a pesquisa de livros com exemplares disponíveis (RF05, issue #83). |
 | `Reader` | `user` | Domínio (issue #89), migração `reader` (issue #88) e persistência (issue #90) implementados; faltam casos de uso e endpoints (fase 2, `docs/projeto.md`). |
-| `User` | `user` | Migração `app_user` (issue #97), domínio (issue #98) e persistência (issue #99) implementados; faltam casos de uso e endpoints (fase 2, `docs/projeto.md`). |
+| `User` | `user` | Migração `app_user` (issue #97), domínio (issue #98), persistência (issue #99) e criação do administrador inicial (issue #100) implementados; faltam a gestão de usuários e a autenticação (fase 2, `docs/projeto.md`). |
 | `Loan`, `Fine`, `Reservation`, `LibraryConfiguration` | `loan` | Planejadas — fases 3 e 4 do plano de desenvolvimento. |
 
 ## Referências
