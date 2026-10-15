@@ -5,9 +5,11 @@ import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -20,12 +22,16 @@ import com.riverfount.booksmanager.security.configuration.MethodSecurityConfigur
 import com.riverfount.booksmanager.shared.adapter.in.web.GlobalExceptionHandler;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.PageResult;
+import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
 import com.riverfount.booksmanager.shared.domain.SortDirection;
 import com.riverfount.booksmanager.user.application.port.in.CreateUserCommand;
 import com.riverfount.booksmanager.user.application.port.in.CreateUserUseCase;
 import com.riverfount.booksmanager.user.application.port.in.GetUserUseCase;
 import com.riverfount.booksmanager.user.application.port.in.ListUsersQuery;
 import com.riverfount.booksmanager.user.application.port.in.ListUsersUseCase;
+import com.riverfount.booksmanager.user.application.port.in.UnblockUserUseCase;
+import com.riverfount.booksmanager.user.application.port.in.UpdateUserCommand;
+import com.riverfount.booksmanager.user.application.port.in.UpdateUserUseCase;
 import com.riverfount.booksmanager.user.domain.Role;
 import com.riverfount.booksmanager.user.domain.User;
 import java.time.Clock;
@@ -75,6 +81,12 @@ class UserControllerTest {
 
     @MockitoBean
     private ListUsersUseCase listUsersUseCase;
+
+    @MockitoBean
+    private UpdateUserUseCase updateUserUseCase;
+
+    @MockitoBean
+    private UnblockUserUseCase unblockUserUseCase;
 
     private MockHttpServletRequestBuilder create(String json) {
         return post("/api/v1/users").with(csrf()).contentType(MediaType.APPLICATION_JSON).content(json);
@@ -401,5 +413,142 @@ class UserControllerTest {
     void aUserWithNoProfileGets403OnTheGetAndTheListRoutes() throws Exception {
         mockMvc.perform(get("/api/v1/users/5")).andExpect(status().isForbidden());
         mockMvc.perform(get("/api/v1/users")).andExpect(status().isForbidden());
+    }
+
+    // editing the profile (RF09, HU28)
+
+    private MockHttpServletRequestBuilder edit(long id, String json) {
+        return patch("/api/v1/users/" + id).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(json);
+    }
+
+    @Test
+    @WithAdmin
+    void shouldEditTheProfileAndReturn200WithTheUser() throws Exception {
+        given(updateUserUseCase.update(any())).willReturn(User.reconstitute(5L, "maria", HASH, Role.ADMIN, true));
+
+        var body = mockMvc.perform(edit(5, "{\"role\":\"ADMIN\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(5))
+                .andExpect(jsonPath("$.login").value("maria"))
+                .andExpect(jsonPath("$.role").value("ADMIN"))
+                .andExpect(jsonPath("$.blocked").value(false))
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(body).doesNotContain(HASH).doesNotContain("assword").doesNotContain("hash");
+        var captor = ArgumentCaptor.forClass(UpdateUserCommand.class);
+        then(updateUserUseCase).should().update(captor.capture());
+        assertThat(captor.getValue()).isEqualTo(new UpdateUserCommand(5L, Role.ADMIN));
+    }
+
+    @Test
+    @WithAdmin
+    void anEmptyBodyOrANullProfileKeepsTheProfile() throws Exception {
+        given(updateUserUseCase.update(any())).willReturn(User.reconstitute(5L, "maria", HASH, Role.OPERATOR, true));
+
+        mockMvc.perform(edit(5, "{}")).andExpect(status().isOk());
+        mockMvc.perform(edit(5, "{\"role\":null}")).andExpect(status().isOk());
+
+        var captor = ArgumentCaptor.forClass(UpdateUserCommand.class);
+        then(updateUserUseCase).should(org.mockito.Mockito.times(2)).update(captor.capture());
+        assertThat(captor.getAllValues()).containsOnly(new UpdateUserCommand(5L, null));
+    }
+
+    @Test
+    @WithAdmin
+    void shouldIgnoreTheFieldsThatThisRouteDoesNotChange() throws Exception {
+        given(updateUserUseCase.update(any())).willReturn(User.reconstitute(5L, "maria", HASH, Role.OPERATOR, true));
+
+        mockMvc.perform(edit(5, "{\"login\":\"intruso\",\"password\":\"N3w-Pass#word\",\"active\":false,"
+                + "\"blocked\":true,\"id\":99,\"passwordHash\":\"x\"}")).andExpect(status().isOk());
+
+        var captor = ArgumentCaptor.forClass(UpdateUserCommand.class);
+        then(updateUserUseCase).should().update(captor.capture());
+        assertThat(captor.getValue()).isEqualTo(new UpdateUserCommand(5L, null));
+    }
+
+    @Test
+    @WithAdmin
+    void shouldReturn400ForAnUnknownProfileOrAMalformedBodyOrANonNumericId() throws Exception {
+        mockMvc.perform(edit(5, "{\"role\":\"SUPERUSER\"}")).andExpect(status().isBadRequest());
+        mockMvc.perform(edit(5, "{\"role\":\"admin\"}")).andExpect(status().isBadRequest());
+        mockMvc.perform(edit(5, "not json")).andExpect(status().isBadRequest());
+        mockMvc.perform(patch("/api/v1/users/abc").with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isBadRequest());
+
+        then(updateUserUseCase).should(never()).update(any());
+    }
+
+    @Test
+    @WithAdmin
+    void shouldReturn404ForAnUnknownUserOnTheEdit() throws Exception {
+        given(updateUserUseCase.update(any())).willThrow(new ResourceNotFoundException("usuário não encontrado: 99"));
+
+        mockMvc.perform(edit(99, "{\"role\":\"ADMIN\"}"))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+                .andExpect(jsonPath("$.detail").value("usuário não encontrado: 99"));
+    }
+
+    @Test
+    @WithAdmin
+    void shouldReturn422WhenTheLastAdministratorWouldLoseTheProfile() throws Exception {
+        given(updateUserUseCase.update(any())).willThrow(new BusinessRuleException(
+                "não é possível tirar o perfil de administrador do último administrador ativo"));
+
+        mockMvc.perform(edit(1, "{\"role\":\"OPERATOR\"}"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+                .andExpect(jsonPath("$.detail").value(containsString("último administrador")));
+    }
+
+    // unblocking (RF08, RF09)
+
+    private MockHttpServletRequestBuilder unblock(String id) {
+        return post("/api/v1/users/" + id + "/unblock").with(csrf());
+    }
+
+    @Test
+    @WithAdmin
+    void shouldUnblockAndReturn204WithoutBody() throws Exception {
+        mockMvc.perform(unblock("5")).andExpect(status().isNoContent()).andExpect(content().string(""));
+
+        then(unblockUserUseCase).should().unblock(5L);
+    }
+
+    @Test
+    @WithAdmin
+    void unblockingTwiceKeepsReturning204() throws Exception {
+        mockMvc.perform(unblock("5")).andExpect(status().isNoContent());
+        mockMvc.perform(unblock("5")).andExpect(status().isNoContent());
+    }
+
+    @Test
+    @WithAdmin
+    void shouldReturn404WhenUnblockingAnUnknownUserAnd400ForANonNumericId() throws Exception {
+        willThrow(new ResourceNotFoundException("usuário não encontrado: 99")).given(unblockUserUseCase).unblock(99L);
+
+        mockMvc.perform(unblock("99")).andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"));
+        mockMvc.perform(unblock("abc")).andExpect(status().isBadRequest());
+    }
+
+    // only an administrator (RNF08)
+
+    @Test
+    @WithOperator
+    void anOperatorGets403OnTheEditAndTheUnblockAndNothingChanges() throws Exception {
+        mockMvc.perform(edit(5, "{\"role\":\"ADMIN\"}")).andExpect(status().isForbidden())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"));
+        mockMvc.perform(unblock("5")).andExpect(status().isForbidden());
+
+        then(updateUserUseCase).should(never()).update(any());
+        then(unblockUserUseCase).should(never()).unblock(any());
+    }
+
+    @Test
+    @WithMockUser(roles = {})
+    void aUserWithNoProfileGets403OnTheEditAndTheUnblock() throws Exception {
+        mockMvc.perform(edit(5, "{\"role\":\"ADMIN\"}")).andExpect(status().isForbidden());
+        mockMvc.perform(unblock("5")).andExpect(status().isForbidden());
     }
 }

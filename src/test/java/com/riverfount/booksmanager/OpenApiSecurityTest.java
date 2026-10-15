@@ -124,4 +124,17 @@ class OpenApiSecurityTest {
                     .andExpect(jsonPath("$.paths['/api/v1/users/{id}'].get.responses['" + status + "']").exists());
         }
     }
+
+    @Test
+    void theEditAndUnblockOperationsShouldDocumentTheirResponses() throws Exception {
+        for (var status : new String[] {"200", "400", "401", "403", "404", "422"}) {
+            mockMvc.perform(get("/v3/api-docs"))
+                    .andExpect(jsonPath("$.paths['/api/v1/users/{id}'].patch.responses['" + status + "']").exists());
+        }
+        for (var status : new String[] {"204", "401", "403", "404"}) {
+            mockMvc.perform(get("/v3/api-docs"))
+                    .andExpect(jsonPath("$.paths['/api/v1/users/{id}/unblock'].post.responses['" + status + "']")
+                            .exists());
+        }
+    }
 }
