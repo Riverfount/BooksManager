@@ -6,6 +6,8 @@ import com.riverfount.booksmanager.user.application.port.in.AuthenticateUserUseC
 import com.riverfount.booksmanager.user.application.port.in.AuthenticatedUser;
 import com.riverfount.booksmanager.user.application.port.in.CreateInitialAdminCommand;
 import com.riverfount.booksmanager.user.application.port.in.CreateInitialAdminUseCase;
+import com.riverfount.booksmanager.user.application.port.in.CreateUserCommand;
+import com.riverfount.booksmanager.user.application.port.in.CreateUserUseCase;
 import com.riverfount.booksmanager.user.application.port.in.FindActiveUserUseCase;
 import com.riverfount.booksmanager.user.application.port.in.InitialAdminResult;
 import com.riverfount.booksmanager.user.application.port.out.PasswordHasher;
@@ -27,7 +29,8 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 @Transactional
-class UserService implements CreateInitialAdminUseCase, AuthenticateUserUseCase, FindActiveUserUseCase {
+class UserService implements CreateInitialAdminUseCase, AuthenticateUserUseCase, FindActiveUserUseCase,
+        CreateUserUseCase {
 
     private final UserRepository userRepository;
     private final PasswordHasher passwordHasher;
@@ -54,6 +57,20 @@ class UserService implements CreateInitialAdminUseCase, AuthenticateUserUseCase,
         PasswordPolicy.validate(command.password());
         userRepository.save(User.create(command.login(), passwordHasher.hash(command.password()), Role.ADMIN));
         return InitialAdminResult.CREATED;
+    }
+
+    /**
+     * The password policy is checked first (cheap, and the answer says which rules
+     * are missing), then the password is hashed and the user built, which validates
+     * the login and the profile; the login must be new. The unique constraint of the
+     * database is the last defense against two simultaneous creations.
+     */
+    @Override
+    public User create(CreateUserCommand command) {
+        PasswordPolicy.validate(command.password());
+        var user = User.create(command.login(), passwordHasher.hash(command.password()), command.role());
+        User.validateUniqueLogin(user.getLogin(), userRepository.existsByLogin(user.getLogin()));
+        return userRepository.save(user);
     }
 
     /**

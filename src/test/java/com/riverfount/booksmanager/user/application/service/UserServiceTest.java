@@ -8,6 +8,7 @@ import com.riverfount.booksmanager.shared.domain.InvalidCredentialsException;
 import com.riverfount.booksmanager.user.application.port.in.AuthenticateUserCommand;
 import com.riverfount.booksmanager.user.application.port.in.AuthenticatedUser;
 import com.riverfount.booksmanager.user.application.port.in.CreateInitialAdminCommand;
+import com.riverfount.booksmanager.user.application.port.in.CreateUserCommand;
 import com.riverfount.booksmanager.user.application.port.in.InitialAdminResult;
 import com.riverfount.booksmanager.user.application.port.out.PasswordHasher;
 import com.riverfount.booksmanager.user.configuration.LoginLockoutProperties;
@@ -542,5 +543,103 @@ class UserServiceTest {
         var id = repository.findByLogin("maria").orElseThrow().getId();
 
         assertThat(service.findActiveUser(id)).isPresent();
+    }
+
+    // creating a user (RF09, HU28)
+
+    private static final String GOOD_PASSWORD = "N3w-Pass#word";
+
+    @Test
+    void shouldCreateAnActiveUserWithTheProfileAndAnId() {
+        var created = service.create(new CreateUserCommand("Maria", GOOD_PASSWORD, Role.OPERATOR));
+
+        assertThat(created.getId()).isNotNull();
+        assertThat(created.getLogin()).isEqualTo("maria");
+        assertThat(created.getRole()).isEqualTo(Role.OPERATOR);
+        assertThat(created.isActive()).isTrue();
+        assertThat(created.getFailedLoginAttempts()).isZero();
+        assertThat(repository.findByLogin("maria")).isPresent();
+    }
+
+    @Test
+    void shouldAlsoCreateAnAdministrator() {
+        assertThat(service.create(new CreateUserCommand("chefe", GOOD_PASSWORD, Role.ADMIN)).getRole())
+                .isEqualTo(Role.ADMIN);
+    }
+
+    @Test
+    void aCreatedUserShouldKeepOnlyTheHashOfThePassword() {
+        var created = service.create(new CreateUserCommand("maria", GOOD_PASSWORD, Role.OPERATOR));
+
+        var stored = repository.findByLogin("maria").orElseThrow().getPasswordHash();
+        assertThat(stored).isEqualTo(created.getPasswordHash()).isNotEqualTo(GOOD_PASSWORD);
+        assertThat(stored).doesNotContain(GOOD_PASSWORD);
+        assertThat(stored).startsWith("{hash-");
+    }
+
+    @Test
+    void theNewUserShouldBeAbleToLogInWithThePassword() {
+        service.create(new CreateUserCommand("maria", GOOD_PASSWORD, Role.OPERATOR));
+
+        var authenticated = service.authenticate(new AuthenticateUserCommand("maria", GOOD_PASSWORD));
+
+        assertThat(authenticated.role()).isEqualTo(Role.OPERATOR);
+    }
+
+    @Test
+    void shouldRefuseARepeatedLoginAlsoWhenOnlyTheCaseOrTheSpacesDiffer() {
+        service.create(new CreateUserCommand("maria", GOOD_PASSWORD, Role.OPERATOR));
+
+        for (var login : new String[] {"maria", "MARIA", "Maria"}) {
+            assertThatThrownBy(() -> service.create(new CreateUserCommand(login, GOOD_PASSWORD, Role.ADMIN)))
+                    .isInstanceOf(BusinessRuleException.class)
+                    .hasMessageContaining("já existe um usuário");
+        }
+
+        assertThat(repository.count()).isEqualTo(1);
+        assertThat(repository.findByLogin("maria").orElseThrow().getRole()).isEqualTo(Role.OPERATOR);
+    }
+
+    @Test
+    void shouldRefuseAWeakPasswordNamingTheMissingRulesAndNeverRepeatingIt() {
+        for (var weak : new String[] {"Sh0rt!", "alllowercase1!", "ALLUPPERCASE1!", "NoDigitsHere!", "NoSpecial1234",
+                "Aa1!" + "x".repeat(30)}) {
+            assertThatThrownBy(() -> service.create(new CreateUserCommand("maria", weak, Role.OPERATOR)))
+                    .isInstanceOf(BusinessRuleException.class)
+                    .hasMessageContaining("senha")
+                    .hasMessageNotContaining(weak);
+        }
+
+        assertThat(repository.count()).isZero();
+    }
+
+    @Test
+    void shouldNotHashThePasswordWhenItIsAlreadyKnownToBeWeak() {
+        var before = hasher.calls;
+
+        assertThatThrownBy(() -> service.create(new CreateUserCommand("maria", "weak", Role.OPERATOR)))
+                .isInstanceOf(BusinessRuleException.class);
+
+        assertThat(hasher.calls).isEqualTo(before);
+    }
+
+    @Test
+    void shouldRefuseAnInvalidLoginOrAMissingProfile() {
+        assertThatThrownBy(() -> service.create(new CreateUserCommand("ma ria", GOOD_PASSWORD, Role.OPERATOR)))
+                .isInstanceOf(BusinessRuleException.class).hasMessageContaining("login");
+        assertThatThrownBy(() -> service.create(new CreateUserCommand(null, GOOD_PASSWORD, Role.OPERATOR)))
+                .isInstanceOf(BusinessRuleException.class);
+        assertThatThrownBy(() -> service.create(new CreateUserCommand("maria", GOOD_PASSWORD, null)))
+                .isInstanceOf(BusinessRuleException.class).hasMessageContaining("perfil");
+        assertThatThrownBy(() -> service.create(new CreateUserCommand("maria", null, Role.OPERATOR)))
+                .isInstanceOf(BusinessRuleException.class);
+
+        assertThat(repository.count()).isZero();
+    }
+
+    @Test
+    void theCreateCommandShouldNotShowThePasswordInItsStringForm() {
+        assertThat(new CreateUserCommand("maria", GOOD_PASSWORD, Role.OPERATOR).toString())
+                .doesNotContain(GOOD_PASSWORD).contains("maria").contains("OPERATOR");
     }
 }
