@@ -1,5 +1,7 @@
 package com.riverfount.booksmanager.user.adapter.in.web;
 
+import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
+import com.riverfount.booksmanager.user.application.port.in.GetReaderUseCase;
 import com.riverfount.booksmanager.user.application.port.in.RegisterReaderCommand;
 import com.riverfount.booksmanager.user.application.port.in.RegisterReaderUseCase;
 import io.swagger.v3.oas.annotations.Operation;
@@ -11,6 +13,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -23,9 +27,11 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 class ReaderController {
 
     private final RegisterReaderUseCase registerReaderUseCase;
+    private final GetReaderUseCase getReaderUseCase;
 
-    ReaderController(RegisterReaderUseCase registerReaderUseCase) {
+    ReaderController(RegisterReaderUseCase registerReaderUseCase, GetReaderUseCase getReaderUseCase) {
         this.registerReaderUseCase = registerReaderUseCase;
+        this.getReaderUseCase = getReaderUseCase;
     }
 
     @PostMapping
@@ -55,5 +61,21 @@ class ReaderController {
                 .buildAndExpand(reader.getId())
                 .toUri();
         return ResponseEntity.created(location).body(ReaderResponse.from(reader));
+    }
+
+    @GetMapping("/{id}")
+    @Operation(summary = "Consultar leitor por id",
+            description = "Devolve o leitor com o documento completo, a data de nascimento, o responsável (quando "
+                    + "houver) e a situação (`active` e `blocked`), inclusive para leitor inativo.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Leitor encontrado"),
+            @ApiResponse(responseCode = "404", description = "Leitor não encontrado",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    ReaderResponse findById(@PathVariable Long id) {
+        return getReaderUseCase.findById(id)
+                .map(ReaderResponse::from)
+                .orElseThrow(() -> new ResourceNotFoundException("leitor não encontrado: " + id));
     }
 }

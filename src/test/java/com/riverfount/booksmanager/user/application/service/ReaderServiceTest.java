@@ -123,4 +123,48 @@ class ReaderServiceTest {
 
         assertThatThrownBy(() -> service.register(command)).isInstanceOf(BusinessRuleException.class);
     }
+
+    // query (HU25)
+
+    @Test
+    void shouldFindExistingReaderById() {
+        var registered = service.register(adult("123"));
+
+        var found = service.findById(registered.getId());
+
+        assertThat(found).isPresent();
+        assertThat(found.get().getName()).isEqualTo("Maria Silva");
+    }
+
+    @Test
+    void shouldFindInactiveAndBlockedReaders() {
+        var registered = service.register(adult("123"));
+        registered.block();
+        registered.deactivate();
+        repository.save(registered);
+
+        var found = service.findById(registered.getId()).orElseThrow();
+
+        assertThat(found.isActive()).isFalse();
+        assertThat(found.isBlocked()).isTrue();
+    }
+
+    @Test
+    void shouldFindMinorReaderWithTheGuardian() {
+        var registered = service.register(new RegisterReaderCommand("Júlia", "MAT-1", "julia@example.com", null,
+                MINOR_BIRTH, "Ana Souza", "ana@example.com", null));
+
+        assertThat(service.findById(registered.getId()).orElseThrow().getGuardian().name())
+                .isEqualTo("Ana Souza");
+    }
+
+    @Test
+    void shouldReturnEmptyWhenFindingNonExistentId() {
+        assertThat(service.findById(-1L)).isEmpty();
+    }
+
+    @Test
+    void shouldRejectNullIdWhenFinding() {
+        assertThatThrownBy(() -> service.findById(null)).isInstanceOf(IllegalArgumentException.class);
+    }
 }
