@@ -1,7 +1,6 @@
 package com.riverfount.booksmanager;
 
 import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -33,7 +32,7 @@ class OpenApiRequiredFieldsTest {
 
     @BeforeEach
     void loadTheContract() throws Exception {
-        apiDocs = mockMvc.perform(get("/v3/api-docs").with(user("operator"))).andExpect(status().isOk());
+        apiDocs = mockMvc.perform(get("/v3/api-docs")).andExpect(status().isOk());
     }
 
     @Test

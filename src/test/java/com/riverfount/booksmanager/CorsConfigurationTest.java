@@ -1,6 +1,6 @@
 package com.riverfount.booksmanager;
 
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -83,14 +83,14 @@ class CorsConfigurationTest {
 
     @Test
     void shouldAddCorsHeadersToTheActualRequestOfTheAllowedOrigin() throws Exception {
-        mockMvc.perform(get("/api/v1/books").header("Origin", ALLOWED_ORIGIN).with(user("operator")))
+        mockMvc.perform(get("/api/v1/books").header("Origin", ALLOWED_ORIGIN).with(jwt()))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Access-Control-Allow-Origin", ALLOWED_ORIGIN));
     }
 
     @Test
     void shouldNotAddCorsHeadersToTheActualRequestOfAnotherOrigin() throws Exception {
-        mockMvc.perform(get("/api/v1/books").header("Origin", OTHER_ORIGIN).with(user("operator")))
+        mockMvc.perform(get("/api/v1/books").header("Origin", OTHER_ORIGIN).with(jwt()))
                 .andExpect(status().isForbidden())
                 .andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
     }
