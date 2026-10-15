@@ -101,4 +101,15 @@ class OpenApiSecurityTest {
                 .andExpect(jsonPath("$.paths['/api/v1/auth/refresh'].post.responses['403'].description")
                         .value(org.hamcrest.Matchers.containsString("X-Requested-With")));
     }
+
+    @Test
+    void theCreateUserOperationShouldDocumentTheErrorsAndTheProfileRule() throws Exception {
+        for (var status : new String[] {"201", "400", "401", "403", "422"}) {
+            mockMvc.perform(get("/v3/api-docs"))
+                    .andExpect(jsonPath("$.paths['/api/v1/users'].post.responses['" + status + "']").exists());
+        }
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(jsonPath("$.paths['/api/v1/users'].post.description")
+                        .value(org.hamcrest.Matchers.containsString("administrador")));
+    }
 }

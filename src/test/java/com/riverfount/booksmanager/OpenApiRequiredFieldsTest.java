@@ -70,6 +70,14 @@ class OpenApiRequiredFieldsTest {
     }
 
     @Test
+    void theUserContractShouldRequireWhatItAlwaysSendsAndDemandsAndCarryNoSecret() throws Exception {
+        apiDocs.andExpect(requiredOf("CreateUserRequest", "login", "password", "role"))
+                .andExpect(requiredOf("UserResponse", "id", "login", "role", "active"))
+                .andExpect(jsonPath("$.components.schemas.UserResponse.properties.password").doesNotExist())
+                .andExpect(jsonPath("$.components.schemas.UserResponse.properties.passwordHash").doesNotExist());
+    }
+
+    @Test
     void theLoginContractShouldRequireWhatItAlwaysSendsAndDemands() throws Exception {
         apiDocs.andExpect(requiredOf("LoginRequest", "login", "password"))
                 .andExpect(requiredOf("LoginResponse", "accessToken", "tokenType", "expiresIn"));
