@@ -58,6 +58,13 @@ class OpenApiRequiredFieldsTest {
     }
 
     @Test
+    void readerResponseShouldRequireEverythingExceptWhatCanBeNull() throws Exception {
+        apiDocs.andExpect(requiredOf("ReaderResponse", "id", "name", "document", "email", "birthDate", "active",
+                        "blocked"))
+                .andExpect(requiredOf("GuardianResponse", "name", "email"));
+    }
+
+    @Test
     void everyPageShouldRequireItsItemsAndMetadata() throws Exception {
         for (var schema : new String[] {"PageResponseBookResponse", "PageResponseAuthorResponse",
                 "PageResponseCategoryResponse", "PageResponseCopyResponse"}) {
@@ -70,7 +77,10 @@ class OpenApiRequiredFieldsTest {
         apiDocs.andExpect(requiredOf("RegisterBookRequest", "isbn", "title", "categoryId", "authorIds"))
                 .andExpect(requiredOf("RegisterAuthorRequest", "name"))
                 .andExpect(requiredOf("RegisterCategoryRequest", "name"))
-                .andExpect(requiredOf("RegisterCopyRequest", "bookId", "assetCode"));
+                .andExpect(requiredOf("RegisterCopyRequest", "bookId", "assetCode"))
+                .andExpect(requiredOf("RegisterReaderRequest", "name", "document", "email", "birthDate"))
+                // the guardian's fields are checked by the domain, which answers 422 with a clear message
+                .andExpect(jsonPath("$.components.schemas.GuardianRequest.required").doesNotExist());
     }
 
     @Test

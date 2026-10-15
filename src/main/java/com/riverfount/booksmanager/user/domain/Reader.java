@@ -59,6 +59,17 @@ public class Reader {
     }
 
     /**
+     * Unique document rule (RF07). Like {@code Copy.validateUniqueAssetCode},
+     * the application service looks up whether the (already normalized)
+     * document exists and the domain decides.
+     */
+    public static void validateUniqueDocument(String document, boolean alreadyExistsWithThisDocument) {
+        if (alreadyExistsWithThisDocument) {
+            throw new BusinessRuleException("já existe um leitor com o documento '" + document + "'");
+        }
+    }
+
+    /**
      * Replaces the personal data. Nothing changes if any value is invalid.
      * A reader under 18 on {@code today} requires the guardian; an adult may
      * have none.

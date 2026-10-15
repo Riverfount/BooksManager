@@ -337,4 +337,19 @@ class ReaderTest {
 
         assertThat(reader.canBorrow(TODAY)).isFalse();
     }
+
+    // unique document (RF07)
+
+    @Test
+    void shouldAcceptADocumentThatDoesNotExistYet() {
+        Reader.validateUniqueDocument("12345678900", false);
+    }
+
+    @Test
+    void shouldRejectADocumentThatAlreadyExists() {
+        assertThatThrownBy(() -> Reader.validateUniqueDocument("12345678900", true))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("já existe um leitor")
+                .hasMessageContaining("12345678900");
+    }
 }
