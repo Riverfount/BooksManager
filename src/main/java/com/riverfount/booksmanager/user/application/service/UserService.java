@@ -6,6 +6,7 @@ import com.riverfount.booksmanager.user.application.port.in.AuthenticateUserUseC
 import com.riverfount.booksmanager.user.application.port.in.AuthenticatedUser;
 import com.riverfount.booksmanager.user.application.port.in.CreateInitialAdminCommand;
 import com.riverfount.booksmanager.user.application.port.in.CreateInitialAdminUseCase;
+import com.riverfount.booksmanager.user.application.port.in.FindActiveUserUseCase;
 import com.riverfount.booksmanager.user.application.port.in.InitialAdminResult;
 import com.riverfount.booksmanager.user.application.port.out.PasswordHasher;
 import com.riverfount.booksmanager.user.application.port.out.UserRepository;
@@ -15,6 +16,7 @@ import com.riverfount.booksmanager.user.domain.Role;
 import com.riverfount.booksmanager.user.domain.User;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,7 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 @Transactional
-class UserService implements CreateInitialAdminUseCase, AuthenticateUserUseCase {
+class UserService implements CreateInitialAdminUseCase, AuthenticateUserUseCase, FindActiveUserUseCase {
 
     private final UserRepository userRepository;
     private final PasswordHasher passwordHasher;
@@ -84,6 +86,17 @@ class UserService implements CreateInitialAdminUseCase, AuthenticateUserUseCase 
             userRepository.save(user);
         }
         throw new InvalidCredentialsException();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<AuthenticatedUser> findActiveUser(Long id) {
+        if (id == null) {
+            return Optional.empty();
+        }
+        return userRepository.findById(id)
+                .filter(User::isActive)
+                .map(user -> new AuthenticatedUser(user.getId(), user.getRole()));
     }
 
     /**

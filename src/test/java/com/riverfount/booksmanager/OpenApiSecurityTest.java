@@ -51,4 +51,20 @@ class OpenApiSecurityTest {
                 .andExpect(jsonPath("$.paths['/api/v1/auth/login'].post.responses['400']").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/auth/login'].post.responses['401']").exists());
     }
+
+    @Test
+    void theRefreshAndLogoutOperationsShouldNeedNoBearerTokenAndDocumentTheCsrfHeader() throws Exception {
+        for (var operation : new String[] {"refresh", "logout"}) {
+            var path = "$.paths['/api/v1/auth/" + operation + "'].post";
+            mockMvc.perform(get("/v3/api-docs"))
+                    .andExpect(jsonPath(path + ".security").isEmpty())
+                    .andExpect(jsonPath(path + ".parameters[?(@.name == 'X-Requested-With')].required")
+                            .value(org.hamcrest.Matchers.hasItem(true)))
+                    .andExpect(jsonPath(path + ".responses['403']").exists());
+        }
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(jsonPath("$.paths['/api/v1/auth/refresh'].post.responses['200']").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/auth/refresh'].post.responses['401']").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/auth/logout'].post.responses['204']").exists());
+    }
 }

@@ -2,6 +2,7 @@ package com.riverfount.booksmanager.security.adapter.out.persistence;
 
 import com.riverfount.booksmanager.security.application.port.out.RefreshTokenRepository;
 import com.riverfount.booksmanager.security.domain.RefreshToken;
+import java.time.Instant;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
 
@@ -28,6 +29,19 @@ class RefreshTokenPersistenceAdapter implements RefreshTokenRepository {
             return Optional.empty();
         }
         return jpaRepository.findByTokenHash(tokenHash).map(this::toDomain);
+    }
+
+    @Override
+    public Optional<RefreshToken> findByTokenHashForUpdate(String tokenHash) {
+        if (tokenHash == null) {
+            return Optional.empty();
+        }
+        return jpaRepository.findByTokenHashForUpdate(tokenHash).map(this::toDomain);
+    }
+
+    @Override
+    public int revokeAllActiveOfUser(Long userId, Instant now) {
+        return jpaRepository.revokeAllActive(userId, now);
     }
 
     private RefreshToken toDomain(RefreshTokenJpaEntity entity) {

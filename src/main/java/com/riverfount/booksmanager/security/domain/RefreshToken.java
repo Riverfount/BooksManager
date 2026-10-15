@@ -8,8 +8,8 @@ import java.time.Instant;
  * A refresh token (RF08): opaque, so only its hash is kept here, never the
  * token itself. It belongs to a user (referenced by id), lives for a period
  * from the moment it is issued and can be revoked, in which case it may point
- * to the token that replaced it (rotation, issue #104). The dates come by
- * parameter, never from the system clock.
+ * to the token that replaced it (rotation). The dates come by parameter,
+ * never from the system clock.
  */
 public class RefreshToken {
 
@@ -18,8 +18,8 @@ public class RefreshToken {
     private final String tokenHash;
     private final Instant createdAt;
     private final Instant expiresAt;
-    private final Instant revokedAt;
-    private final Long replacedBy;
+    private Instant revokedAt;
+    private Long replacedBy;
 
     private RefreshToken(Long id, Long userId, String tokenHash, Instant createdAt, Instant expiresAt,
             Instant revokedAt, Long replacedBy) {
@@ -51,6 +51,48 @@ public class RefreshToken {
     public static RefreshToken reconstitute(Long id, Long userId, String tokenHash, Instant createdAt,
             Instant expiresAt, Instant revokedAt, Long replacedBy) {
         return new RefreshToken(id, userId, tokenHash, createdAt, expiresAt, revokedAt, replacedBy);
+    }
+
+    /** Whether the token stops being valid at or before the given instant. */
+    public boolean isExpired(Instant now) {
+        return !expiresAt.isAfter(now);
+    }
+
+    public boolean isRevoked() {
+        return revokedAt != null;
+    }
+
+    /**
+     * Revokes the token (logout, or all the tokens of a user). Revoking a token
+     * that is already revoked changes nothing and keeps the first date.
+     *
+     * @return whether the token changed and has to be saved
+     */
+    public boolean revoke(Instant now) {
+        if (now == null) {
+            throw new BusinessRuleException("a data de revogação do refresh token é obrigatória");
+        }
+        if (revokedAt != null) {
+            return false;
+        }
+        this.revokedAt = now;
+        return true;
+    }
+
+    /**
+     * Rotation: the token is used once, so it is revoked and points to the one
+     * that replaces it. A token already revoked cannot be rotated: using it
+     * again is a reuse, which the application answers by revoking the user's tokens.
+     */
+    public void rotate(Instant now, Long replacementId) {
+        if (replacementId == null || replacementId.equals(id)) {
+            throw new BusinessRuleException("o refresh token precisa ser substituído por outro token");
+        }
+        if (revokedAt != null) {
+            throw new BusinessRuleException("o refresh token já foi revogado e não pode ser girado");
+        }
+        revoke(now);
+        this.replacedBy = replacementId;
     }
 
     public Long getId() {

@@ -37,7 +37,8 @@ public class CorsFilterConfiguration {
         // the refresh token travels in a cookie: the browser only sends it across origins if this is on
         configuration.setAllowCredentials(true);
         configuration.setAllowedMethods(List.of("GET", "POST", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+        // X-Requested-With: the header the refresh and logout routes require against CSRF
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With"));
         configuration.setMaxAge(PREFLIGHT_MAX_AGE_SECONDS);
 
         var source = new UrlBasedCorsConfigurationSource();

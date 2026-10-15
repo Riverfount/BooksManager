@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.riverfount.booksmanager.security.application.port.in.LoginCommand;
-import com.riverfount.booksmanager.security.application.port.in.LoginResult;
+import com.riverfount.booksmanager.security.application.port.in.TokenPair;
 import com.riverfount.booksmanager.security.application.port.out.AccessTokenIssuer;
 import com.riverfount.booksmanager.security.application.port.out.IssuedAccessToken;
 import com.riverfount.booksmanager.security.application.port.out.OpaqueTokenGenerator;
@@ -120,7 +120,7 @@ class LoginServiceTest {
     @Test
     void theCommandAndTheResultShouldNotShowSecretsInTheirStringForm() {
         var command = new LoginCommand("maria", "S3cret-Pass!");
-        var result = new LoginResult("access-secret", 900, "refresh-secret", REFRESH_LIFETIME);
+        var result = new TokenPair("access-secret", 900, "refresh-secret", REFRESH_LIFETIME);
 
         assertThat(command.toString()).doesNotContain("S3cret-Pass!").contains("maria");
         assertThat(result.toString()).doesNotContain("access-secret").doesNotContain("refresh-secret");

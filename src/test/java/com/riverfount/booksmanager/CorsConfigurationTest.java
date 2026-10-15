@@ -124,4 +124,18 @@ class CorsConfigurationTest {
                 .andExpect(header().doesNotExist("Access-Control-Allow-Credentials"))
                 .andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
     }
+
+    @Test
+    void shouldAllowTheCsrfHeaderOfTheRefreshAndLogoutRoutes() throws Exception {
+        for (var route : new String[] {"/api/v1/auth/refresh", "/api/v1/auth/logout"}) {
+            mockMvc.perform(options(route)
+                            .header("Origin", ALLOWED_ORIGIN)
+                            .header("Access-Control-Request-Method", "POST")
+                            .header("Access-Control-Request-Headers", "X-Requested-With"))
+                    .andExpect(status().isOk())
+                    .andExpect(header().string("Access-Control-Allow-Headers",
+                            org.hamcrest.Matchers.containsString("X-Requested-With")))
+                    .andExpect(header().string("Access-Control-Allow-Credentials", "true"));
+        }
+    }
 }
