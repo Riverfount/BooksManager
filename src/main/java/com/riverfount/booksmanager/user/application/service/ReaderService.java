@@ -1,5 +1,6 @@
 package com.riverfount.booksmanager.user.application.service;
 
+import com.riverfount.booksmanager.user.application.port.in.GetReaderUseCase;
 import com.riverfount.booksmanager.user.application.port.in.RegisterReaderCommand;
 import com.riverfount.booksmanager.user.application.port.in.RegisterReaderUseCase;
 import com.riverfount.booksmanager.user.application.port.out.ReaderRepository;
@@ -7,6 +8,7 @@ import com.riverfount.booksmanager.user.domain.Guardian;
 import com.riverfount.booksmanager.user.domain.Reader;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 @Transactional
-class ReaderService implements RegisterReaderUseCase {
+class ReaderService implements RegisterReaderUseCase, GetReaderUseCase {
 
     private final ReaderRepository readerRepository;
     private final Clock clock;
@@ -34,6 +36,12 @@ class ReaderService implements RegisterReaderUseCase {
                 command.birthDate(), guardianOf(command), LocalDate.now(clock));
         Reader.validateUniqueDocument(reader.getDocument(), readerRepository.existsByDocument(reader.getDocument()));
         return readerRepository.save(reader);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<Reader> findById(Long id) {
+        return readerRepository.findById(id);
     }
 
     /** No guardian fields at all means no guardian; any of them present builds (and validates) one. */

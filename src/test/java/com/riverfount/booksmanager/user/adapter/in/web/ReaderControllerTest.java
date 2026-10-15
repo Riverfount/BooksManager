@@ -7,6 +7,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -15,11 +16,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.riverfount.booksmanager.shared.adapter.in.web.GlobalExceptionHandler;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
+import com.riverfount.booksmanager.user.application.port.in.GetReaderUseCase;
 import com.riverfount.booksmanager.user.application.port.in.RegisterReaderCommand;
 import com.riverfount.booksmanager.user.application.port.in.RegisterReaderUseCase;
 import com.riverfount.booksmanager.user.domain.Guardian;
 import com.riverfount.booksmanager.user.domain.Reader;
 import java.time.LocalDate;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,6 +47,9 @@ class ReaderControllerTest {
 
     @MockitoBean
     private RegisterReaderUseCase registerReaderUseCase;
+
+    @MockitoBean
+    private GetReaderUseCase getReaderUseCase;
 
     private MockHttpServletRequestBuilder register(String json) {
         return post("/api/v1/readers").with(csrf()).contentType(MediaType.APPLICATION_JSON).content(json);
@@ -181,5 +187,64 @@ class ReaderControllerTest {
                 {"name":"Júlia","document":"MAT-1","email":"julia@example.com","birthDate":"2015-03-01"}"""))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").value(containsString("responsável")));
+    }
+
+    // query (HU25)
+
+    @Test
+    @WithMockUser
+    void shouldReturnReaderWithFullDocumentBirthDateAndState() throws Exception {
+        given(getReaderUseCase.findById(1L)).willReturn(Optional.of(Reader.reconstitute(1L, "Maria Silva",
+                "12345678900", "maria@example.com", "11 91234-5678", LocalDate.of(1990, 5, 10), null, true,
+                false)));
+
+        mockMvc.perform(get("/api/v1/readers/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.name").value("Maria Silva"))
+                .andExpect(jsonPath("$.document").value("12345678900"))
+                .andExpect(jsonPath("$.email").value("maria@example.com"))
+                .andExpect(jsonPath("$.phone").value("11 91234-5678"))
+                .andExpect(jsonPath("$.birthDate").value("1990-05-10"))
+                .andExpect(jsonPath("$.guardian").doesNotExist())
+                .andExpect(jsonPath("$.active").value(true))
+                .andExpect(jsonPath("$.blocked").value(false));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturnTheGuardianOfAMinorReader() throws Exception {
+        given(getReaderUseCase.findById(2L)).willReturn(Optional.of(Reader.reconstitute(2L, "Júlia", "MAT1",
+                "julia@example.com", null, LocalDate.of(2015, 3, 1),
+                new Guardian("Ana Souza", "ana@example.com", "11 99999-0000"), true, false)));
+
+        mockMvc.perform(get("/api/v1/readers/2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.guardian.name").value("Ana Souza"))
+                .andExpect(jsonPath("$.guardian.email").value("ana@example.com"))
+                .andExpect(jsonPath("$.guardian.phone").value("11 99999-0000"));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn200ForInactiveAndBlockedReaderShowingTheState() throws Exception {
+        given(getReaderUseCase.findById(3L)).willReturn(Optional.of(Reader.reconstitute(3L, "Pedro", "999",
+                "pedro@example.com", null, LocalDate.of(1985, 1, 1), null, false, true)));
+
+        mockMvc.perform(get("/api/v1/readers/3"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.active").value(false))
+                .andExpect(jsonPath("$.blocked").value(true));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn404WithProblemDetailForNonExistentId() throws Exception {
+        given(getReaderUseCase.findById(99L)).willReturn(Optional.empty());
+
+        mockMvc.perform(get("/api/v1/readers/99"))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+                .andExpect(jsonPath("$.detail").value("leitor não encontrado: 99"));
     }
 }
