@@ -1,20 +1,32 @@
 package com.riverfount.booksmanager.user.adapter.in.web;
 
 import com.riverfount.booksmanager.shared.adapter.in.web.AdminOnly;
+import com.riverfount.booksmanager.shared.adapter.in.web.PageResponse;
+import com.riverfount.booksmanager.shared.domain.PageQuery;
+import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
 import com.riverfount.booksmanager.user.application.port.in.CreateUserCommand;
 import com.riverfount.booksmanager.user.application.port.in.CreateUserUseCase;
+import com.riverfount.booksmanager.user.application.port.in.GetUserUseCase;
+import com.riverfount.booksmanager.user.application.port.in.ListUsersQuery;
+import com.riverfount.booksmanager.user.application.port.in.ListUsersUseCase;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.time.Clock;
+import java.time.Instant;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -25,9 +37,16 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 class UserController {
 
     private final CreateUserUseCase createUserUseCase;
+    private final GetUserUseCase getUserUseCase;
+    private final ListUsersUseCase listUsersUseCase;
+    private final Clock clock;
 
-    UserController(CreateUserUseCase createUserUseCase) {
+    UserController(CreateUserUseCase createUserUseCase, GetUserUseCase getUserUseCase,
+            ListUsersUseCase listUsersUseCase, Clock clock) {
         this.createUserUseCase = createUserUseCase;
+        this.getUserUseCase = getUserUseCase;
+        this.listUsersUseCase = listUsersUseCase;
+        this.clock = clock;
     }
 
     @PostMapping
@@ -54,6 +73,52 @@ class UserController {
                 .path("/{id}")
                 .buildAndExpand(user.getId())
                 .toUri();
-        return ResponseEntity.created(location).body(UserResponse.from(user));
+        return ResponseEntity.created(location).body(UserResponse.from(user, Instant.now(clock)));
+    }
+
+    @GetMapping
+    @Operation(summary = "Listar usuários",
+            description = "Lista os usuários do sistema de forma paginada (máximo de 100 por página), só para "
+                    + "administrador, com filtro opcional por trecho do login (sem diferenciar maiúsculas). Por "
+                    + "padrão, só os ativos e em ordem de login. Cada item mostra o perfil e se o usuário está "
+                    + "bloqueado agora por tentativas de login; nunca a senha nem o hash.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Página de usuários"),
+            @ApiResponse(responseCode = "400",
+                    description = "Paginação, ordenação ou filtro inválidos (inclusive tamanho acima de 100)",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    PageResponse<UserResponse> list(
+            @Parameter(description = "Trecho do login, sem diferenciar maiúsculas", example = "mar")
+            @RequestParam(required = false) String login,
+            @Parameter(description = "Listar ativos (true) ou inativos (false)")
+            @RequestParam(defaultValue = "true") boolean active,
+            @Parameter(description = "Número da página, a partir de 0")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Tamanho da página, de 1 a 100")
+            @RequestParam(defaultValue = "" + PageQuery.DEFAULT_SIZE) int size,
+            @Parameter(description = "Ordenação no formato campo[,asc|desc]; campos: id, login",
+                    example = "login,asc")
+            @RequestParam(defaultValue = ListUsersQuery.DEFAULT_SORT) String sort) {
+        var query = new ListUsersQuery(login, active, PageQuery.of(page, size, sort));
+        var now = Instant.now(clock);
+        return PageResponse.from(listUsersUseCase.list(query), user -> UserResponse.from(user, now));
+    }
+
+    @GetMapping("/{id}")
+    @Operation(summary = "Consultar usuário por id",
+            description = "Devolve o usuário, ativo ou não, com o perfil e o estado do bloqueio por tentativas de "
+                    + "login. Só para administrador. Nunca traz a senha nem o hash.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Usuário encontrado"),
+            @ApiResponse(responseCode = "404", description = "Usuário não encontrado",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    UserResponse findById(@PathVariable Long id) {
+        return getUserUseCase.findById(id)
+                .map(user -> UserResponse.from(user, Instant.now(clock)))
+                .orElseThrow(() -> new ResourceNotFoundException("usuário não encontrado: " + id));
     }
 }

@@ -7,6 +7,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -18,14 +19,26 @@ import com.riverfount.booksmanager.WithOperator;
 import com.riverfount.booksmanager.security.configuration.MethodSecurityConfiguration;
 import com.riverfount.booksmanager.shared.adapter.in.web.GlobalExceptionHandler;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
+import com.riverfount.booksmanager.shared.domain.PageResult;
+import com.riverfount.booksmanager.shared.domain.SortDirection;
 import com.riverfount.booksmanager.user.application.port.in.CreateUserCommand;
 import com.riverfount.booksmanager.user.application.port.in.CreateUserUseCase;
+import com.riverfount.booksmanager.user.application.port.in.GetUserUseCase;
+import com.riverfount.booksmanager.user.application.port.in.ListUsersQuery;
+import com.riverfount.booksmanager.user.application.port.in.ListUsersUseCase;
 import com.riverfount.booksmanager.user.domain.Role;
 import com.riverfount.booksmanager.user.domain.User;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -34,8 +47,19 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 @WebMvcTest(UserController.class)
-@Import({GlobalExceptionHandler.class, MethodSecurityConfiguration.class})
+@Import({GlobalExceptionHandler.class, MethodSecurityConfiguration.class, UserControllerTest.FixedClock.class})
 class UserControllerTest {
+
+    private static final Instant NOW = Instant.parse("2026-10-15T12:00:00Z");
+
+    /** A clock that stands still, so "blocked" is decided against a known instant. */
+    @TestConfiguration
+    static class FixedClock {
+        @Bean
+        Clock clock() {
+            return Clock.fixed(NOW, ZoneOffset.UTC);
+        }
+    }
 
     private static final String BODY = "{\"login\":\"maria\",\"password\":\"N3w-Pass#word\",\"role\":\"OPERATOR\"}";
     private static final String HASH = "$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5BzqhZ8H9V5xQe4Fq0sDq6Z0yR3Wm";
@@ -45,6 +69,12 @@ class UserControllerTest {
 
     @MockitoBean
     private CreateUserUseCase createUserUseCase;
+
+    @MockitoBean
+    private GetUserUseCase getUserUseCase;
+
+    @MockitoBean
+    private ListUsersUseCase listUsersUseCase;
 
     private MockHttpServletRequestBuilder create(String json) {
         return post("/api/v1/users").with(csrf()).contentType(MediaType.APPLICATION_JSON).content(json);
@@ -183,5 +213,193 @@ class UserControllerTest {
         mockMvc.perform(create(BODY)).andExpect(status().isForbidden());
 
         then(createUserUseCase).should(never()).create(any());
+    }
+
+    // creation also shows the lockout state (always "not blocked" for a new user)
+
+    @Test
+    @WithAdmin
+    void aCreatedUserIsShownAsNotBlocked() throws Exception {
+        givenTheUserIsCreated();
+
+        mockMvc.perform(create(BODY))
+                .andExpect(jsonPath("$.blocked").value(false))
+                .andExpect(jsonPath("$.blockedUntil").doesNotExist());
+    }
+
+    // getting a user (RF09, HU28)
+
+    private static User blockedUntil(Instant until) {
+        return User.reconstitute(8L, "bloqueada", HASH, Role.OPERATOR, true, 3, until);
+    }
+
+    @Test
+    @WithAdmin
+    void shouldGetAUserWithTheProfileAndTheState() throws Exception {
+        given(getUserUseCase.findById(5L)).willReturn(
+                Optional.of(User.reconstitute(5L, "maria", HASH, Role.OPERATOR, true)));
+
+        var body = mockMvc.perform(get("/api/v1/users/5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(5))
+                .andExpect(jsonPath("$.login").value("maria"))
+                .andExpect(jsonPath("$.role").value("OPERATOR"))
+                .andExpect(jsonPath("$.active").value(true))
+                .andExpect(jsonPath("$.blocked").value(false))
+                .andExpect(jsonPath("$.blockedUntil").doesNotExist())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(body).doesNotContain(HASH).doesNotContain("assword").doesNotContain("hash")
+                .doesNotContain("failedLoginAttempts");
+    }
+
+    @Test
+    @WithAdmin
+    void shouldShowAnInactiveUserWithActiveFalse() throws Exception {
+        given(getUserUseCase.findById(5L)).willReturn(
+                Optional.of(User.reconstitute(5L, "maria", HASH, Role.OPERATOR, false)));
+
+        mockMvc.perform(get("/api/v1/users/5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.active").value(false));
+    }
+
+    @Test
+    @WithAdmin
+    void shouldShowAUserBlockedByTheLoginLockoutAndUntilWhen() throws Exception {
+        given(getUserUseCase.findById(8L)).willReturn(Optional.of(blockedUntil(NOW.plusSeconds(600))));
+
+        mockMvc.perform(get("/api/v1/users/8"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.blocked").value(true))
+                .andExpect(jsonPath("$.blockedUntil").value("2026-10-15T12:10:00Z"));
+    }
+
+    @Test
+    @WithAdmin
+    void aBlockThatAlreadyEndedIsShownAsNotBlockedAndWithoutADate() throws Exception {
+        given(getUserUseCase.findById(8L)).willReturn(Optional.of(blockedUntil(NOW.minusSeconds(1))));
+        given(getUserUseCase.findById(9L)).willReturn(Optional.of(blockedUntil(NOW)));
+
+        for (var id : new String[] {"8", "9"}) {
+            mockMvc.perform(get("/api/v1/users/" + id))
+                    .andExpect(jsonPath("$.blocked").value(false))
+                    .andExpect(jsonPath("$.blockedUntil").doesNotExist());
+        }
+    }
+
+    @Test
+    @WithAdmin
+    void shouldReturn404WithProblemDetailForAnUnknownUser() throws Exception {
+        given(getUserUseCase.findById(99L)).willReturn(Optional.empty());
+
+        mockMvc.perform(get("/api/v1/users/99"))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+                .andExpect(jsonPath("$.detail").value("usuário não encontrado: 99"));
+    }
+
+    @Test
+    @WithAdmin
+    void shouldReturn400ForANonNumericId() throws Exception {
+        mockMvc.perform(get("/api/v1/users/abc")).andExpect(status().isBadRequest());
+    }
+
+    // listing users (RF09, HU28, RNF14)
+
+    private ListUsersQuery capturedQuery() {
+        var captor = ArgumentCaptor.forClass(ListUsersQuery.class);
+        then(listUsersUseCase).should().list(captor.capture());
+        return captor.getValue();
+    }
+
+    @Test
+    @WithAdmin
+    void shouldListUsersWithThePageMetadataAndNoSecret() throws Exception {
+        var maria = User.reconstitute(5L, "maria", HASH, Role.OPERATOR, true);
+        given(listUsersUseCase.list(any())).willReturn(new PageResult<>(List.of(maria, blockedUntil(NOW.plusSeconds(60))), 0, 20, 2));
+
+        var body = mockMvc.perform(get("/api/v1/users"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(2))
+                .andExpect(jsonPath("$.items[0].login").value("maria"))
+                .andExpect(jsonPath("$.items[0].blocked").value(false))
+                .andExpect(jsonPath("$.items[1].login").value("bloqueada"))
+                .andExpect(jsonPath("$.items[1].blocked").value(true))
+                .andExpect(jsonPath("$.items[1].blockedUntil").value("2026-10-15T12:01:00Z"))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(20))
+                .andExpect(jsonPath("$.totalItems").value(2))
+                .andExpect(jsonPath("$.totalPages").value(1))
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(body).doesNotContain(HASH).doesNotContain("assword").doesNotContain("hash");
+    }
+
+    @Test
+    @WithAdmin
+    void shouldListOnlyActiveUsersSortedByLoginByDefault() throws Exception {
+        given(listUsersUseCase.list(any())).willReturn(new PageResult<>(List.of(), 0, 20, 0));
+
+        mockMvc.perform(get("/api/v1/users")).andExpect(status().isOk());
+
+        var query = capturedQuery();
+        assertThat(query.active()).isTrue();
+        assertThat(query.login()).isNull();
+        assertThat(query.page().page()).isZero();
+        assertThat(query.page().size()).isEqualTo(20);
+        assertThat(query.page().sortBy()).isEqualTo("login");
+        assertThat(query.page().direction()).isEqualTo(SortDirection.ASC);
+    }
+
+    @Test
+    @WithAdmin
+    void shouldPassTheFiltersPaginationAndSortToTheUseCase() throws Exception {
+        given(listUsersUseCase.list(any())).willReturn(new PageResult<>(List.of(), 1, 5, 0));
+
+        mockMvc.perform(get("/api/v1/users").param("login", "mar").param("active", "false")
+                        .param("page", "1").param("size", "5").param("sort", "id,desc"))
+                .andExpect(status().isOk());
+
+        var query = capturedQuery();
+        assertThat(query.login()).isEqualTo("mar");
+        assertThat(query.active()).isFalse();
+        assertThat(query.page().page()).isEqualTo(1);
+        assertThat(query.page().size()).isEqualTo(5);
+        assertThat(query.page().sortBy()).isEqualTo("id");
+        assertThat(query.page().direction()).isEqualTo(SortDirection.DESC);
+    }
+
+    @Test
+    @WithAdmin
+    void shouldReturn400ForASizeAbove100AndForInvalidPaginationSortOrFilter() throws Exception {
+        for (var param : new String[][] {{"size", "101"}, {"size", "0"}, {"page", "-1"}, {"sort", "role"},
+                {"sort", "passwordHash,asc"}, {"sort", "login,sideways"}, {"active", "maybe"}}) {
+            mockMvc.perform(get("/api/v1/users").param(param[0], param[1]))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(content().contentTypeCompatibleWith("application/problem+json"));
+        }
+
+        then(listUsersUseCase).should(never()).list(any());
+    }
+
+    // only an administrator (RNF08)
+
+    @Test
+    @WithOperator
+    void anOperatorGets403OnTheGetAndTheListRoutes() throws Exception {
+        mockMvc.perform(get("/api/v1/users/5")).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/users")).andExpect(status().isForbidden())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"));
+
+        then(getUserUseCase).should(never()).findById(any());
+        then(listUsersUseCase).should(never()).list(any());
+    }
+
+    @Test
+    @WithMockUser(roles = {})
+    void aUserWithNoProfileGets403OnTheGetAndTheListRoutes() throws Exception {
+        mockMvc.perform(get("/api/v1/users/5")).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/users")).andExpect(status().isForbidden());
     }
 }

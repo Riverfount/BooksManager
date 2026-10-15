@@ -8,7 +8,9 @@ import com.riverfount.booksmanager.shared.domain.InvalidCredentialsException;
 import com.riverfount.booksmanager.user.application.port.in.AuthenticateUserCommand;
 import com.riverfount.booksmanager.user.application.port.in.AuthenticatedUser;
 import com.riverfount.booksmanager.user.application.port.in.CreateInitialAdminCommand;
+import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.user.application.port.in.CreateUserCommand;
+import com.riverfount.booksmanager.user.application.port.in.ListUsersQuery;
 import com.riverfount.booksmanager.user.application.port.in.InitialAdminResult;
 import com.riverfount.booksmanager.user.application.port.out.PasswordHasher;
 import com.riverfount.booksmanager.user.configuration.LoginLockoutProperties;
@@ -641,5 +643,85 @@ class UserServiceTest {
     void theCreateCommandShouldNotShowThePasswordInItsStringForm() {
         assertThat(new CreateUserCommand("maria", GOOD_PASSWORD, Role.OPERATOR).toString())
                 .doesNotContain(GOOD_PASSWORD).contains("maria").contains("OPERATOR");
+    }
+
+    // querying users (RF09, HU28, RNF14)
+
+    private static ListUsersQuery usersQuery(String login, boolean active) {
+        return new ListUsersQuery(login, active, PageQuery.of(0, 20, "login"));
+    }
+
+    private Long userId(String login) {
+        return repository.findByLogin(login).orElseThrow().getId();
+    }
+
+    @Test
+    void shouldFindAUserByIdIncludingAnInactiveOneAndOneThatIsBlocked() {
+        registerUser("maria", Role.OPERATOR);
+        registerUser("joao", Role.OPERATOR);
+        registerUser("bloqueada", Role.OPERATOR);
+        deactivate("joao");
+        wrongPassword("bloqueada", 3);
+
+        assertThat(service.findById(userId("maria"))).isPresent();
+        assertThat(service.findById(userId("joao")).orElseThrow().isActive()).isFalse();
+        assertThat(service.findById(userId("bloqueada")).orElseThrow().isBlocked(clock.instant())).isTrue();
+    }
+
+    @Test
+    void shouldReturnEmptyForAnUnknownIdAndRefuseANullOne() {
+        assertThat(service.findById(99_999L)).isEmpty();
+        assertThatThrownBy(() -> service.findById(null)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void shouldListOnlyActiveUsersByDefaultAndTheInactiveOnesWhenAsked() {
+        registerUser("ana", Role.OPERATOR);
+        registerUser("bruno", Role.OPERATOR);
+        deactivate("bruno");
+
+        assertThat(service.list(usersQuery(null, true)).items()).extracting(User::getLogin).containsExactly("ana");
+        assertThat(service.list(usersQuery(null, false)).items()).extracting(User::getLogin)
+                .containsExactly("bruno");
+    }
+
+    @Test
+    void shouldFilterByPartOfTheLoginIgnoringCase() {
+        registerUser("maria.silva", Role.OPERATOR);
+        registerUser("mariana", Role.OPERATOR);
+        registerUser("pedro", Role.ADMIN);
+
+        assertThat(service.list(usersQuery("MARIA", true)).items()).extracting(User::getLogin)
+                .containsExactlyInAnyOrder("maria.silva", "mariana");
+        assertThat(service.list(usersQuery("edr", true)).items()).extracting(User::getLogin).containsExactly("pedro");
+        assertThat(service.list(usersQuery("zzz", true)).items()).isEmpty();
+    }
+
+    @Test
+    void shouldPaginateAndSortByLoginDescendingOrById() {
+        registerUser("ana", Role.OPERATOR);
+        registerUser("bruno", Role.OPERATOR);
+        registerUser("carla", Role.OPERATOR);
+
+        var second = service.list(new ListUsersQuery(null, true, PageQuery.of(1, 2, "login,desc")));
+        var byId = service.list(new ListUsersQuery(null, true, PageQuery.of(0, 20, "id")));
+
+        assertThat(second.items()).extracting(User::getLogin).containsExactly("ana");
+        assertThat(second.totalItems()).isEqualTo(3);
+        assertThat(second.totalPages()).isEqualTo(2);
+        assertThat(byId.items()).extracting(User::getLogin).containsExactly("ana", "bruno", "carla");
+    }
+
+    @Test
+    void theListedUsersShouldCarryTheLockoutStateSoTheAdministratorCanSeeWhoIsBlocked() {
+        registerUser("ana", Role.OPERATOR);
+        registerUser("bloqueada", Role.OPERATOR);
+        wrongPassword("bloqueada", 3);
+
+        var users = service.list(usersQuery(null, true)).items();
+
+        assertThat(users).filteredOn(User::isActive).hasSize(2);
+        assertThat(users.stream().filter(user -> user.isBlocked(clock.instant())).map(User::getLogin))
+                .containsExactly("bloqueada");
     }
 }
