@@ -112,6 +112,9 @@ Os erros seguem o formato ProblemDetail (400, 404 e 422). Os detalhes do contrat
 ### CORS
 O navegador só deixa o front-end chamar a API se a origem dele estiver liberada. Defina a variável de ambiente **APP_CORS_ALLOWED_ORIGINS** com a origem do front-end (várias, separadas por vírgula), por exemplo `http://localhost:5173`. Sem ela, nenhuma origem é aceita. O `.env-sample` traz o exemplo; a variável precisa estar no ambiente do processo (exportada no terminal ou configurada na IDE), pois o Spring não lê o `.env` sozinho. São permitidos os métodos `GET`, `POST`, `PATCH`, `DELETE` e `OPTIONS` e os cabeçalhos `Authorization` e `Content-Type`.
 
+### Administrador inicial
+Sem nenhum usuário, ninguém consegue entrar para criar os outros. Por isso, na inicialização, a aplicação cria o administrador **se a tabela de usuários estiver vazia** e as duas variáveis de ambiente **APP_ADMIN_LOGIN** e **APP_ADMIN_PASSWORD** estiverem preenchidas (o `.env-sample` traz o exemplo; como no CORS, elas precisam estar no ambiente do processo). A senha é gravada só como hash BCrypt e não aparece em log, em migração nem em arquivo versionado. Reiniciar a aplicação não cria um segundo administrador nem altera o existente; depois que o primeiro administrador entrar, as variáveis podem ser removidas. Se não houver usuário e as variáveis faltarem, a aplicação sobe normalmente e registra um aviso. O login é guardado em minúsculas.
+
 ### Verificação de saúde
 A rota pública **http://localhost:8080/actuator/health** informa se a aplicação e o banco estão no ar (200 com `UP`, ou 503 com `DOWN` se a conexão com o banco falhar). É o único endpoint do Actuator exposto.
 
@@ -119,7 +122,7 @@ A rota pública **http://localhost:8080/actuator/health** informa se a aplicaç�
 O workflow `.github/workflows/ci.yml` roda `./mvnw verify` (testes, Testcontainers e ArchUnit) com JDK 25 a cada push na `main` e a cada pull request. Se o build falhar, os relatórios de teste ficam disponíveis como artefato da execução por 7 dias. Nenhum segredo é necessário.
 
 ### Banco de dados
-O PostgreSQL é executado em um container Docker, definido no arquivo **compose.yaml** na raiz do projeto. As tabelas são criadas e atualizadas por scripts do Flyway, na pasta **src/main/resources/db/migration**; as migrações atuais são a **V1__create_catalog.sql**, que cria as tabelas do catálogo (`category`, `author`, `book`, `book_author`, `copy`), e a **V2__create_reader.sql**, que cria a tabela de leitores (`reader`), e a **V3__create_app_user.sql**, que cria a tabela dos usuários do sistema (`app_user`).
+O PostgreSQL é executado em um container Docker, definido no arquivo **compose.yaml** na raiz do projeto. As tabelas são criadas e atualizadas por scripts do Flyway, na pasta **src/main/resources/db/migration**; as migrações atuais são: a **V1__create_catalog.sql**, que cria as tabelas do catálogo (`category`, `author`, `book`, `book_author`, `copy`), a **V2__create_reader.sql**, que cria a tabela de leitores (`reader`), e a **V3__create_app_user.sql**, que cria a tabela dos usuários do sistema (`app_user`).
 
 ---
 
