@@ -16,12 +16,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.riverfount.booksmanager.shared.adapter.in.web.GlobalExceptionHandler;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
+import com.riverfount.booksmanager.shared.domain.PageResult;
+import com.riverfount.booksmanager.shared.domain.SortDirection;
 import com.riverfount.booksmanager.user.application.port.in.GetReaderUseCase;
+import com.riverfount.booksmanager.user.application.port.in.ListReadersQuery;
+import com.riverfount.booksmanager.user.application.port.in.ListReadersUseCase;
 import com.riverfount.booksmanager.user.application.port.in.RegisterReaderCommand;
 import com.riverfount.booksmanager.user.application.port.in.RegisterReaderUseCase;
 import com.riverfount.booksmanager.user.domain.Guardian;
 import com.riverfount.booksmanager.user.domain.Reader;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -50,6 +55,9 @@ class ReaderControllerTest {
 
     @MockitoBean
     private GetReaderUseCase getReaderUseCase;
+
+    @MockitoBean
+    private ListReadersUseCase listReadersUseCase;
 
     private MockHttpServletRequestBuilder register(String json) {
         return post("/api/v1/readers").with(csrf()).contentType(MediaType.APPLICATION_JSON).content(json);
@@ -246,5 +254,117 @@ class ReaderControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
                 .andExpect(jsonPath("$.detail").value("leitor não encontrado: 99"));
+    }
+
+    // listing (HU25, RNF14)
+
+    private ListReadersQuery capturedQuery() {
+        var captor = ArgumentCaptor.forClass(ListReadersQuery.class);
+        then(listReadersUseCase).should().list(captor.capture());
+        return captor.getValue();
+    }
+
+    @Test
+    @WithMockUser
+    void shouldListReadersWithTheMaskedDocumentAndNoSensitiveDetail() throws Exception {
+        var minor = Reader.reconstitute(2L, "Júlia", "MAT123", "julia@example.com", "11 91234-5678",
+                LocalDate.of(2015, 3, 1), new Guardian("Ana Souza", "ana@example.com", "11 99999-0000"), true,
+                false);
+        var adult = Reader.reconstitute(1L, "Maria Silva", "12345678900", "maria@example.com", null,
+                LocalDate.of(1990, 5, 10), null, true, true);
+        given(listReadersUseCase.list(any())).willReturn(new PageResult<>(List.of(adult, minor), 0, 20, 2));
+
+        var body = mockMvc.perform(get("/api/v1/readers"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(2))
+                .andExpect(jsonPath("$.items[0].id").value(1))
+                .andExpect(jsonPath("$.items[0].name").value("Maria Silva"))
+                .andExpect(jsonPath("$.items[0].maskedDocument").value("*********00"))
+                .andExpect(jsonPath("$.items[0].email").value("maria@example.com"))
+                .andExpect(jsonPath("$.items[0].active").value(true))
+                .andExpect(jsonPath("$.items[0].blocked").value(true))
+                .andExpect(jsonPath("$.items[1].maskedDocument").value("****23"))
+                .andExpect(jsonPath("$.items[0].document").doesNotExist())
+                .andExpect(jsonPath("$.items[0].birthDate").doesNotExist())
+                .andExpect(jsonPath("$.items[1].birthDate").doesNotExist())
+                .andExpect(jsonPath("$.items[1].guardian").doesNotExist())
+                .andExpect(jsonPath("$.items[1].phone").doesNotExist())
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(20))
+                .andExpect(jsonPath("$.totalItems").value(2))
+                .andExpect(jsonPath("$.totalPages").value(1))
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(body).doesNotContain("12345678900").doesNotContain("MAT123").doesNotContain("Ana Souza")
+                .doesNotContain("1990-05-10").doesNotContain("2015-03-01");
+    }
+
+    @Test
+    @WithMockUser
+    void shouldListOnlyActiveReadersSortedByNameByDefault() throws Exception {
+        given(listReadersUseCase.list(any())).willReturn(new PageResult<>(List.of(), 0, 20, 0));
+
+        mockMvc.perform(get("/api/v1/readers")).andExpect(status().isOk());
+
+        var query = capturedQuery();
+        assertThat(query.active()).isTrue();
+        assertThat(query.blocked()).isNull();
+        assertThat(query.name()).isNull();
+        assertThat(query.document()).isNull();
+        assertThat(query.page().page()).isZero();
+        assertThat(query.page().size()).isEqualTo(20);
+        assertThat(query.page().sortBy()).isEqualTo("name");
+        assertThat(query.page().direction()).isEqualTo(SortDirection.ASC);
+    }
+
+    @Test
+    @WithMockUser
+    void shouldPassFiltersPaginationAndSortToTheUseCase() throws Exception {
+        given(listReadersUseCase.list(any())).willReturn(new PageResult<>(List.of(), 1, 5, 0));
+
+        mockMvc.perform(get("/api/v1/readers")
+                        .param("name", "maria")
+                        .param("document", "123.456.789-00")
+                        .param("active", "false")
+                        .param("blocked", "true")
+                        .param("page", "1")
+                        .param("size", "5")
+                        .param("sort", "id,desc"))
+                .andExpect(status().isOk());
+
+        var query = capturedQuery();
+        assertThat(query.name()).isEqualTo("maria");
+        assertThat(query.document()).isEqualTo("123.456.789-00");
+        assertThat(query.active()).isFalse();
+        assertThat(query.blocked()).isTrue();
+        assertThat(query.page().page()).isEqualTo(1);
+        assertThat(query.page().size()).isEqualTo(5);
+        assertThat(query.page().sortBy()).isEqualTo("id");
+        assertThat(query.page().direction()).isEqualTo(SortDirection.DESC);
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn400WhenTheSizeIsAbove100() throws Exception {
+        mockMvc.perform(get("/api/v1/readers").param("size", "101"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"));
+
+        then(listReadersUseCase).should(never()).list(any());
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn400ForInvalidPaginationSortOrFilter() throws Exception {
+        mockMvc.perform(get("/api/v1/readers").param("page", "-1")).andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/v1/readers").param("size", "0")).andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/v1/readers").param("sort", "birthDate,asc"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"));
+        mockMvc.perform(get("/api/v1/readers").param("sort", "name,sideways"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/v1/readers").param("blocked", "maybe")).andExpect(status().isBadRequest());
+
+        then(listReadersUseCase).should(never()).list(any());
     }
 }

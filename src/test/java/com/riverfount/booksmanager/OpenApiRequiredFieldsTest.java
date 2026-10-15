@@ -65,9 +65,15 @@ class OpenApiRequiredFieldsTest {
     }
 
     @Test
+    void readerSummaryShouldRequireEverythingItAlwaysSends() throws Exception {
+        apiDocs.andExpect(requiredOf("ReaderSummaryResponse", "id", "name", "maskedDocument", "email", "active",
+                "blocked"));
+    }
+
+    @Test
     void everyPageShouldRequireItsItemsAndMetadata() throws Exception {
         for (var schema : new String[] {"PageResponseBookResponse", "PageResponseAuthorResponse",
-                "PageResponseCategoryResponse", "PageResponseCopyResponse"}) {
+                "PageResponseCategoryResponse", "PageResponseCopyResponse", "PageResponseReaderSummaryResponse"}) {
             apiDocs.andExpect(requiredOf(schema, "items", "page", "size", "totalItems", "totalPages"));
         }
     }

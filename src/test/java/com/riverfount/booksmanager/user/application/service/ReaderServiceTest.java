@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
+import com.riverfount.booksmanager.shared.domain.PageQuery;
+import com.riverfount.booksmanager.user.application.port.in.ListReadersQuery;
 import com.riverfount.booksmanager.user.application.port.in.RegisterReaderCommand;
 import java.time.Clock;
 import java.time.Instant;
@@ -166,5 +168,75 @@ class ReaderServiceTest {
     @Test
     void shouldRejectNullIdWhenFinding() {
         assertThatThrownBy(() -> service.findById(null)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    // listing (HU25, RNF14)
+
+    private static ListReadersQuery query(String name, String document, boolean active, Boolean blocked) {
+        return new ListReadersQuery(name, document, active, blocked, PageQuery.of(0, 20, "name"));
+    }
+
+    private void register(String name, String document) {
+        service.register(new RegisterReaderCommand(name, document, "reader@example.com", null, ADULT_BIRTH,
+                null, null, null));
+    }
+
+    private void deactivate(String document) {
+        var reader = repository.findAll(com.riverfount.booksmanager.user.application.port.out.ReaderFilter.none(),
+                PageQuery.of(0, 100, "id")).items().stream()
+                .filter(r -> r.getDocument().equals(document)).findFirst().orElseThrow();
+        reader.deactivate();
+        repository.save(reader);
+    }
+
+    @Test
+    void shouldListOnlyActiveReadersByDefault() {
+        register("Ana", "1");
+        register("Bruno", "2");
+        deactivate("2");
+
+        var page = service.list(query(null, null, true, null));
+
+        assertThat(page.items()).extracting(r -> r.getName()).containsExactly("Ana");
+        assertThat(service.list(query(null, null, false, null)).items())
+                .extracting(r -> r.getName()).containsExactly("Bruno");
+    }
+
+    @Test
+    void shouldFilterByNameContainingAndByNormalizedDocument() {
+        register("Maria Silva", "123.456.789-00");
+        register("Mariana Costa", "222");
+
+        assertThat(service.list(query("MARIA", null, true, null)).items()).hasSize(2);
+        assertThat(service.list(query(null, "123456789-00", true, null)).items())
+                .extracting(r -> r.getName()).containsExactly("Maria Silva");
+        assertThat(service.list(query(null, "12345", true, null)).items()).isEmpty();
+    }
+
+    @Test
+    void shouldFilterByBlocked() {
+        register("Ana", "1");
+        register("Bruno", "2");
+        var bruno = service.list(query("Bruno", null, true, null)).items().get(0);
+        bruno.block();
+        repository.save(bruno);
+
+        assertThat(service.list(query(null, null, true, true)).items())
+                .extracting(r -> r.getName()).containsExactly("Bruno");
+        assertThat(service.list(query(null, null, true, false)).items())
+                .extracting(r -> r.getName()).containsExactly("Ana");
+    }
+
+    @Test
+    void shouldPaginateAndSort() {
+        register("Ana", "1");
+        register("Bruno", "2");
+        register("Carla", "3");
+
+        var page = service.list(new ListReadersQuery(null, null, true, null, PageQuery.of(1, 2, "name,desc")));
+
+        assertThat(page.items()).extracting(r -> r.getName()).containsExactly("Ana");
+        assertThat(page.totalItems()).isEqualTo(3);
+        assertThat(page.totalPages()).isEqualTo(2);
     }
 }

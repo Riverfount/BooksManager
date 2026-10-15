@@ -1,8 +1,12 @@
 package com.riverfount.booksmanager.user.application.service;
 
 import com.riverfount.booksmanager.user.application.port.in.GetReaderUseCase;
+import com.riverfount.booksmanager.shared.domain.PageResult;
+import com.riverfount.booksmanager.user.application.port.in.ListReadersQuery;
+import com.riverfount.booksmanager.user.application.port.in.ListReadersUseCase;
 import com.riverfount.booksmanager.user.application.port.in.RegisterReaderCommand;
 import com.riverfount.booksmanager.user.application.port.in.RegisterReaderUseCase;
+import com.riverfount.booksmanager.user.application.port.out.ReaderFilter;
 import com.riverfount.booksmanager.user.application.port.out.ReaderRepository;
 import com.riverfount.booksmanager.user.domain.Guardian;
 import com.riverfount.booksmanager.user.domain.Reader;
@@ -20,7 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 @Transactional
-class ReaderService implements RegisterReaderUseCase, GetReaderUseCase {
+class ReaderService implements RegisterReaderUseCase, GetReaderUseCase, ListReadersUseCase {
 
     private final ReaderRepository readerRepository;
     private final Clock clock;
@@ -42,6 +46,13 @@ class ReaderService implements RegisterReaderUseCase, GetReaderUseCase {
     @Transactional(readOnly = true)
     public Optional<Reader> findById(Long id) {
         return readerRepository.findById(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResult<Reader> list(ListReadersQuery query) {
+        var filter = new ReaderFilter(query.name(), query.document(), query.active(), query.blocked());
+        return readerRepository.findAll(filter, query.page());
     }
 
     /** No guardian fields at all means no guardian; any of them present builds (and validates) one. */
