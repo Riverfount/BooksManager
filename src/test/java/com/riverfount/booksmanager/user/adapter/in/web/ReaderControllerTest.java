@@ -22,12 +22,14 @@ import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.PageResult;
 import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
 import com.riverfount.booksmanager.shared.domain.SortDirection;
+import com.riverfount.booksmanager.user.application.port.in.BlockReaderUseCase;
 import com.riverfount.booksmanager.user.application.port.in.DeactivateReaderUseCase;
 import com.riverfount.booksmanager.user.application.port.in.GetReaderUseCase;
 import com.riverfount.booksmanager.user.application.port.in.ListReadersQuery;
 import com.riverfount.booksmanager.user.application.port.in.ListReadersUseCase;
 import com.riverfount.booksmanager.user.application.port.in.RegisterReaderCommand;
 import com.riverfount.booksmanager.user.application.port.in.RegisterReaderUseCase;
+import com.riverfount.booksmanager.user.application.port.in.UnblockReaderUseCase;
 import com.riverfount.booksmanager.user.application.port.in.UpdateReaderCommand;
 import com.riverfount.booksmanager.user.application.port.in.UpdateReaderUseCase;
 import com.riverfount.booksmanager.user.domain.Guardian;
@@ -71,6 +73,12 @@ class ReaderControllerTest {
 
     @MockitoBean
     private DeactivateReaderUseCase deactivateReaderUseCase;
+
+    @MockitoBean
+    private BlockReaderUseCase blockReaderUseCase;
+
+    @MockitoBean
+    private UnblockReaderUseCase unblockReaderUseCase;
 
     private MockHttpServletRequestBuilder update(long id, String json) {
         return patch("/api/v1/readers/" + id).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(json);
@@ -543,5 +551,74 @@ class ReaderControllerTest {
         mockMvc.perform(delete("/api/v1/readers/abc").with(csrf())).andExpect(status().isBadRequest());
 
         then(deactivateReaderUseCase).should(never()).deactivate(any());
+    }
+
+    // block and unblock (RF10, HU06)
+
+    @Test
+    @WithMockUser
+    void shouldBlockReaderAndReturn204WithoutBody() throws Exception {
+        mockMvc.perform(post("/api/v1/readers/1/block").with(csrf()))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+
+        then(blockReaderUseCase).should().block(1L);
+    }
+
+    @Test
+    @WithMockUser
+    void shouldUnblockReaderAndReturn204WithoutBody() throws Exception {
+        mockMvc.perform(post("/api/v1/readers/1/unblock").with(csrf()))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+
+        then(unblockReaderUseCase).should().unblock(1L);
+    }
+
+    @Test
+    @WithMockUser
+    void blockingAndUnblockingTwiceShouldKeepReturning204() throws Exception {
+        for (var i = 0; i < 2; i++) {
+            mockMvc.perform(post("/api/v1/readers/1/block").with(csrf())).andExpect(status().isNoContent());
+            mockMvc.perform(post("/api/v1/readers/1/unblock").with(csrf())).andExpect(status().isNoContent());
+        }
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn404WhenBlockingOrUnblockingANonExistentReader() throws Exception {
+        willThrow(new ResourceNotFoundException("leitor não encontrado: 99"))
+                .given(blockReaderUseCase).block(99L);
+        willThrow(new ResourceNotFoundException("leitor não encontrado: 99"))
+                .given(unblockReaderUseCase).unblock(99L);
+
+        mockMvc.perform(post("/api/v1/readers/99/block").with(csrf()))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"));
+        mockMvc.perform(post("/api/v1/readers/99/unblock").with(csrf()))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn422WhenBlockingAnInactiveReader() throws Exception {
+        willThrow(new BusinessRuleException("o leitor inativo não pode ser bloqueado"))
+                .given(blockReaderUseCase).block(1L);
+
+        mockMvc.perform(post("/api/v1/readers/1/block").with(csrf()))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+                .andExpect(jsonPath("$.detail").value("o leitor inativo não pode ser bloqueado"));
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturn400WhenBlockingOrUnblockingWithANonNumericId() throws Exception {
+        mockMvc.perform(post("/api/v1/readers/abc/block").with(csrf())).andExpect(status().isBadRequest());
+        mockMvc.perform(post("/api/v1/readers/abc/unblock").with(csrf())).andExpect(status().isBadRequest());
+
+        then(blockReaderUseCase).should(never()).block(any());
+        then(unblockReaderUseCase).should(never()).unblock(any());
     }
 }

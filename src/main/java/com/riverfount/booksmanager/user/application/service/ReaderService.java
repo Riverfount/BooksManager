@@ -1,5 +1,6 @@
 package com.riverfount.booksmanager.user.application.service;
 
+import com.riverfount.booksmanager.user.application.port.in.BlockReaderUseCase;
 import com.riverfount.booksmanager.user.application.port.in.DeactivateReaderUseCase;
 import com.riverfount.booksmanager.user.application.port.in.GetReaderUseCase;
 import com.riverfount.booksmanager.shared.domain.PageResult;
@@ -8,6 +9,7 @@ import com.riverfount.booksmanager.user.application.port.in.ListReadersQuery;
 import com.riverfount.booksmanager.user.application.port.in.ListReadersUseCase;
 import com.riverfount.booksmanager.user.application.port.in.RegisterReaderCommand;
 import com.riverfount.booksmanager.user.application.port.in.RegisterReaderUseCase;
+import com.riverfount.booksmanager.user.application.port.in.UnblockReaderUseCase;
 import com.riverfount.booksmanager.user.application.port.in.UpdateReaderCommand;
 import com.riverfount.booksmanager.user.application.port.in.UpdateReaderUseCase;
 import com.riverfount.booksmanager.user.application.port.out.ReaderFilter;
@@ -29,7 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 class ReaderService implements RegisterReaderUseCase, GetReaderUseCase, ListReadersUseCase,
-        UpdateReaderUseCase, DeactivateReaderUseCase {
+        UpdateReaderUseCase, DeactivateReaderUseCase, BlockReaderUseCase, UnblockReaderUseCase {
 
     private final ReaderRepository readerRepository;
     private final Clock clock;
@@ -62,8 +64,7 @@ class ReaderService implements RegisterReaderUseCase, GetReaderUseCase, ListRead
 
     @Override
     public Reader update(UpdateReaderCommand command) {
-        var reader = readerRepository.findById(command.id())
-                .orElseThrow(() -> new ResourceNotFoundException("leitor não encontrado: " + command.id()));
+        var reader = loadExisting(command.id());
         // a null field keeps the current value; the rules (a minor needs the
         // guardian, valid formats) are checked by the domain on the resulting state
         reader.updateDetails(
@@ -82,10 +83,28 @@ class ReaderService implements RegisterReaderUseCase, GetReaderUseCase, ListRead
 
     @Override
     public void deactivate(Long id) {
-        var reader = readerRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("leitor não encontrado: " + id));
+        var reader = loadExisting(id);
         reader.deactivate();
         readerRepository.save(reader);
+    }
+
+    @Override
+    public void block(Long id) {
+        var reader = loadExisting(id);
+        reader.block();
+        readerRepository.save(reader);
+    }
+
+    @Override
+    public void unblock(Long id) {
+        var reader = loadExisting(id);
+        reader.unblock();
+        readerRepository.save(reader);
+    }
+
+    private Reader loadExisting(Long id) {
+        return readerRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("leitor não encontrado: " + id));
     }
 
     /**

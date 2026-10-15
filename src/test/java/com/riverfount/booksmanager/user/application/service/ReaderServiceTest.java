@@ -490,4 +490,102 @@ class ReaderServiceTest {
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("99");
     }
+
+    // block and unblock (RF10, HU06, RN11)
+
+    @Test
+    void shouldBlockReaderKeepingTheRestOfTheRecord() {
+        var id = registerAdult("Maria Silva", "123");
+
+        service.block(id);
+
+        var stored = repository.findById(id).orElseThrow();
+        assertThat(stored.isBlocked()).isTrue();
+        assertThat(stored.isActive()).isTrue();
+        assertThat(stored.getName()).isEqualTo("Maria Silva");
+        assertThat(stored.getDocument()).isEqualTo("123");
+    }
+
+    @Test
+    void shouldUnblockReader() {
+        var id = registerAdult("Maria Silva", "123");
+        service.block(id);
+
+        service.unblock(id);
+
+        assertThat(repository.findById(id).orElseThrow().isBlocked()).isFalse();
+    }
+
+    @Test
+    void blockAndUnblockShouldBeIdempotent() {
+        var id = registerAdult("Maria Silva", "123");
+
+        service.unblock(id);
+        assertThat(repository.findById(id).orElseThrow().isBlocked()).isFalse();
+
+        service.block(id);
+        service.block(id);
+        assertThat(repository.findById(id).orElseThrow().isBlocked()).isTrue();
+
+        service.unblock(id);
+        service.unblock(id);
+        assertThat(repository.findById(id).orElseThrow().isBlocked()).isFalse();
+    }
+
+    @Test
+    void aBlockedReaderShouldNotBeAbleToBorrowAndShowItsStateInTheQuery() {
+        var id = registerAdult("Maria Silva", "123");
+
+        service.block(id);
+
+        var found = service.findById(id).orElseThrow();
+        assertThat(found.isBlocked()).isTrue();
+        assertThat(found.canBorrow(LocalDate.of(2026, 10, 15))).isFalse();
+    }
+
+    @Test
+    void shouldAllowFilteringTheListingByBlocked() {
+        var blockedId = registerAdult("Bruno", "2");
+        registerAdult("Ana", "1");
+
+        service.block(blockedId);
+
+        assertThat(service.list(query(null, null, true, true)).items())
+                .extracting(r -> r.getName()).containsExactly("Bruno");
+        assertThat(service.list(query(null, null, true, false)).items())
+                .extracting(r -> r.getName()).containsExactly("Ana");
+    }
+
+    @Test
+    void shouldRefuseToBlockAnInactiveReaderAndKeepItUnblocked() {
+        var id = registerAdult("Maria Silva", "123");
+        service.deactivate(id);
+
+        assertThatThrownBy(() -> service.block(id))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("inativo");
+
+        assertThat(repository.findById(id).orElseThrow().isBlocked()).isFalse();
+    }
+
+    @Test
+    void shouldUnblockAnInactiveReaderThatWasBlockedBeforeBeingDeactivated() {
+        var id = registerAdult("Maria Silva", "123");
+        service.block(id);
+        service.deactivate(id);
+
+        service.unblock(id);
+
+        var stored = repository.findById(id).orElseThrow();
+        assertThat(stored.isBlocked()).isFalse();
+        assertThat(stored.isActive()).isFalse();
+    }
+
+    @Test
+    void shouldRejectBlockAndUnblockOfUnknownReader() {
+        assertThatThrownBy(() -> service.block(99L))
+                .isInstanceOf(ResourceNotFoundException.class).hasMessageContaining("99");
+        assertThatThrownBy(() -> service.unblock(99L))
+                .isInstanceOf(ResourceNotFoundException.class).hasMessageContaining("99");
+    }
 }
