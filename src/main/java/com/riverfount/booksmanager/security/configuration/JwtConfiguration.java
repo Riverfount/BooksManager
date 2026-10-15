@@ -28,7 +28,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
  * #103) uses the encoder to issue the real ones.
  */
 @Configuration
-@EnableConfigurationProperties(JwtProperties.class)
+@EnableConfigurationProperties({JwtProperties.class, AuthProperties.class})
 public class JwtConfiguration {
 
     /** HS256 needs a key of at least 256 bits. */
