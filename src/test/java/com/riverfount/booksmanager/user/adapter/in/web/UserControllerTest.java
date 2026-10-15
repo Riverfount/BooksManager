@@ -8,6 +8,8 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -26,6 +28,8 @@ import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
 import com.riverfount.booksmanager.shared.domain.SortDirection;
 import com.riverfount.booksmanager.user.application.port.in.CreateUserCommand;
 import com.riverfount.booksmanager.user.application.port.in.CreateUserUseCase;
+import com.riverfount.booksmanager.user.application.port.in.DeactivateUserCommand;
+import com.riverfount.booksmanager.user.application.port.in.DeactivateUserUseCase;
 import com.riverfount.booksmanager.user.application.port.in.GetUserUseCase;
 import com.riverfount.booksmanager.user.application.port.in.ListUsersQuery;
 import com.riverfount.booksmanager.user.application.port.in.ListUsersUseCase;
@@ -47,6 +51,8 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -87,6 +93,9 @@ class UserControllerTest {
 
     @MockitoBean
     private UnblockUserUseCase unblockUserUseCase;
+
+    @MockitoBean
+    private DeactivateUserUseCase deactivateUserUseCase;
 
     private MockHttpServletRequestBuilder create(String json) {
         return post("/api/v1/users").with(csrf()).contentType(MediaType.APPLICATION_JSON).content(json);
@@ -550,5 +559,91 @@ class UserControllerTest {
     void aUserWithNoProfileGets403OnTheEditAndTheUnblock() throws Exception {
         mockMvc.perform(edit(5, "{\"role\":\"ADMIN\"}")).andExpect(status().isForbidden());
         mockMvc.perform(unblock("5")).andExpect(status().isForbidden());
+    }
+
+    // deactivating a user (RF09, HU28, RN14)
+
+    /** The caller as the real chain presents it: a JWT whose subject is the id of the user, with a profile. */
+    private static RequestPostProcessor caller(String subject, String role) {
+        return jwt().jwt(token -> token.subject(subject)).authorities(new SimpleGrantedAuthority("ROLE_" + role));
+    }
+
+    private MockHttpServletRequestBuilder deactivate(String id) {
+        return delete("/api/v1/users/" + id).with(csrf());
+    }
+
+    @Test
+    void shouldDeactivateReturn204AndHandTheCallerIdToTheUseCase() throws Exception {
+        mockMvc.perform(deactivate("5").with(caller("1", "ADMIN")))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+
+        var captor = ArgumentCaptor.forClass(DeactivateUserCommand.class);
+        then(deactivateUserUseCase).should().deactivate(captor.capture());
+        assertThat(captor.getValue()).isEqualTo(new DeactivateUserCommand(5L, 1L));
+    }
+
+    @Test
+    void deactivatingTwiceKeepsReturning204() throws Exception {
+        mockMvc.perform(deactivate("5").with(caller("1", "ADMIN"))).andExpect(status().isNoContent());
+        mockMvc.perform(deactivate("5").with(caller("1", "ADMIN"))).andExpect(status().isNoContent());
+    }
+
+    @Test
+    void shouldReturn404ForAnUnknownUser() throws Exception {
+        willThrow(new ResourceNotFoundException("usuário não encontrado: 99")).given(deactivateUserUseCase)
+                .deactivate(any());
+
+        mockMvc.perform(deactivate("99").with(caller("1", "ADMIN")))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"));
+    }
+
+    @Test
+    void shouldReturn422ForTheSelfDeactivationAndForTheLastAdministrator() throws Exception {
+        willThrow(new BusinessRuleException("não é possível inativar o próprio usuário"))
+                .willThrow(new BusinessRuleException("não é possível inativar o último administrador ativo"))
+                .given(deactivateUserUseCase).deactivate(any());
+
+        mockMvc.perform(deactivate("1").with(caller("1", "ADMIN")))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+                .andExpect(jsonPath("$.detail").value(containsString("próprio usuário")));
+        mockMvc.perform(deactivate("2").with(caller("1", "ADMIN")))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.detail").value(containsString("último administrador")));
+    }
+
+    @Test
+    void deactivatingShouldReturn400ForANonNumericId() throws Exception {
+        mockMvc.perform(deactivate("abc").with(caller("1", "ADMIN"))).andExpect(status().isBadRequest());
+
+        then(deactivateUserUseCase).should(never()).deactivate(any());
+    }
+
+    @Test
+    void shouldRefuseWith403WhenThereIsNoNumericUserIdToKnowWhoIsDoingIt() throws Exception {
+        // failing closed: without knowing the caller the self-deactivation rule could not be applied
+        mockMvc.perform(deactivate("5").with(caller("not-a-number", "ADMIN"))).andExpect(status().isForbidden());
+        mockMvc.perform(deactivate("5").with(caller("", "ADMIN"))).andExpect(status().isForbidden());
+
+        then(deactivateUserUseCase).should(never()).deactivate(any());
+    }
+
+    @Test
+    @WithAdmin
+    void shouldRefuseWith403WhenTheCallerIsNotAJwtAtAll() throws Exception {
+        mockMvc.perform(deactivate("5")).andExpect(status().isForbidden());
+
+        then(deactivateUserUseCase).should(never()).deactivate(any());
+    }
+
+    @Test
+    void anOperatorGets403OnTheDeactivation() throws Exception {
+        mockMvc.perform(deactivate("5").with(caller("2", "OPERATOR")))
+                .andExpect(status().isForbidden())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"));
+
+        then(deactivateUserUseCase).should(never()).deactivate(any());
     }
 }
