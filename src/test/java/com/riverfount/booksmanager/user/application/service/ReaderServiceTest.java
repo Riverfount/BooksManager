@@ -430,4 +430,64 @@ class ReaderServiceTest {
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("99");
     }
+
+    // deactivation (HU27, RN11, RN14)
+
+    @Test
+    void shouldDeactivateReaderKeepingTheRecord() {
+        var id = registerAdult("Maria Silva", "123");
+
+        service.deactivate(id);
+
+        var stored = repository.findById(id).orElseThrow();
+        assertThat(stored.isActive()).isFalse();
+        assertThat(stored.getName()).isEqualTo("Maria Silva");
+        assertThat(stored.getDocument()).isEqualTo("123");
+        assertThat(stored.getBirthDate()).isEqualTo(ADULT_BIRTH);
+    }
+
+    @Test
+    void deactivatingAnInactiveReaderShouldBeIdempotent() {
+        var id = registerAdult("Maria Silva", "123");
+
+        service.deactivate(id);
+        service.deactivate(id);
+
+        assertThat(repository.findById(id).orElseThrow().isActive()).isFalse();
+    }
+
+    @Test
+    void shouldDeactivateABlockedReaderKeepingItBlocked() {
+        var id = registerAdult("Maria Silva", "123");
+        var reader = repository.findById(id).orElseThrow();
+        reader.block();
+        repository.save(reader);
+
+        service.deactivate(id);
+
+        var stored = repository.findById(id).orElseThrow();
+        assertThat(stored.isActive()).isFalse();
+        assertThat(stored.isBlocked()).isTrue();
+    }
+
+    @Test
+    void aDeactivatedReaderShouldLeaveTheDefaultListingAndNotBeAbleToBorrow() {
+        var id = registerAdult("Maria Silva", "123");
+        registerAdult("Pedro", "456");
+
+        service.deactivate(id);
+
+        assertThat(service.list(query(null, null, true, null)).items())
+                .extracting(r -> r.getName()).containsExactly("Pedro");
+        assertThat(service.list(query(null, null, false, null)).items())
+                .extracting(r -> r.getName()).containsExactly("Maria Silva");
+        assertThat(service.findById(id).orElseThrow().canBorrow(LocalDate.of(2026, 10, 15))).isFalse();
+    }
+
+    @Test
+    void shouldRejectDeactivationOfUnknownReader() {
+        assertThatThrownBy(() -> service.deactivate(99L))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("99");
+    }
 }

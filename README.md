@@ -30,7 +30,7 @@ Bibliotecários, que operam o sistema no dia a dia, e o administrador, que geren
 - Listar os empréstimos em atraso
 
 ### 1.5 Estado atual
-A Fase 1 (Catálogo) está concluída na API: livros, autores, categorias e exemplares têm cadastro, consulta, listagem paginada, edição e inativação. A pesquisa de livros, com a quantidade de exemplares disponíveis, é a própria listagem com filtros. Na Fase 2, o cadastro, a consulta, a listagem e a edição de leitores (`POST /api/v1/readers`, `GET /api/v1/readers/{id}`, `GET /api/v1/readers` e `PATCH /api/v1/readers/{id}`) já existem; faltam o restante dos leitores e o login e os empréstimos e multas (Fase 3). O plano completo e a situação de cada fase estão em [`docs/projeto.md`](docs/projeto.md), seção "Plano de desenvolvimento".
+A Fase 1 (Catálogo) está concluída na API: livros, autores, categorias e exemplares têm cadastro, consulta, listagem paginada, edição e inativação. A pesquisa de livros, com a quantidade de exemplares disponíveis, é a própria listagem com filtros. Na Fase 2, o cadastro, a consulta, a listagem e a edição e a inativação de leitores (`POST`, `GET`, `GET /{id}`, `PATCH /{id}` e `DELETE /{id}` em `/api/v1/readers`) já existem; faltam o restante dos leitores e o login e os empréstimos e multas (Fase 3). O plano completo e a situação de cada fase estão em [`docs/projeto.md`](docs/projeto.md), seção "Plano de desenvolvimento".
 
 ---
 
