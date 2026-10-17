@@ -128,6 +128,8 @@ A situação de um leitor para decidir um novo empréstimo se consulta em `GET /
 
 O operador pode liberar um leitor antes do prazo com `POST /api/v1/suspensions/{id}/end` e `{"reason": "..."}`: a justificativa é obrigatória (400 sem ela) e fica registrada; depois disso o leitor volta a poder emprestar, se nada mais o impedir. Encerrar uma suspensão que já terminou não tem efeito (200, com o estado atual).
 
+O relatório de atrasos é `GET /api/v1/reports/overdue-loans`, paginado (até 100 por página): os empréstimos ativos com a data prevista vencida, do maior para o menor atraso, com o leitor, o exemplar e os dias de atraso. Um empréstimo que vence hoje ainda está em dia, e um já devolvido não aparece.
+
 Um exemplar com empréstimo ativo não pode ser inativado (`DELETE /api/v1/copies/{id}` devolve 422 até a devolução, RN10).
 
 Os erros seguem o formato ProblemDetail (400, 404, 409 e 422). Os detalhes do contrato estão em [`docs/projeto.md`](docs/projeto.md), seção "Interface e API", e cada endpoint está descrito no Swagger.

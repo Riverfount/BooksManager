@@ -286,4 +286,23 @@ class ReaderPersistenceAdapterTest {
         assertThat(page.items()).isEmpty();
         assertThat(page.totalItems()).isZero();
     }
+
+
+    @Test
+    void shouldFindTheNamesOfSeveralReadersInOneCall() {
+        var maria = saveReader("Maria Silva", "111");
+        var joao = saveReader("João Souza", "222");
+        saveReader("Ana Lima", "333");
+
+        var names = adapter.findNamesByIds(java.util.Set.of(maria.getId(), joao.getId(), -1L));
+
+        assertThat(names).containsOnlyKeys(maria.getId(), joao.getId());
+        assertThat(names.get(maria.getId())).isEqualTo("Maria Silva");
+        assertThat(names.get(joao.getId())).isEqualTo("João Souza");
+    }
+
+    @Test
+    void shouldFindNoNamesForNoIds() {
+        assertThat(adapter.findNamesByIds(java.util.Set.of())).isEmpty();
+    }
 }

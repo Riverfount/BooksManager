@@ -50,6 +50,15 @@ class CopyPersistenceAdapter implements CopyRepository {
     }
 
     @Override
+    public Map<Long, Copy> findAllByIds(Set<Long> ids) {
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        return jpaRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(CopyJpaEntity::getId, this::toDomain));
+    }
+
+    @Override
     public boolean existsByAssetCode(String assetCode) {
         return jpaRepository.existsByAssetCode(assetCode);
     }

@@ -402,4 +402,24 @@ class BookPersistenceAdapterTest {
         }
         adapter.save(book);
     }
+
+
+    @Test
+    void shouldFindTheTitlesOfSeveralBooksInOneCall() {
+        var first = adapter.save(Book.create(new Isbn("9788533302273"), "Dom Casmurro", "Editora X", 1899,
+                categoryId, Set.of(authorId1, authorId2), FIXED_CLOCK));
+        var second = adapter.save(Book.create(new Isbn("080442957X"), "Quincas Borba", "Editora X", 1891,
+                categoryId, Set.of(authorId1), FIXED_CLOCK));
+
+        var titles = adapter.findTitlesByIds(Set.of(first.getId(), second.getId(), -1L));
+
+        assertThat(titles).containsOnlyKeys(first.getId(), second.getId());
+        assertThat(titles.get(first.getId())).isEqualTo("Dom Casmurro");
+        assertThat(titles.get(second.getId())).isEqualTo("Quincas Borba");
+    }
+
+    @Test
+    void shouldFindNoTitlesForNoIds() {
+        assertThat(adapter.findTitlesByIds(Set.of())).isEmpty();
+    }
 }

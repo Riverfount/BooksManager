@@ -4,7 +4,9 @@ import com.riverfount.booksmanager.catalog.domain.Book;
 import com.riverfount.booksmanager.catalog.domain.Isbn;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.PageResult;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Outbound port for Book persistence, in the domain's language.
@@ -14,6 +16,12 @@ public interface BookRepository {
     Book save(Book book);
 
     Optional<Book> findById(Long id);
+
+    /**
+     * The titles of the books with the given ids, in one query and without loading the books; an id
+     * that does not exist is absent from the map.
+     */
+    Map<Long, String> findTitlesByIds(Set<Long> ids);
 
     boolean existsByIsbn(Isbn isbn);
 

@@ -11,6 +11,9 @@ import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.PageResult;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.Set;
+import java.util.Map;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
@@ -49,6 +52,15 @@ class BookPersistenceAdapter implements BookRepository {
     @Override
     public Optional<Book> findById(Long id) {
         return jpaRepository.findById(id).map(this::toDomain);
+    }
+
+    @Override
+    public Map<Long, String> findTitlesByIds(Set<Long> ids) {
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        return jpaRepository.findTitlesByIdIn(ids).stream()
+                .collect(Collectors.toMap(BookJpaRepository.BookTitle::getId, BookJpaRepository.BookTitle::getTitle));
     }
 
     @Override

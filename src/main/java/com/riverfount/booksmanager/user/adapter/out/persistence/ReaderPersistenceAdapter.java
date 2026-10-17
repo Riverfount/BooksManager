@@ -10,7 +10,10 @@ import com.riverfount.booksmanager.user.application.port.out.ReaderRepository;
 import com.riverfount.booksmanager.user.domain.Guardian;
 import com.riverfount.booksmanager.user.domain.Reader;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
@@ -51,6 +54,15 @@ class ReaderPersistenceAdapter implements ReaderRepository {
     @Override
     public Optional<Reader> findById(Long id) {
         return jpaRepository.findById(id).map(this::toDomain);
+    }
+
+    @Override
+    public Map<Long, String> findNamesByIds(Set<Long> ids) {
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        return jpaRepository.findNamesByIdIn(ids).stream()
+                .collect(Collectors.toMap(ReaderJpaRepository.ReaderName::getId, ReaderJpaRepository.ReaderName::getName));
     }
 
     @Override

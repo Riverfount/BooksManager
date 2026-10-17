@@ -56,6 +56,12 @@ class InMemoryBookRepository implements BookRepository {
     }
 
     @Override
+    public Map<Long, String> findTitlesByIds(Set<Long> ids) {
+        return books.values().stream().filter(book -> ids.contains(book.getId()))
+                .collect(Collectors.toMap(Book::getId, Book::getTitle));
+    }
+
+    @Override
     public boolean existsByIsbn(Isbn isbn) {
         return books.values().stream().anyMatch(book -> book.getIsbn().equals(isbn));
     }

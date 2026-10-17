@@ -13,6 +13,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.Set;
 
 /**
  * In-memory implementation of ReaderRepository, used only in the
@@ -56,6 +58,12 @@ class InMemoryReaderRepository implements ReaderRepository {
             throw new IllegalArgumentException("o id não pode ser nulo");
         }
         return Optional.ofNullable(readers.get(id)).map(reader -> copyWithId(reader, id));
+    }
+
+    @Override
+    public Map<Long, String> findNamesByIds(Set<Long> ids) {
+        return readers.values().stream().filter(reader -> ids.contains(reader.getId()))
+                .collect(Collectors.toMap(Reader::getId, Reader::getName));
     }
 
     @Override

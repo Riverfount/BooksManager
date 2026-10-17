@@ -3,7 +3,9 @@ package com.riverfount.booksmanager.catalog.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.riverfount.booksmanager.catalog.domain.Book;
 import com.riverfount.booksmanager.catalog.domain.Copy;
+import com.riverfount.booksmanager.catalog.domain.Isbn;
 import com.riverfount.booksmanager.catalog.domain.CopyStatus;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
@@ -16,12 +18,14 @@ import org.junit.jupiter.params.provider.EnumSource;
 class CopyLoanServiceTest {
 
     private InMemoryCopyRepository copyRepository;
+    private InMemoryBookRepository bookRepository;
     private CopyLoanService service;
 
     @BeforeEach
     void setUp() {
         copyRepository = new InMemoryCopyRepository();
-        service = new CopyLoanService(copyRepository);
+        bookRepository = new InMemoryBookRepository();
+        service = new CopyLoanService(copyRepository, bookRepository);
     }
 
     private Long saveCopy(CopyStatus status, boolean active) {
@@ -146,5 +150,50 @@ class CopyLoanServiceTest {
         service.checkIn(id);
 
         assertThat(service.findAvailability(id).orElseThrow().lendable()).isTrue();
+    }
+
+    // summaries for the loan module's reports
+
+    private Long saveBook(String isbn, String title) {
+        var clock = java.time.Clock.fixed(java.time.Instant.parse("2026-10-10T00:00:00Z"), java.time.ZoneOffset.UTC);
+        return bookRepository.save(Book.create(new Isbn(isbn), title, "Editora X", 1899, 1L, java.util.Set.of(1L),
+                clock)).getId();
+    }
+
+    private Long saveCopyOf(Long bookId, String assetCode) {
+        return copyRepository.save(Copy.create(bookId, assetCode)).getId();
+    }
+
+    @Test
+    void shouldGiveTheAssetCodeAndTheTitleOfSeveralCopiesAtOnce() {
+        var domCasmurro = saveBook("9788533302273", "Dom Casmurro");
+        var quincas = saveBook("080442957X", "Quincas Borba");
+        var first = saveCopyOf(domCasmurro, "PAT-1");
+        var second = saveCopyOf(quincas, "PAT-2");
+        var third = saveCopyOf(domCasmurro, "PAT-3");
+
+        var summaries = service.findSummaries(java.util.Set.of(first, second, 999L));
+
+        assertThat(summaries).containsOnlyKeys(first, second);
+        assertThat(summaries.get(first).assetCode()).isEqualTo("PAT-1");
+        assertThat(summaries.get(first).bookId()).isEqualTo(domCasmurro);
+        assertThat(summaries.get(first).bookTitle()).isEqualTo("Dom Casmurro");
+        assertThat(summaries.get(second).bookTitle()).isEqualTo("Quincas Borba");
+        assertThat(summaries.get(first).copyId()).isEqualTo(first);
+        assertThat(summaries).doesNotContainKey(third);
+    }
+
+    @Test
+    void shouldGiveNoSummariesForNoCopies() {
+        assertThat(service.findSummaries(java.util.Set.of())).isEmpty();
+    }
+
+    @Test
+    void aSummaryShouldAlsoCoverAnInactiveCopyBecauseTheHistoryKeepsIt() {
+        var book = saveBook("9788533302273", "Dom Casmurro");
+        var copy = copyRepository.save(
+                Copy.reconstitute(null, book, "PAT-OLD", CopyStatus.AVAILABLE, false, 0L)).getId();
+
+        assertThat(service.findSummaries(java.util.Set.of(copy))).containsOnlyKeys(copy);
     }
 }

@@ -1,5 +1,7 @@
 package com.riverfount.booksmanager.user.adapter.out.persistence;
 
+import java.util.Collection;
+import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -28,4 +30,15 @@ interface ReaderJpaRepository extends JpaRepository<ReaderJpaEntity, Long> {
             """)
     Page<ReaderJpaEntity> search(@Param("name") String name, @Param("document") String document,
             @Param("active") Boolean active, @Param("blocked") Boolean blocked, Pageable pageable);
+
+    /** The id and the name of each reader, without loading the readers (nor their personal data). */
+    @Query("select r.id as id, r.name as name from ReaderJpaEntity r where r.id in :ids")
+    List<ReaderName> findNamesByIdIn(@Param("ids") Collection<Long> ids);
+
+    interface ReaderName {
+
+        Long getId();
+
+        String getName();
+    }
 }
