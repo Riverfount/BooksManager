@@ -130,7 +130,8 @@ classDiagram
 | `Category`, `Author`, `Book`, `Copy` | `catalog` | Implementadas: domínio, persistência, casos de uso e endpoints REST de cadastro, consulta, listagem, edição e inativação (issues #5–#16, #35–#37 e #43–#58), inclusive a pesquisa de livros com exemplares disponíveis (RF05, issue #83). |
 | `Reader` | `user` | Implementado: migração (issue #88), domínio (issue #89), persistência (issue #90) e endpoints REST de cadastro, consulta, listagem, edição, inativação e bloqueio (issues #91 a #96). |
 | `User` | `user` | Migração `app_user` (issue #97), domínio (issue #98), persistência (issue #99), administrador inicial (issue #100), autenticação (issues #101 a #105) e criação, consulta, listagem, edição de perfil, desbloqueio, inativação e redefinição de senha de usuário (issues #106 a #110) implementados (fase 2, `docs/projeto.md`). |
-| `Loan`, `Fine`, `Suspension`, `LibraryConfiguration` | `loan` | Planejadas — fase 3 do plano de desenvolvimento (issues #136 a #157). A suspensão é um registro do `loan`, não um campo do `Reader` (decisão da issue #135). |
+| `LibraryConfiguration` | `loan` | Migração (issue #136) e domínio, com o enum `PenaltyPolicy` (issue #137), implementados; faltam a persistência e os endpoints (issues #138 e #139). |
+| `Loan`, `Fine`, `Suspension` | `loan` | Planejadas — fase 3 do plano de desenvolvimento (issues #140 a #157). A suspensão é um registro do `loan`, não um campo do `Reader` (decisão da issue #135). |
 | `Reservation` | `loan` | Planejada — fase 4 do plano de desenvolvimento. |
 
 ## Referências
