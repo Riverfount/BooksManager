@@ -17,6 +17,8 @@ import com.riverfount.booksmanager.user.application.port.in.DeactivateUserUseCas
 import com.riverfount.booksmanager.user.application.port.in.GetUserUseCase;
 import com.riverfount.booksmanager.user.application.port.in.ListUsersQuery;
 import com.riverfount.booksmanager.user.application.port.in.ListUsersUseCase;
+import com.riverfount.booksmanager.user.application.port.in.ResetUserPasswordCommand;
+import com.riverfount.booksmanager.user.application.port.in.ResetUserPasswordUseCase;
 import com.riverfount.booksmanager.user.application.port.in.UnblockUserUseCase;
 import com.riverfount.booksmanager.user.application.port.in.UpdateUserCommand;
 import com.riverfount.booksmanager.user.application.port.in.UpdateUserUseCase;
@@ -42,7 +44,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 class UserService implements CreateInitialAdminUseCase, AuthenticateUserUseCase, CreateUserUseCase,
-        GetUserUseCase, ListUsersUseCase, UpdateUserUseCase, UnblockUserUseCase, DeactivateUserUseCase {
+        GetUserUseCase, ListUsersUseCase, UpdateUserUseCase, UnblockUserUseCase, DeactivateUserUseCase,
+        ResetUserPasswordUseCase {
 
     private final UserRepository userRepository;
     private final PasswordHasher passwordHasher;
@@ -166,6 +169,21 @@ class UserService implements CreateInitialAdminUseCase, AuthenticateUserUseCase,
         if (user.deactivateKeepingAnAdministrator(others)) {
             userRepository.save(user);
         }
+        refreshTokens.revokeAllOf(user.getId());
+    }
+
+    /**
+     * The policy is checked first (cheap, and the answer says which rules are missing),
+     * then the user is loaded locked, so the new hash does not overwrite a change made
+     * at the same time. The refresh tokens are revoked in the same transaction: if the
+     * revocation fails, the new password is rolled back with it.
+     */
+    @Override
+    public void resetPassword(ResetUserPasswordCommand command) {
+        PasswordPolicy.validate(command.password());
+        var user = loadForUpdate(command.id());
+        user.changePasswordHash(passwordHasher.hash(command.password()));
+        userRepository.save(user);
         refreshTokens.revokeAllOf(user.getId());
     }
 
