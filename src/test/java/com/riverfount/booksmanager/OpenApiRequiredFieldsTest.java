@@ -42,6 +42,13 @@ class OpenApiRequiredFieldsTest {
     }
 
     @Test
+    void libraryConfigurationResponseShouldRequireAllItsFields() throws Exception {
+        apiDocs.andExpect(requiredOf("LibraryConfigurationResponse", "penaltyPolicy", "dailyFineAmount", "fineCap",
+                "suspensionDaysPerDay", "suspensionCapDays", "loanPeriodDays", "loanLimit", "renewalLimit",
+                "reservationPickupDays"));
+    }
+
+    @Test
     void authorResponseShouldRequireAllItsFields() throws Exception {
         apiDocs.andExpect(requiredOf("AuthorResponse", "id", "name", "active"));
     }

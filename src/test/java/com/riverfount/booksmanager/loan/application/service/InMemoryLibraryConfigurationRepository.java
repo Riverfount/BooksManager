@@ -17,6 +17,7 @@ class InMemoryLibraryConfigurationRepository implements LibraryConfigurationRepo
     private LibraryConfiguration stored = LibraryConfiguration.reconstitute(1L, PenaltyPolicy.FINE,
             new BigDecimal("1.00"), new BigDecimal("10.00"), 1, 365, 14, 3, 2, 3);
     private int saves;
+    private int lockedReads;
 
     private static LibraryConfiguration copyOf(LibraryConfiguration c) {
         return LibraryConfiguration.reconstitute(c.getId(), c.getPenaltyPolicy(), c.getDailyFineAmount(),
@@ -31,6 +32,7 @@ class InMemoryLibraryConfigurationRepository implements LibraryConfigurationRepo
 
     @Override
     public LibraryConfiguration getForUpdate() {
+        lockedReads++;
         return copyOf(stored);
     }
 
@@ -39,6 +41,11 @@ class InMemoryLibraryConfigurationRepository implements LibraryConfigurationRepo
         saves++;
         stored = copyOf(configuration);
         return copyOf(stored);
+    }
+
+    /** How many times the configuration was read for a change (with the lock, in the real adapter). */
+    int lockedReads() {
+        return lockedReads;
     }
 
     int saves() {
