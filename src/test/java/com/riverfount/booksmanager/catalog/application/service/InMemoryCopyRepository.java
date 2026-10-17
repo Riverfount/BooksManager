@@ -52,11 +52,13 @@ class InMemoryCopyRepository implements CopyRepository {
     }
 
     @Override
-    public PageResult<Copy> findAll(Long bookId, CopyStatus status, boolean active, PageQuery page) {
+    public PageResult<Copy> findAll(Long bookId, CopyStatus status, String assetCode, boolean active,
+            PageQuery page) {
         var matching = copies.values().stream()
                 .filter(copy -> copy.isActive() == active)
                 .filter(copy -> bookId == null || copy.getBookId().equals(bookId))
-                .filter(copy -> status == null || copy.getStatus() == status);
+                .filter(copy -> status == null || copy.getStatus() == status)
+                .filter(copy -> assetCode == null || copy.getAssetCode().equalsIgnoreCase(assetCode));
         return InMemoryPagination.page(matching, page, Map.of(
                 "id", Comparator.comparing(Copy::getId),
                 "assetCode", Comparator.comparing(Copy::getAssetCode),

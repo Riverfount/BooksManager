@@ -185,11 +185,22 @@ class CopyControllerTest {
         var query = capturedQuery();
         assertThat(query.bookId()).isNull();
         assertThat(query.status()).isNull();
+        assertThat(query.assetCode()).isNull();
         assertThat(query.active()).isTrue();
         assertThat(query.page().page()).isZero();
         assertThat(query.page().size()).isEqualTo(20);
         assertThat(query.page().sortBy()).isEqualTo("assetCode");
         assertThat(query.page().direction()).isEqualTo(SortDirection.ASC);
+    }
+
+    @Test
+    @WithOperator
+    void shouldPassTheAssetCodeFilterToTheUseCase() throws Exception {
+        given(listCopiesUseCase.list(any())).willReturn(new PageResult<>(List.of(), 0, 20, 0));
+
+        mockMvc.perform(get("/api/v1/copies").param("assetCode", "PAT-0007")).andExpect(status().isOk());
+
+        assertThat(capturedQuery().assetCode()).isEqualTo("PAT-0007");
     }
 
     @Test

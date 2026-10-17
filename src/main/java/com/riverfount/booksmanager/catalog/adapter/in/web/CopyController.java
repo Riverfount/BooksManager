@@ -85,8 +85,9 @@ class CopyController {
     @GetMapping
     @Operation(summary = "Listar exemplares",
             description = "Lista os exemplares de forma paginada (máximo de 100 por página), com filtros "
-                    + "opcionais por livro e por status. Por padrão, só os ativos e em ordem de código de "
-                    + "patrimônio. Tamanho de página acima de 100 é rejeitado com 400, não ajustado.")
+                    + "opcionais por livro, por status e por código de patrimônio (o código inteiro, sem "
+                    + "diferenciar maiúsculas; vem vazio se não existir). Por padrão, só os ativos e em ordem "
+                    + "de código de patrimônio. Tamanho de página acima de 100 é rejeitado com 400, não ajustado.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Página de exemplares"),
             @ApiResponse(responseCode = "400",
@@ -101,6 +102,9 @@ class CopyController {
                     schema = @Schema(allowableValues = {"AVAILABLE", "BORROWED", "RESERVED", "DAMAGED",
                             "LOST"}))
             @RequestParam(required = false) CopyStatus status,
+            @Parameter(description = "Código de patrimônio, inteiro e sem diferenciar maiúsculas; em branco vale "
+                    + "como ausente", example = "PAT-0007")
+            @RequestParam(required = false) String assetCode,
             @Parameter(description = "Listar ativos (true) ou inativos (false)")
             @RequestParam(defaultValue = "true") boolean active,
             @Parameter(description = "Número da página, a partir de 0")
@@ -110,7 +114,7 @@ class CopyController {
             @Parameter(description = "Ordenação no formato campo[,asc|desc]; campos: id, assetCode, status",
                     example = "assetCode,asc")
             @RequestParam(defaultValue = ListCopiesQuery.DEFAULT_SORT) String sort) {
-        var query = new ListCopiesQuery(bookId, status, active, PageQuery.of(page, size, sort));
+        var query = new ListCopiesQuery(bookId, status, assetCode, active, PageQuery.of(page, size, sort));
         return PageResponse.from(listCopiesUseCase.list(query), CopyResponse::from);
     }
 

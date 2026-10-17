@@ -133,8 +133,8 @@ class CopyPersistenceAdapterTest {
         adapter.save(Copy.create(bookId, "PAT-2"));
         adapter.save(Copy.reconstitute(null, bookId, "PAT-9", CopyStatus.AVAILABLE, false, 0L));
 
-        var firstPage = adapter.findAll(null, null, true, PageQuery.of(0, 2, "assetCode"));
-        var secondPage = adapter.findAll(null, null, true, PageQuery.of(1, 2, "assetCode"));
+        var firstPage = adapter.findAll(null, null, null, true, PageQuery.of(0, 2, "assetCode"));
+        var secondPage = adapter.findAll(null, null, null, true, PageQuery.of(1, 2, "assetCode"));
 
         assertThat(firstPage.items()).extracting(Copy::getAssetCode).containsExactly("PAT-1", "PAT-2");
         assertThat(secondPage.items()).extracting(Copy::getAssetCode).containsExactly("PAT-3");
@@ -147,7 +147,7 @@ class CopyPersistenceAdapterTest {
         adapter.save(Copy.create(bookId, "PAT-1"));
         adapter.save(Copy.reconstitute(null, bookId, "PAT-9", CopyStatus.AVAILABLE, false, 0L));
 
-        var result = adapter.findAll(null, null, false, PageQuery.of(0, 20, "assetCode"));
+        var result = adapter.findAll(null, null, null, false, PageQuery.of(0, 20, "assetCode"));
 
         assertThat(result.items()).extracting(Copy::getAssetCode).containsExactly("PAT-9");
     }
@@ -164,7 +164,7 @@ class CopyPersistenceAdapterTest {
         adapter.save(Copy.create(bookId, "PAT-1"));
         adapter.save(Copy.create(otherBookId, "PAT-2"));
 
-        var result = adapter.findAll(otherBookId, null, true, PageQuery.of(0, 20, "assetCode"));
+        var result = adapter.findAll(otherBookId, null, null, true, PageQuery.of(0, 20, "assetCode"));
 
         assertThat(result.items()).extracting(Copy::getAssetCode).containsExactly("PAT-2");
     }
@@ -174,9 +174,46 @@ class CopyPersistenceAdapterTest {
         adapter.save(Copy.create(bookId, "PAT-1"));
         adapter.save(Copy.reconstitute(null, bookId, "PAT-2", CopyStatus.BORROWED, true, 0L));
 
-        var result = adapter.findAll(null, CopyStatus.BORROWED, true, PageQuery.of(0, 20, "assetCode"));
+        var result = adapter.findAll(null, CopyStatus.BORROWED, null, true, PageQuery.of(0, 20, "assetCode"));
 
         assertThat(result.items()).extracting(Copy::getAssetCode).containsExactly("PAT-2");
+    }
+
+    @Test
+    void shouldFilterByTheExactAssetCodeWithoutCaringAboutCase() {
+        adapter.save(Copy.create(bookId, "PAT-0007"));
+        adapter.save(Copy.create(bookId, "PAT-00070"));
+        adapter.save(Copy.create(bookId, "PAT-0008"));
+
+        var exact = adapter.findAll(null, null, "PAT-0007", true, PageQuery.of(0, 20, "assetCode"));
+        var otherCase = adapter.findAll(null, null, "pat-0007", true, PageQuery.of(0, 20, "assetCode"));
+
+        assertThat(exact.items()).extracting(Copy::getAssetCode).containsExactly("PAT-0007");
+        assertThat(otherCase.items()).extracting(Copy::getAssetCode).containsExactly("PAT-0007");
+        assertThat(exact.totalItems()).isEqualTo(1);
+    }
+
+    @Test
+    void anUnknownAssetCodeShouldGiveAnEmptyPage() {
+        adapter.save(Copy.create(bookId, "PAT-0007"));
+
+        var result = adapter.findAll(null, null, "PAT-9999", true, PageQuery.of(0, 20, "assetCode"));
+
+        assertThat(result.items()).isEmpty();
+        assertThat(result.totalItems()).isZero();
+    }
+
+    @Test
+    void theAssetCodeFilterShouldCombineWithTheOtherFilters() {
+        adapter.save(Copy.reconstitute(null, bookId, "PAT-0007", CopyStatus.BORROWED, true, 0L));
+        adapter.save(Copy.reconstitute(null, bookId, "PAT-0008", CopyStatus.BORROWED, false, 0L));
+
+        assertThat(adapter.findAll(bookId, CopyStatus.BORROWED, "PAT-0007", true, PageQuery.of(0, 20, "id"))
+                .items()).hasSize(1);
+        assertThat(adapter.findAll(bookId, CopyStatus.AVAILABLE, "PAT-0007", true, PageQuery.of(0, 20, "id"))
+                .items()).isEmpty();
+        assertThat(adapter.findAll(null, null, "PAT-0008", true, PageQuery.of(0, 20, "id")).items()).isEmpty();
+        assertThat(adapter.findAll(null, null, "PAT-0008", false, PageQuery.of(0, 20, "id")).items()).hasSize(1);
     }
 
     @Test
@@ -184,7 +221,7 @@ class CopyPersistenceAdapterTest {
         adapter.save(Copy.create(bookId, "PAT-1"));
         adapter.save(Copy.reconstitute(null, bookId, "PAT-2", CopyStatus.BORROWED, true, 0L));
 
-        var result = adapter.findAll(bookId, CopyStatus.AVAILABLE, true, PageQuery.of(0, 20, "assetCode"));
+        var result = adapter.findAll(bookId, CopyStatus.AVAILABLE, null, true, PageQuery.of(0, 20, "assetCode"));
 
         assertThat(result.items()).extracting(Copy::getAssetCode).containsExactly("PAT-1");
     }
@@ -194,8 +231,8 @@ class CopyPersistenceAdapterTest {
         adapter.save(Copy.reconstitute(null, bookId, "PAT-1", CopyStatus.BORROWED, true, 0L));
         adapter.save(Copy.create(bookId, "PAT-2"));
 
-        var byStatus = adapter.findAll(null, null, true, PageQuery.of(0, 20, "status"));
-        var byIdDesc = adapter.findAll(null, null, true, PageQuery.of(0, 20, "id,desc"));
+        var byStatus = adapter.findAll(null, null, null, true, PageQuery.of(0, 20, "status"));
+        var byIdDesc = adapter.findAll(null, null, null, true, PageQuery.of(0, 20, "id,desc"));
 
         assertThat(byStatus.items()).extracting(Copy::getAssetCode).containsExactly("PAT-2", "PAT-1");
         assertThat(byIdDesc.items()).extracting(Copy::getAssetCode).containsExactly("PAT-2", "PAT-1");

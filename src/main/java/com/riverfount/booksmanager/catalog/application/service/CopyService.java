@@ -62,7 +62,8 @@ class CopyService implements RegisterCopyUseCase, GetCopyUseCase, ListCopiesUseC
     @Override
     @Transactional(readOnly = true)
     public PageResult<Copy> list(ListCopiesQuery query) {
-        return copyRepository.findAll(query.bookId(), query.status(), query.active(), query.page());
+        return copyRepository.findAll(query.bookId(), query.status(), query.assetCode(), query.active(),
+                query.page());
     }
 
     @Override
