@@ -50,6 +50,12 @@ class LoanPersistenceAdapter implements LoanRepository {
         return SpringDataPages.toPageResult(result, this::toDomain);
     }
 
+    @Override
+    public long count(LoanFilter filter) {
+        return jpaRepository.countMatching(filter.readerId(), filter.copyId(), filter.active(),
+                filter.overdueOn());
+    }
+
     private static LoanJpaEntity create(Loan loan) {
         return new LoanJpaEntity(loan.getCopyId(), loan.getReaderId(), loan.getPickupDate(), loan.getDueDate(),
                 loan.getReturnDate(), loan.getRenewals());

@@ -5,6 +5,7 @@ import com.riverfount.booksmanager.loan.application.port.out.SuspensionRepositor
 import com.riverfount.booksmanager.loan.domain.Suspension;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.PageResult;
+import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
@@ -52,6 +53,12 @@ class InMemorySuspensionRepository implements SuspensionRepository {
                 .sorted(Comparator.comparing(Suspension::getId))
                 .collect(Collectors.toMap(Suspension::getLoanId,
                         suspension -> copyWithId(suspension, suspension.getId()), (older, latest) -> latest));
+    }
+
+    @Override
+    public long countReadersInForceOn(LocalDate day) {
+        return suspensions.values().stream().filter(suspension -> suspension.isInForce(day))
+                .map(Suspension::getReaderId).distinct().count();
     }
 
     @Override

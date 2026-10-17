@@ -30,5 +30,12 @@ interface SuspensionJpaRepository extends JpaRepository<SuspensionJpaEntity, Lon
     Page<SuspensionJpaEntity> search(@Param("readerId") Long readerId, @Param("loanId") Long loanId,
             @Param("day") LocalDate day, @Param("notDay") LocalDate notDay, Pageable pageable);
 
+    /** The readers (distinct) with a suspension in force on the day; the same condition as {@link #search}. */
+    @Query("""
+            select count(distinct s.readerId) from SuspensionJpaEntity s
+            where s.startDate <= :day and :day < least(s.endDate, coalesce(s.endedEarlyOn, s.endDate))
+            """)
+    long countReadersInForceOn(@Param("day") LocalDate day);
+
     List<SuspensionJpaEntity> findByLoanIdInOrderByIdAsc(Collection<Long> loanIds);
 }
