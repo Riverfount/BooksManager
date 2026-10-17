@@ -11,6 +11,8 @@ import com.riverfount.booksmanager.user.application.port.in.DeactivateUserUseCas
 import com.riverfount.booksmanager.user.application.port.in.GetUserUseCase;
 import com.riverfount.booksmanager.user.application.port.in.ListUsersQuery;
 import com.riverfount.booksmanager.user.application.port.in.ListUsersUseCase;
+import com.riverfount.booksmanager.user.application.port.in.ResetUserPasswordCommand;
+import com.riverfount.booksmanager.user.application.port.in.ResetUserPasswordUseCase;
 import com.riverfount.booksmanager.user.application.port.in.UnblockUserUseCase;
 import com.riverfount.booksmanager.user.application.port.in.UpdateUserCommand;
 import com.riverfount.booksmanager.user.application.port.in.UpdateUserUseCase;
@@ -35,6 +37,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -54,17 +57,20 @@ class UserController {
     private final UpdateUserUseCase updateUserUseCase;
     private final UnblockUserUseCase unblockUserUseCase;
     private final DeactivateUserUseCase deactivateUserUseCase;
+    private final ResetUserPasswordUseCase resetUserPasswordUseCase;
     private final Clock clock;
 
     UserController(CreateUserUseCase createUserUseCase, GetUserUseCase getUserUseCase,
             ListUsersUseCase listUsersUseCase, UpdateUserUseCase updateUserUseCase,
-            UnblockUserUseCase unblockUserUseCase, DeactivateUserUseCase deactivateUserUseCase, Clock clock) {
+            UnblockUserUseCase unblockUserUseCase, DeactivateUserUseCase deactivateUserUseCase,
+            ResetUserPasswordUseCase resetUserPasswordUseCase, Clock clock) {
         this.createUserUseCase = createUserUseCase;
         this.getUserUseCase = getUserUseCase;
         this.listUsersUseCase = listUsersUseCase;
         this.updateUserUseCase = updateUserUseCase;
         this.unblockUserUseCase = unblockUserUseCase;
         this.deactivateUserUseCase = deactivateUserUseCase;
+        this.resetUserPasswordUseCase = resetUserPasswordUseCase;
         this.clock = clock;
     }
 
@@ -183,6 +189,32 @@ class UserController {
     })
     void unblock(@PathVariable Long id) {
         unblockUserUseCase.unblock(id);
+    }
+
+    @PutMapping("/{id}/password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Redefinir a senha do usuário",
+            description = "Define uma nova senha para o usuário, só para administrador. A senha nova segue a mesma "
+                    + "política da criação (de 8 a 25 caracteres, com maiúscula, minúscula, número e caractere "
+                    + "especial), é guardada só como hash e nunca é devolvida nem registrada em log. Todos os "
+                    + "refresh tokens do usuário são revogados: quem estava logado precisa entrar de novo. O access "
+                    + "token já emitido continua valendo até expirar (no máximo 15 minutos). O usuário inativo "
+                    + "continua inativo.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Senha redefinida"),
+            @ApiResponse(responseCode = "400", description = "Requisição inválida (senha ausente, em branco ou grande demais)",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "404", description = "Usuário não encontrado",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "422",
+                    description = "Senha que não cumpre a política (a mensagem diz quais regras faltam)",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    void resetPassword(@PathVariable Long id, @Valid @RequestBody ResetUserPasswordRequest request) {
+        resetUserPasswordUseCase.resetPassword(new ResetUserPasswordCommand(id, request.password()));
     }
 
     @DeleteMapping("/{id}")

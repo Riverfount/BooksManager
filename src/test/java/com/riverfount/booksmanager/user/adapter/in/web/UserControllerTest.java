@@ -13,6 +13,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -33,6 +34,8 @@ import com.riverfount.booksmanager.user.application.port.in.DeactivateUserUseCas
 import com.riverfount.booksmanager.user.application.port.in.GetUserUseCase;
 import com.riverfount.booksmanager.user.application.port.in.ListUsersQuery;
 import com.riverfount.booksmanager.user.application.port.in.ListUsersUseCase;
+import com.riverfount.booksmanager.user.application.port.in.ResetUserPasswordCommand;
+import com.riverfount.booksmanager.user.application.port.in.ResetUserPasswordUseCase;
 import com.riverfount.booksmanager.user.application.port.in.UnblockUserUseCase;
 import com.riverfount.booksmanager.user.application.port.in.UpdateUserCommand;
 import com.riverfount.booksmanager.user.application.port.in.UpdateUserUseCase;
@@ -96,6 +99,9 @@ class UserControllerTest {
 
     @MockitoBean
     private DeactivateUserUseCase deactivateUserUseCase;
+
+    @MockitoBean
+    private ResetUserPasswordUseCase resetUserPasswordUseCase;
 
     private MockHttpServletRequestBuilder create(String json) {
         return post("/api/v1/users").with(csrf()).contentType(MediaType.APPLICATION_JSON).content(json);
@@ -645,5 +651,77 @@ class UserControllerTest {
                 .andExpect(content().contentTypeCompatibleWith("application/problem+json"));
 
         then(deactivateUserUseCase).should(never()).deactivate(any());
+    }
+
+    // resetting a password (RF09, HU29, RNF07)
+
+    private MockHttpServletRequestBuilder resetPassword(String id, String json) {
+        return put("/api/v1/users/" + id + "/password").with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content(json);
+    }
+
+    @Test
+    @WithAdmin
+    void shouldResetThePasswordReturn204WithNoBodyAndHandTheCommandToTheUseCase() throws Exception {
+        mockMvc.perform(resetPassword("5", "{\"password\":\"N3w-Pass#word\"}"))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+
+        then(resetUserPasswordUseCase).should().resetPassword(new ResetUserPasswordCommand(5L, "N3w-Pass#word"));
+    }
+
+    @Test
+    @WithAdmin
+    void shouldReturn400WhenThePasswordIsMissingBlankOrOversized() throws Exception {
+        for (var json : new String[] {"{}", "{\"password\":null}", "{\"password\":\"   \"}",
+                "{\"password\":\"" + "a".repeat(129) + "\"}"}) {
+            mockMvc.perform(resetPassword("5", json))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(content().contentTypeCompatibleWith("application/problem+json"));
+        }
+
+        then(resetUserPasswordUseCase).should(never()).resetPassword(any());
+    }
+
+    @Test
+    @WithAdmin
+    void shouldReturn400ForANonNumericIdOnTheReset() throws Exception {
+        mockMvc.perform(resetPassword("abc", "{\"password\":\"N3w-Pass#word\"}"))
+                .andExpect(status().isBadRequest());
+
+        then(resetUserPasswordUseCase).should(never()).resetPassword(any());
+    }
+
+    @Test
+    @WithAdmin
+    void shouldReturn404ForAnUnknownUserOnTheReset() throws Exception {
+        willThrow(new ResourceNotFoundException("usuário não encontrado: 99")).given(resetUserPasswordUseCase)
+                .resetPassword(any());
+
+        mockMvc.perform(resetPassword("99", "{\"password\":\"N3w-Pass#word\"}"))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"));
+    }
+
+    @Test
+    @WithAdmin
+    void shouldReturn422WhenThePasswordBreaksThePolicyWithoutRepeatingIt() throws Exception {
+        willThrow(new BusinessRuleException("a senha precisa ter maiúscula")).given(resetUserPasswordUseCase)
+                .resetPassword(any());
+
+        mockMvc.perform(resetPassword("5", "{\"password\":\"weakpassword\"}"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+                .andExpect(content().string(org.hamcrest.Matchers.not(containsString("weakpassword"))));
+    }
+
+    @Test
+    @WithOperator
+    void anOperatorGets403OnTheReset() throws Exception {
+        mockMvc.perform(resetPassword("5", "{\"password\":\"N3w-Pass#word\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"));
+
+        then(resetUserPasswordUseCase).should(never()).resetPassword(any());
     }
 }
