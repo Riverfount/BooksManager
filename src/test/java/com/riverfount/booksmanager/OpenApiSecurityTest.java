@@ -168,6 +168,11 @@ class OpenApiSecurityTest {
                     .andExpect(jsonPath("$.paths['/api/v1/library-configuration'].get.responses['" + status + "']")
                             .exists());
         }
+        for (var status : new String[] {"200", "401", "403"}) {
+            mockMvc.perform(get("/v3/api-docs"))
+                    .andExpect(jsonPath("$.paths['/api/v1/library-configuration/rules'].get.responses['" + status
+                            + "']").exists());
+        }
         for (var status : new String[] {"200", "400", "401", "403", "422"}) {
             mockMvc.perform(get("/v3/api-docs"))
                     .andExpect(jsonPath("$.paths['/api/v1/library-configuration'].patch.responses['" + status + "']")

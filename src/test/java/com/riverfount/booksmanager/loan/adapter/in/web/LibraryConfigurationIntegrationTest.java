@@ -75,6 +75,29 @@ class LibraryConfigurationIntegrationTest {
     }
 
     @Test
+    void anOperatorShouldReadOnlyTheLoanRulesAndStillBeRefusedTheWholeConfiguration() throws Exception {
+        mockMvc.perform(get(URL + "/rules").header("Authorization", token("OPERATOR")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.loanPeriodDays").value(14))
+                .andExpect(jsonPath("$.loanLimit").value(3))
+                .andExpect(jsonPath("$.renewalLimit").value(2))
+                .andExpect(jsonPath("$.reservationPickupDays").value(3))
+                .andExpect(jsonPath("$.penaltyPolicy").doesNotExist())
+                .andExpect(jsonPath("$.dailyFineAmount").doesNotExist());
+        mockMvc.perform(get(URL).header("Authorization", token("OPERATOR"))).andExpect(status().isForbidden());
+        mockMvc.perform(get(URL + "/rules")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void theRulesShouldFollowAChangeMadeByTheAdministrator() throws Exception {
+        edit("ADMIN", "{\"loanPeriodDays\":21,\"renewalLimit\":1}").andExpect(status().isOk());
+
+        mockMvc.perform(get(URL + "/rules").header("Authorization", token("OPERATOR")))
+                .andExpect(jsonPath("$.loanPeriodDays").value(21))
+                .andExpect(jsonPath("$.renewalLimit").value(1));
+    }
+
+    @Test
     void anAdministratorShouldChangeSomeValuesAndTheRestStays() throws Exception {
         edit("ADMIN", "{\"penaltyPolicy\":\"SUSPENSION\",\"loanPeriodDays\":21}")
                 .andExpect(status().isOk())

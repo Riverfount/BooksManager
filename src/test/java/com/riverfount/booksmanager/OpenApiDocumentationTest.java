@@ -125,7 +125,8 @@ class OpenApiDocumentationTest {
 
         assertThat(paths).contains("/api/v1/loans", "/api/v1/loans/{id}/return", "/api/v1/loans/{id}/renew",
                 "/api/v1/fines/{id}/pay", "/api/v1/fines/{id}/waive", "/api/v1/suspensions/{id}/end",
-                "/api/v1/reports/overdue-loans", "/api/v1/library-configuration", "/api/v1/readers",
+                "/api/v1/reports/overdue-loans", "/api/v1/library-configuration", "/api/v1/library-configuration/rules",
+                "/api/v1/readers",
                 "/api/v1/books", "/api/v1/copies", "/api/v1/users", "/api/v1/auth/login");
     }
 
