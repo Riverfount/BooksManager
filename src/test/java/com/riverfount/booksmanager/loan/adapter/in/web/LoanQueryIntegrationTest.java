@@ -44,6 +44,9 @@ class LoanQueryIntegrationTest {
     private JdbcTemplate jdbcTemplate;
 
     @Autowired
+    private java.time.Clock clock;
+
+    @Autowired
     private JwtEncoder encoder;
 
     @Autowired
@@ -82,6 +85,14 @@ class LoanQueryIntegrationTest {
                 """, Long.class, copyId, readerId, PICKUP.plusDays(30), PICKUP.plusDays(44));
     }
 
+    /** An active loan needs a copy of its own (one active loan per copy). */
+    private long anotherCopy(String assetCode) {
+        return jdbcTemplate.queryForObject("""
+                insert into copy (book_id, asset_code, status)
+                values ((select book_id from copy where id = ?), ?, 'BORROWED') returning id
+                """, Long.class, copyId, assetCode);
+    }
+
     private ResultActions getAs(String url, String role) throws Exception {
         var token = "Bearer " + TestTokens.signed(encoder, properties.issuer(), "1", role, Instant.now(),
                 Instant.now().plusSeconds(900));
@@ -110,9 +121,45 @@ class LoanQueryIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.active").value(true))
                 .andExpect(jsonPath("$.returnDate").doesNotExist())
-                .andExpect(jsonPath("$.daysLate").doesNotExist())
                 .andExpect(jsonPath("$.fine").doesNotExist())
                 .andExpect(jsonPath("$.suspension").doesNotExist());
+    }
+
+    @Test
+    void anActiveLoanPastItsDueDateShouldShowTheDaysLateOfToday() throws Exception {
+        var days = java.time.temporal.ChronoUnit.DAYS.between(PICKUP.plusDays(44), LocalDate.now(clock));
+
+        getAs(URL + "/" + activeLoanId, "ADMIN")
+                .andExpect(jsonPath("$.active").value(true))
+                .andExpect(jsonPath("$.daysLate").value(days));
+    }
+
+    @Test
+    void theOverdueFilterShouldGiveTheSameLoansAndTotalAsTheOverdueReport() throws Exception {
+        var today = LocalDate.now(clock);
+        var onTimeId = jdbcTemplate.queryForObject("""
+                insert into loan (copy_id, reader_id, pickup_date, due_date) values (?, ?, ?, ?) returning id
+                """, Long.class, anotherCopy("LQ-2"), readerId, today.minusDays(2), today.plusDays(12));
+        var dueTodayId = jdbcTemplate.queryForObject("""
+                insert into loan (copy_id, reader_id, pickup_date, due_date) values (?, ?, ?, ?) returning id
+                """, Long.class, anotherCopy("LQ-3"), readerId, today.minusDays(14), today);
+
+        var report = getAs("/api/v1/reports/overdue-loans", "OPERATOR").andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        var reportTotal = new com.fasterxml.jackson.databind.ObjectMapper().readTree(report).get("totalItems").asLong();
+
+        getAs(URL + "?overdue=true", "OPERATOR")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalItems").value(reportTotal))
+                .andExpect(jsonPath("$.items[?(@.id == " + activeLoanId + ")]").exists())
+                .andExpect(jsonPath("$.items[?(@.id == " + returnedLoanId + ")]").doesNotExist())
+                .andExpect(jsonPath("$.items[?(@.id == " + onTimeId + ")]").doesNotExist())
+                .andExpect(jsonPath("$.items[?(@.id == " + dueTodayId + ")]").doesNotExist());
+    }
+
+    @Test
+    void overdueTogetherWithReturnedShouldAnswer400() throws Exception {
+        getAs(URL + "?overdue=true&status=RETURNED", "OPERATOR").andExpect(status().isBadRequest());
     }
 
     @Test

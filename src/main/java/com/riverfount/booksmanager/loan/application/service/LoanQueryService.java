@@ -13,6 +13,8 @@ import com.riverfount.booksmanager.loan.application.port.out.SuspensionRepositor
 import com.riverfount.booksmanager.loan.domain.Loan;
 import com.riverfount.booksmanager.shared.domain.PageResult;
 import com.riverfount.booksmanager.user.application.port.in.FindReaderNamesUseCase;
+import java.time.Clock;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -22,9 +24,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Queries on loans (RF14, HU30, RNF14): finds one or lists a page, active or closed, each with
- * the result of its penalty and the names of its reader and copy. The fines, the suspensions, the
- * readers' names and the copies' summaries of a whole page are fetched in one call each, not one per
- * loan. Nothing here decides anything: it only reads.
+ * the result of its penalty, the names of its reader and copy and, when late, its days late. The
+ * fines, the suspensions, the readers' names and the copies' summaries of a whole page are fetched
+ * in one call each, not one per loan. Nothing here decides anything: it only reads.
  */
 @Service
 @Transactional(readOnly = true)
@@ -35,15 +37,17 @@ class LoanQueryService implements GetLoanUseCase, ListLoansUseCase {
     private final SuspensionRepository suspensionRepository;
     private final FindReaderNamesUseCase readerNames;
     private final FindCopySummariesUseCase copySummaries;
+    private final Clock clock;
 
     LoanQueryService(LoanRepository loanRepository, FineRepository fineRepository,
             SuspensionRepository suspensionRepository, FindReaderNamesUseCase readerNames,
-            FindCopySummariesUseCase copySummaries) {
+            FindCopySummariesUseCase copySummaries, Clock clock) {
         this.loanRepository = loanRepository;
         this.fineRepository = fineRepository;
         this.suspensionRepository = suspensionRepository;
         this.readerNames = readerNames;
         this.copySummaries = copySummaries;
+        this.clock = clock;
     }
 
     @Override
@@ -57,9 +61,10 @@ class LoanQueryService implements GetLoanUseCase, ListLoansUseCase {
         return new PageResult<>(withDetails(page.items()), page.page(), page.size(), page.totalItems());
     }
 
-    private static LoanFilter filterOf(ListLoansQuery query) {
+    private LoanFilter filterOf(ListLoansQuery query) {
         Boolean active = query.status() == null ? null : query.status() == LoanStatus.ACTIVE;
-        return new LoanFilter(query.readerId(), query.copyId(), active, null);
+        var overdueOn = query.overdue() ? LocalDate.now(clock) : null;
+        return new LoanFilter(query.readerId(), query.copyId(), active, overdueOn);
     }
 
     private List<LoanDetails> withDetails(List<Loan> loans) {
@@ -68,9 +73,18 @@ class LoanQueryService implements GetLoanUseCase, ListLoansUseCase {
         var suspensions = suspensionRepository.findByLoanIds(loanIds);
         var names = readerNames.findNames(loans.stream().map(Loan::getReaderId).collect(Collectors.toSet()));
         var copies = copySummaries.findSummaries(loans.stream().map(Loan::getCopyId).collect(Collectors.toSet()));
+        var today = LocalDate.now(clock);
         return loans.stream()
                 .map(loan -> new LoanDetails(loan, fines.get(loan.getId()), suspensions.get(loan.getId()),
-                        names.get(loan.getReaderId()), copies.get(loan.getCopyId())))
+                        names.get(loan.getReaderId()), copies.get(loan.getCopyId()), daysLate(loan, today)))
                 .toList();
+    }
+
+    /** Days past the due date: up to the return for a closed loan, up to today for a late active one, else null. */
+    private static Long daysLate(Loan loan, LocalDate today) {
+        if (loan.isReturned()) {
+            return loan.daysLate(loan.getReturnDate());
+        }
+        return loan.isOverdue(today) ? loan.daysLate(today) : null;
     }
 }

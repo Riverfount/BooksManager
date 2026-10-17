@@ -33,7 +33,8 @@ record LoanDetailsResponse(
         @Schema(requiredMode = REQUIRED, description = "Se o empréstimo está ativo (ainda não devolvido)",
                 example = "false")
         boolean active,
-        @Schema(description = "Dias de atraso com que o exemplar voltou; nulo enquanto o empréstimo está ativo",
+        @Schema(description = "Dias de atraso: com que o exemplar voltou (zero se foi no prazo) ou, para o empréstimo "
+                + "ativo, até hoje; nulo enquanto o ativo está em dia (vencer hoje ainda é estar em dia)",
                 example = "3")
         Long daysLate,
         @Schema(description = "Multa gerada pela devolução; nula quando não houve")
@@ -48,7 +49,7 @@ record LoanDetailsResponse(
                 copy == null ? null : copy.assetCode(), copy == null ? null : copy.bookId(),
                 copy == null ? null : copy.bookTitle(), loan.getPickupDate(),
                 loan.getDueDate(), loan.getReturnDate(), loan.getRenewals(), loan.isActive(),
-                loan.isReturned() ? loan.daysLate(loan.getReturnDate()) : null,
+                details.daysLate(),
                 details.fine() == null ? null : FineSummary.from(details.fine()),
                 details.suspension() == null ? null : SuspensionSummary.from(details.suspension()));
     }

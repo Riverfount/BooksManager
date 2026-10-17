@@ -383,7 +383,7 @@ class LoanControllerTest {
         var suspension = Suspension.reconstitute(6L, 20L, 42L, LocalDate.of(2026, 11, 18),
                 LocalDate.of(2026, 11, 21), null, null);
         return new LoanDetails(returned(), fine, suspension, "Maria Silva",
-                new CopySummary(7L, "PAT-0007", 3L, "Dom Casmurro"));
+                new CopySummary(7L, "PAT-0007", 3L, "Dom Casmurro"), 3L);
     }
 
     @Test
@@ -412,7 +412,7 @@ class LoanControllerTest {
     @WithOperator
     void anActiveLoanShouldHaveNoDaysLateNorPenalty() throws Exception {
         given(getLoanUseCase.findById(42L)).willReturn(
-                java.util.Optional.of(new LoanDetails(registered(), null, null, null, null)));
+                java.util.Optional.of(new LoanDetails(registered(), null, null, null, null, null)));
 
         mockMvc.perform(get(URL + "/42"))
                 .andExpect(status().isOk())
@@ -423,6 +423,56 @@ class LoanControllerTest {
                 .andExpect(jsonPath("$.suspension").doesNotExist())
                 .andExpect(jsonPath("$.readerName").doesNotExist())
                 .andExpect(jsonPath("$.assetCode").doesNotExist());
+    }
+
+    @Test
+    @WithOperator
+    void anActiveLateLoanShouldShowItsDaysLate() throws Exception {
+        given(getLoanUseCase.findById(42L)).willReturn(java.util.Optional.of(
+                new LoanDetails(registered(), null, null, "Maria Silva", null, 4L)));
+
+        mockMvc.perform(get(URL + "/42"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.active").value(true))
+                .andExpect(jsonPath("$.daysLate").value(4))
+                .andExpect(jsonPath("$.returnDate").doesNotExist());
+    }
+
+    @Test
+    @WithOperator
+    void shouldPassTheOverdueFilterToTheUseCase() throws Exception {
+        given(listLoansUseCase.list(any())).willReturn(new PageResult<>(List.of(), 0, 20, 0));
+
+        mockMvc.perform(get(URL).param("overdue", "true").param("status", "ACTIVE")).andExpect(status().isOk());
+
+        var captor = ArgumentCaptor.forClass(com.riverfount.booksmanager.loan.application.port.in
+                .ListLoansQuery.class);
+        then(listLoansUseCase).should().list(captor.capture());
+        assertThat(captor.getValue().overdue()).isTrue();
+        assertThat(captor.getValue().status()).isEqualTo(com.riverfount.booksmanager.loan.application.port.in
+                .LoanStatus.ACTIVE);
+    }
+
+    @Test
+    @WithOperator
+    void theOverdueFilterIsOffByDefault() throws Exception {
+        given(listLoansUseCase.list(any())).willReturn(new PageResult<>(List.of(), 0, 20, 0));
+
+        mockMvc.perform(get(URL)).andExpect(status().isOk());
+
+        var captor = ArgumentCaptor.forClass(com.riverfount.booksmanager.loan.application.port.in
+                .ListLoansQuery.class);
+        then(listLoansUseCase).should().list(captor.capture());
+        assertThat(captor.getValue().overdue()).isFalse();
+    }
+
+    @Test
+    @WithOperator
+    void overdueTogetherWithReturnedShouldAnswer400() throws Exception {
+        mockMvc.perform(get(URL).param("overdue", "true").param("status", "RETURNED"))
+                .andExpect(status().isBadRequest());
+
+        then(listLoansUseCase).should(never()).list(any());
     }
 
     @Test

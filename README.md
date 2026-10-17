@@ -123,7 +123,7 @@ Todos aceitam os perfis `ADMIN` e `OPERATOR` (a configuração da biblioteca é 
 | Devolver | `POST /api/v1/loans/{id}/return` | 200 com os dias de atraso e a multa e a suspensão geradas |
 | Renovar | `POST /api/v1/loans/{id}/renew` | 200 com a nova data prevista; 422 se encerrado, em atraso ou no limite |
 | Consultar empréstimo | `GET /api/v1/loans/{id}` | 200, inclusive para empréstimo encerrado |
-| Listar empréstimos | `GET /api/v1/loans?readerId=&copyId=&status=` | 200 com o nome do leitor, o código do exemplar e o título do livro; `status` é `ACTIVE` ou `RETURNED` (o histórico) |
+| Listar empréstimos | `GET /api/v1/loans?readerId=&copyId=&status=&overdue=` | 200 com o nome do leitor, o código do exemplar e o título do livro; `status` é `ACTIVE` ou `RETURNED` (o histórico); `overdue=true` traz só os atrasados e traz `daysLate` (400 com `status=RETURNED`) |
 | Listar multas | `GET /api/v1/fines?readerId=&status=` | 200; cada multa traz o `pendingAmount` |
 | Pagar multa | `POST /api/v1/fines/{id}/pay` | 200; 422 se já resolvida |
 | Abonar multa | `POST /api/v1/fines/{id}/waive` com `{"reason": "..."}` | 200; 400 sem justificativa |
