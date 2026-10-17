@@ -24,6 +24,30 @@ class SuspensionTest {
         return Suspension.create(20L, 10L, START, 3); // suspended on Nov 5, 6 and 7; free again on Nov 8
     }
 
+    // the day the reader is released
+
+    @Test
+    void theReleaseDateShouldBeTheCalculatedEndWhenNothingEndedItEarly() {
+        assertThat(suspension().releaseDate()).isEqualTo(START.plusDays(3));
+    }
+
+    @Test
+    void theReleaseDateShouldBeTheDayItWasEndedEarly() {
+        var suspension = suspension();
+        suspension.endEarly(START.plusDays(1), "Pardoned");
+
+        assertThat(suspension.releaseDate()).isEqualTo(START.plusDays(1));
+        assertThat(suspension.getEndDate()).as("the calculated end stays as history").isEqualTo(START.plusDays(3));
+    }
+
+    @Test
+    void theReleaseDateShouldBeTheFirstDayTheReaderIsNotInForceAnymore() {
+        var suspension = suspension();
+
+        assertThat(suspension.isInForce(suspension.releaseDate().minusDays(1))).isTrue();
+        assertThat(suspension.isInForce(suspension.releaseDate())).isFalse();
+    }
+
     // creation
 
     @Test

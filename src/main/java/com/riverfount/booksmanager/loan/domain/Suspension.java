@@ -80,7 +80,7 @@ public class Suspension {
      */
     public boolean isInForce(LocalDate day) {
         requireDate(day);
-        return !day.isBefore(startDate) && day.isBefore(effectiveEnd());
+        return !day.isBefore(startDate) && day.isBefore(releaseDate());
     }
 
     /**
@@ -110,7 +110,11 @@ public class Suspension {
         return isEndedEarly() || !today.isBefore(endDate);
     }
 
-    private LocalDate effectiveEnd() {
+    /**
+     * The day the reader is free again: the calculated end date, or the day the suspension was
+     * ended early when that came first. It is the first day the suspension is no longer in force.
+     */
+    public LocalDate releaseDate() {
         return endedEarlyOn != null && endedEarlyOn.isBefore(endDate) ? endedEarlyOn : endDate;
     }
 

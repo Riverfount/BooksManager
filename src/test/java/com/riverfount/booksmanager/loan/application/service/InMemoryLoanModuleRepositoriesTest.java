@@ -122,11 +122,24 @@ class InMemoryLoanModuleRepositoriesTest {
         endedEarly.endEarly(DAY.plusDays(1), "Pardoned");
         suspensions.save(endedEarly);
 
-        var inForce = suspensions.findAll(new SuspensionFilter(10L, null, DAY.plusDays(2)),
+        var inForce = suspensions.findAll(new SuspensionFilter(10L, null, DAY.plusDays(2), null),
                 PageQuery.of(0, 20, "id"));
 
         assertThat(inForce.items()).extracting(Suspension::getId).containsExactly(running.getId());
         assertThat(suspensions.findById(endedEarly.getId()).orElseThrow().isEndedEarly()).isTrue();
+    }
+
+    @Test
+    void shouldFilterTheSuspensionsNotInForceOnADay() {
+        suspensions.save(Suspension.create(10L, 1L, DAY, 5));
+        var endedEarly = suspensions.save(Suspension.create(10L, 2L, DAY, 5));
+        endedEarly.endEarly(DAY.plusDays(1), "Pardoned");
+        suspensions.save(endedEarly);
+
+        var notInForce = suspensions.findAll(new SuspensionFilter(10L, null, null, DAY.plusDays(2)),
+                PageQuery.of(0, 20, "id"));
+
+        assertThat(notInForce.items()).extracting(Suspension::getId).containsExactly(endedEarly.getId());
     }
 
     @Test
