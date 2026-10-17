@@ -126,6 +126,8 @@ A multa gerada por um atraso é resolvida com `POST /api/v1/fines/{id}/pay` (pag
 
 A situação de um leitor para decidir um novo empréstimo se consulta em `GET /api/v1/fines` (filtros `readerId` e `status`; cada multa traz o `pendingAmount`) e `GET /api/v1/suspensions` (filtros `readerId` e `inForce`; cada suspensão traz o término e o dia em que o leitor volta a poder emprestar). Uma suspensão que já terminou não aparece como em vigor, e as duas listagens são paginadas, com até 100 itens por página.
 
+O operador pode liberar um leitor antes do prazo com `POST /api/v1/suspensions/{id}/end` e `{"reason": "..."}`: a justificativa é obrigatória (400 sem ela) e fica registrada; depois disso o leitor volta a poder emprestar, se nada mais o impedir. Encerrar uma suspensão que já terminou não tem efeito (200, com o estado atual).
+
 Os erros seguem o formato ProblemDetail (400, 404, 409 e 422). Os detalhes do contrato estão em [`docs/projeto.md`](docs/projeto.md), seção "Interface e API", e cada endpoint está descrito no Swagger.
 
 ### Testes
