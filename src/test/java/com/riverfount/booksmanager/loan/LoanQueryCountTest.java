@@ -20,15 +20,15 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Guards the "no query per loan" criterion of the loan listing (RF14, RNF14): the whole use
  * case, with the real adapters and PostgreSQL, runs a fixed number of queries per page (the
- * page, its total count, and the fines and suspensions of the whole page), however many loans
- * the page has and however many of them have a penalty.
+ * page, its total count, the fines and suspensions of the whole page, the readers' names, and the
+ * copies' summaries, which take two: the copies and their books), however many loans the page has and however many of them have a penalty.
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(properties = "spring.jpa.properties.hibernate.generate_statistics=true")
 @Transactional
 class LoanQueryCountTest {
 
-    private static final int QUERIES_PER_PAGE = 4;
+    private static final int QUERIES_PER_PAGE = 7;
     private static final LocalDate PICKUP = LocalDate.of(2026, 1, 1);
 
     @Autowired
@@ -78,7 +78,8 @@ class LoanQueryCountTest {
         var page = listLoans.list(query);
 
         assertThat(page.items()).isNotEmpty();
-        assertThat(page.items()).allMatch(details -> details.fine() != null && details.suspension() != null);
+        assertThat(page.items()).allMatch(details -> details.fine() != null && details.suspension() != null
+                && details.readerName() != null && details.copy() != null);
         return statistics.getPrepareStatementCount();
     }
 

@@ -152,8 +152,10 @@ class LoanController {
             description = "Lista os empréstimos de forma paginada (máximo de 100 por página), por leitor, por "
                     + "exemplar e por situação: `ACTIVE` (ainda não devolvidos) ou `RETURNED` (encerrados, o "
                     + "histórico). Sem filtro de situação, vêm todos. Por padrão, do mais recente para o mais "
-                    + "antigo. Cada item traz as datas de retirada, prevista e de devolução e, para o empréstimo "
-                    + "devolvido, os dias de atraso e a multa e a suspensão geradas, quando houver.")
+                    + "antigo. Cada item traz o nome do leitor, o código de patrimônio do exemplar e o título do "
+                    + "livro, as datas de retirada, prevista e de "
+                    + "devolução e, para o empréstimo devolvido, os dias de atraso e a multa e a "
+                    + "suspensão geradas, quando houver.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Página de empréstimos"),
             @ApiResponse(responseCode = "400",
@@ -182,7 +184,8 @@ class LoanController {
 
     @GetMapping("/{id}")
     @Operation(summary = "Consultar empréstimo por id",
-            description = "Devolve o empréstimo com as datas de retirada, prevista e de devolução e, se já foi "
+            description = "Devolve o empréstimo com o nome do leitor, o código de patrimônio do exemplar e o "
+                    + "título do livro, as datas de retirada, prevista e de devolução e, se já foi "
                     + "devolvido, os dias de atraso e a multa e a suspensão geradas, quando houver. Vale também "
                     + "para empréstimo encerrado.")
     @ApiResponses({

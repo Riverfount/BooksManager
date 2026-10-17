@@ -3,17 +3,28 @@ package com.riverfount.booksmanager.loan.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.riverfount.booksmanager.catalog.application.port.in.CopySummary;
+import com.riverfount.booksmanager.catalog.application.port.in.FindCopySummariesUseCase;
 import com.riverfount.booksmanager.loan.application.port.in.ListLoansQuery;
+import com.riverfount.booksmanager.loan.application.port.in.LoanDetails;
 import com.riverfount.booksmanager.loan.application.port.in.LoanStatus;
 import com.riverfount.booksmanager.loan.domain.Fine;
 import com.riverfount.booksmanager.loan.domain.Loan;
 import com.riverfount.booksmanager.loan.domain.Suspension;
 import com.riverfount.booksmanager.shared.domain.InvalidQueryException;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
+import com.riverfount.booksmanager.user.application.port.in.FindReaderNamesUseCase;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 
 /** Querying loans (RF14, HU30): active and closed, by reader and by copy, always paginated (RNF14). */
 class LoanQueryServiceTest {
@@ -25,6 +36,8 @@ class LoanQueryServiceTest {
     private InMemoryLoanRepository loanRepository;
     private InMemoryFineRepository fineRepository;
     private InMemorySuspensionRepository suspensionRepository;
+    private FindReaderNamesUseCase readerNames;
+    private FindCopySummariesUseCase copySummaries;
     private LoanQueryService service;
 
     @BeforeEach
@@ -32,7 +45,10 @@ class LoanQueryServiceTest {
         loanRepository = new InMemoryLoanRepository();
         fineRepository = new InMemoryFineRepository();
         suspensionRepository = new InMemorySuspensionRepository();
-        service = new LoanQueryService(loanRepository, fineRepository, suspensionRepository);
+        readerNames = mock(FindReaderNamesUseCase.class);
+        copySummaries = mock(FindCopySummariesUseCase.class);
+        service = new LoanQueryService(loanRepository, fineRepository, suspensionRepository, readerNames,
+                copySummaries);
     }
 
     private Loan openLoan(long copy, long reader, LocalDate pickup) {
@@ -153,6 +169,53 @@ class LoanQueryServiceTest {
 
         assertThat(page.items()).isEmpty();
         assertThat(page.totalItems()).isZero();
+    }
+
+    // names of the reader and of the copy (RF14)
+
+    @Test
+    void shouldFindALoanWithTheReaderNameAndTheCopySummary() {
+        var loan = openLoan(7L, READER, DAY);
+        var summary = new CopySummary(7L, "PAT-0007", 3L, "Dom Casmurro");
+        given(readerNames.findNames(Set.of(READER))).willReturn(Map.of(READER, "Maria Silva"));
+        given(copySummaries.findSummaries(Set.of(7L))).willReturn(Map.of(7L, summary));
+
+        var details = service.findById(loan.getId()).orElseThrow();
+
+        assertThat(details.readerName()).isEqualTo("Maria Silva");
+        assertThat(details.copy()).isEqualTo(summary);
+    }
+
+    @Test
+    void shouldListEachLoanWithItsOwnNamesFetchedOncePerPage() {
+        openLoan(7L, READER, DAY);
+        openLoan(8L, OTHER_READER, DAY);
+        openLoan(9L, READER, DAY);
+        given(readerNames.findNames(Set.of(READER, OTHER_READER)))
+                .willReturn(Map.of(READER, "Maria Silva", OTHER_READER, "João Souza"));
+        given(copySummaries.findSummaries(Set.of(7L, 8L, 9L))).willReturn(Map.of(
+                7L, new CopySummary(7L, "PAT-0007", 3L, "Dom Casmurro"),
+                8L, new CopySummary(8L, "PAT-0008", 4L, "Quincas Borba"),
+                9L, new CopySummary(9L, "PAT-0009", 3L, "Dom Casmurro")));
+
+        var page = service.list(query(null, null, null));
+
+        assertThat(page.items()).extracting(LoanDetails::readerName)
+                .containsExactly("Maria Silva", "João Souza", "Maria Silva");
+        assertThat(page.items()).extracting(details -> details.copy().assetCode())
+                .containsExactly("PAT-0007", "PAT-0008", "PAT-0009");
+        then(readerNames).should(times(1)).findNames(Set.of(READER, OTHER_READER));
+        then(copySummaries).should(times(1)).findSummaries(Set.of(7L, 8L, 9L));
+    }
+
+    @Test
+    void anUnknownReaderOrCopyShouldLeaveTheNamesNullInsteadOfFailing() {
+        var loan = openLoan(7L, READER, DAY);
+
+        var details = service.findById(loan.getId()).orElseThrow();
+
+        assertThat(details.readerName()).isNull();
+        assertThat(details.copy()).isNull();
     }
 
     // the query (RNF14)

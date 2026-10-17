@@ -13,6 +13,14 @@ record LoanDetailsResponse(
         Long copyId,
         @Schema(requiredMode = REQUIRED, description = "Id do leitor", example = "20")
         Long readerId,
+        @Schema(description = "Nome do leitor", example = "Maria Silva")
+        String readerName,
+        @Schema(description = "Código de patrimônio do exemplar", example = "PAT-0007")
+        String assetCode,
+        @Schema(description = "Id do livro do exemplar", example = "3")
+        Long bookId,
+        @Schema(description = "Título do livro do exemplar", example = "Dom Casmurro")
+        String bookTitle,
         @Schema(requiredMode = REQUIRED, description = "Data de retirada (ISO-8601)", example = "2026-11-01")
         LocalDate pickupDate,
         @Schema(requiredMode = REQUIRED, description = "Data prevista de devolução (ISO-8601), já com as "
@@ -35,7 +43,10 @@ record LoanDetailsResponse(
 
     static LoanDetailsResponse from(LoanDetails details) {
         var loan = details.loan();
-        return new LoanDetailsResponse(loan.getId(), loan.getCopyId(), loan.getReaderId(), loan.getPickupDate(),
+        var copy = details.copy();
+        return new LoanDetailsResponse(loan.getId(), loan.getCopyId(), loan.getReaderId(), details.readerName(),
+                copy == null ? null : copy.assetCode(), copy == null ? null : copy.bookId(),
+                copy == null ? null : copy.bookTitle(), loan.getPickupDate(),
                 loan.getDueDate(), loan.getReturnDate(), loan.getRenewals(), loan.isActive(),
                 loan.isReturned() ? loan.daysLate(loan.getReturnDate()) : null,
                 details.fine() == null ? null : FineSummary.from(details.fine()),
