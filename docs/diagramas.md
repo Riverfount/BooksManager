@@ -133,7 +133,8 @@ classDiagram
 | `LibraryConfiguration` | `loan` | Migração (issue #136), domínio, com o enum `PenaltyPolicy` (issue #137), persistência (issue #138) e os endpoints `GET` e `PATCH /api/v1/library-configuration` (issue #139) implementados. |
 | `Penalty` e `PenaltyPolicy.calculate` | `loan` | Implementados (issue #140): o cálculo da multa e da suspensão por variante da política. |
 | `Loan` | `loan` | Domínio implementado (issue #141); faltam a persistência e os casos de uso (issues #145 a #152). |
-| `Fine`, `Suspension` | `loan` | Planejadas — fase 3 do plano de desenvolvimento (issues #142, #143 e #145 a #157). A suspensão é um registro do `loan`, não um campo do `Reader` (decisão da issue #135). |
+| `Fine` | `loan` | Domínio, com o enum `FineStatus`, implementado (issue #142); faltam a persistência e os casos de uso (issues #145, #146, #153 e #154). |
+| `Suspension` | `loan` | Planejada — fase 3 do plano de desenvolvimento (issues #143 e #145 a #157). A suspensão é um registro do `loan`, não um campo do `Reader` (decisão da issue #135). |
 | `Reservation` | `loan` | Planejada — fase 4 do plano de desenvolvimento. |
 
 ## Referências
