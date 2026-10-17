@@ -5,7 +5,7 @@
 | **Aluno(a)** | Vicente Eduardo Ribeiro Marçal |
 | **Turma** | TEC-N-001788/2026 |
 | **Opção escolhida** | Proposta própria: controle de acervo e empréstimos de uma biblioteca |
-| **Versão atual** | 0.0.1-SNAPSHOT |
+| **Versão atual** | 1.0.0 |
 
 ---
 
@@ -94,7 +94,7 @@ As variáveis de ambiente da aplicação estão no **.env-sample**. Copie-o para
 A API usa tokens JWT no cabeçalho `Authorization: Bearer <token>`; não há sessão no servidor. Todas as rotas exigem um token válido, exceto a documentação (Swagger e OpenAPI), o health check e as rotas `/api/v1/auth/**`. Sem token, com token expirado ou inválido, a resposta é 401 em ProblemDetail. Há dois perfis, `ADMIN` e `OPERATOR`: o catálogo, os leitores e as operações do dia a dia são dos dois; os usuários do sistema (`POST /api/v1/users` cria um usuário, `GET /api/v1/users` e `GET /api/v1/users/{id}` os consultam, mostrando se estão bloqueados por tentativas de login, `PATCH /api/v1/users/{id}` muda o perfil `POST /api/v1/users/{id}/unblock` desbloqueia um usuário e `DELETE /api/v1/users/{id}` o inativa, sem excluí-lo e revogando seus refresh tokens, e `PUT /api/v1/users/{id}/password` redefine a senha, revogando os refresh tokens do usuário) e a configuração da biblioteca (`GET` e `PATCH /api/v1/library-configuration`: política de penalidade, prazos e limites) são só do `ADMIN`. Quem não tem permissão recebe 403 em ProblemDetail, e quem não está autenticado recebe 401 (a matriz completa está em `docs/projeto.md`). Para obter o token, faça `POST /api/v1/auth/login` com `{"login": "...", "password": "..."}`: a resposta traz o `accessToken` (válido por 15 minutos) e define o refresh token em um cookie `httpOnly` (7 dias), que o JavaScript não lê. O front-end deve fazer essa requisição com credenciais (`credentials: 'include'`). Login inexistente, senha errada, usuário inativo e usuário bloqueado recebem a mesma resposta 401. Depois de **3 senhas erradas** seguidas o usuário fica bloqueado por **15 minutos** (configurável em `app.login-lockout.*`) e o bloqueio termina sozinho; o 401 não diz que a conta está bloqueada. No Swagger, use o botão **Authorize** para colar o `accessToken`. Para renovar, `POST /api/v1/auth/refresh` (sem corpo) troca o refresh token do cookie por um novo access token e por um novo refresh token (cada um vale uma vez só); `POST /api/v1/auth/logout` encerra a sessão. As duas exigem o cabeçalho `X-Requested-With: XMLHttpRequest` (proteção contra CSRF) e a requisição com credenciais; um refresh token inválido, expirado ou já usado devolve 401 e limpa o cookie.
 
 ### Documentação da API
-A API é um back-end puro, sem páginas HTML; não há nada para visualizar na raiz **http://localhost:8080**. Com a aplicação em execução, a documentação Swagger fica em http://localhost:8080/swagger-ui.html, e as requisições à API usam o prefixo **/api/v1**.
+A API é um back-end puro, sem páginas HTML; não há nada para visualizar na raiz **http://localhost:8080**. Com a aplicação em execução, a documentação Swagger fica em http://localhost:8080/swagger-ui.html, e as requisições à API usam o prefixo **/api/v1**. O Swagger mostra a versão do projeto (`v1.0.0`, a mesma do `pom.xml`); ela não é a versão da API, que continua sendo o prefixo `/api/v1`.
 
 ### Endpoints do catálogo
 Todos os recursos do catálogo seguem o mesmo contrato, sob o prefixo **/api/v1**:

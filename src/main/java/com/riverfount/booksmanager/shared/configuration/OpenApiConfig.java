@@ -11,12 +11,17 @@ import io.swagger.v3.oas.models.responses.ApiResponse;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import org.springdoc.core.customizers.OpenApiCustomizer;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.info.BuildProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
  * General API information (title, version, description) shown in the
- * Swagger UI, instead of springdoc's defaults (RNF24), and the Bearer (JWT)
+ * Swagger UI, instead of springdoc's defaults (RNF24). The version shown is
+ * the version of the project, read from the {@code pom.xml}; it is not the
+ * version of the API, which is the {@code /api/v1} prefix of the routes and
+ * does not change with it. Also the Bearer (JWT)
  * security scheme that every route uses except the public ones (RF08). Every
  * operation that needs a token also documents the 401 and the 403 (RNF08).
  */
@@ -25,8 +30,13 @@ public class OpenApiConfig {
 
     static final String BEARER_SCHEME = "bearerAuth";
 
+    /** Shown when the application runs without the build information (for example, straight from an IDE). */
+    static final String UNKNOWN_VERSION = "dev";
+
     @Bean
-    OpenAPI booksManagerOpenApi() {
+    OpenAPI booksManagerOpenApi(ObjectProvider<BuildProperties> buildProperties) {
+        var shownVersion = buildProperties.stream().findFirst().map(properties -> "v" + properties.getVersion())
+                .orElse(UNKNOWN_VERSION);
         return new OpenAPI()
                 .components(new Components().addSecuritySchemes(BEARER_SCHEME, new SecurityScheme()
                         .type(SecurityScheme.Type.HTTP)
@@ -37,7 +47,7 @@ public class OpenApiConfig {
                 .addSecurityItem(new SecurityRequirement().addList(BEARER_SCHEME))
                 .info(new Info()
                         .title("Books Manager API")
-                        .version("v1")
+                        .version(shownVersion)
                         .description("API REST para gerenciar o acervo e os empréstimos de uma biblioteca "
                                 + "escolar ou comunitária de pequeno porte."));
     }

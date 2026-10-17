@@ -10,7 +10,7 @@
     </parent>
     <groupId>com.riverfount</groupId>
     <artifactId>BooksManager</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>1.0.0</version>
     <name>BooksManager</name>
     <description>BooksManager</description>
     <properties>
@@ -157,6 +157,15 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <executions>
+                    <!-- Generates META-INF/build-info.properties, so the application knows the version of the pom -->
+                    <execution>
+                        <id>build-info</id>
+                        <goals>
+                            <goal>build-info</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
             <!--
                 Code coverage. The agent runs with the tests, the report goes to target/site/jacoco and
