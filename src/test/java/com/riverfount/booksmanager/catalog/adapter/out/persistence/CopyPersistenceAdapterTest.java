@@ -239,6 +239,35 @@ class CopyPersistenceAdapterTest {
     }
 
     @Test
+    void shouldCountEveryActiveCopyGroupedByBookWhateverItsStatus() {
+        var otherBookId = jdbcTemplate.queryForObject(
+                """
+                insert into book (isbn, title, category_id, active)
+                values ('080442957X', 'Outro Livro', (select category_id from book where id = ?), true)
+                returning id
+                """,
+                Long.class, bookId);
+        adapter.save(Copy.create(bookId, "PAT-1"));
+        adapter.save(Copy.reconstitute(null, bookId, "PAT-2", CopyStatus.BORROWED, true, 0L));
+        adapter.save(Copy.reconstitute(null, bookId, "PAT-3", CopyStatus.DAMAGED, true, 0L));
+        adapter.save(Copy.reconstitute(null, bookId, "PAT-4", CopyStatus.LOST, true, 0L));
+        adapter.save(Copy.reconstitute(null, bookId, "PAT-5", CopyStatus.AVAILABLE, false, 0L));
+        adapter.save(Copy.create(otherBookId, "PAT-6"));
+
+        var counts = adapter.countActiveByBookIds(Set.of(bookId, otherBookId));
+
+        assertThat(counts).containsEntry(bookId, 4L).containsEntry(otherBookId, 1L).hasSize(2);
+    }
+
+    @Test
+    void aBookWithoutActiveCopiesShouldBeAbsentFromTheTotalAndNoBooksGiveAnEmptyTotal() {
+        adapter.save(Copy.reconstitute(null, bookId, "PAT-1", CopyStatus.AVAILABLE, false, 0L));
+
+        assertThat(adapter.countActiveByBookIds(Set.of(bookId))).isEmpty();
+        assertThat(adapter.countActiveByBookIds(Set.of())).isEmpty();
+    }
+
+    @Test
     void shouldReturnAnEmptyCountForNoBooks() {
         adapter.save(Copy.create(bookId, "PAT-1"));
 

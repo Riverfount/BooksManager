@@ -5,6 +5,7 @@ import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 import com.riverfount.booksmanager.catalog.application.port.in.BookWithAvailability;
 import com.riverfount.booksmanager.catalog.domain.Book;
 import io.swagger.v3.oas.annotations.media.Schema;
+import java.util.List;
 import java.util.Set;
 
 record BookResponse(
@@ -27,12 +28,22 @@ record BookResponse(
         @Schema(requiredMode = REQUIRED, example = "2",
                 description = "Quantos exemplares estão disponíveis para empréstimo (ativos e com status "
                         + "AVAILABLE)")
-        long availableCopies) {
+        long availableCopies,
+        @Schema(requiredMode = REQUIRED, example = "5",
+                description = "Quantos exemplares ativos o livro tem, em qualquer status")
+        long totalCopies,
+        @Schema(requiredMode = REQUIRED, description = "Categoria do livro, com o nome; vem também quando "
+                + "inativa (o histórico a mantém)")
+        CategorySummary category,
+        @Schema(requiredMode = REQUIRED, description = "Autores do livro, com o nome, em ordem de nome; vêm "
+                + "também quando inativos")
+        List<AuthorSummary> authors) {
 
     static BookResponse from(BookWithAvailability item) {
         Book book = item.book();
         return new BookResponse(book.getId(), book.getIsbn().value(), book.getTitle(), book.getPublisher(),
                 book.getPublicationYear(), book.getCategoryId(), book.getAuthorIds(), book.isActive(),
-                item.availableCopies());
+                item.availableCopies(), item.totalCopies(), CategorySummary.from(item.category()),
+                item.authors().stream().map(AuthorSummary::from).toList());
     }
 }

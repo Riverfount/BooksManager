@@ -75,8 +75,18 @@ class CopyPersistenceAdapter implements CopyRepository {
             return Map.of();
         }
         return jpaRepository.countAvailableByBookIds(bookIds).stream()
-                .collect(Collectors.toMap(CopyJpaRepository.AvailableCopiesCount::getBookId,
-                        CopyJpaRepository.AvailableCopiesCount::getTotal));
+                .collect(Collectors.toMap(CopyJpaRepository.CopiesCount::getBookId,
+                        CopyJpaRepository.CopiesCount::getTotal));
+    }
+
+    @Override
+    public Map<Long, Long> countActiveByBookIds(Set<Long> bookIds) {
+        if (bookIds.isEmpty()) {
+            return Map.of();
+        }
+        return jpaRepository.countActiveByBookIds(bookIds).stream()
+                .collect(Collectors.toMap(CopyJpaRepository.CopiesCount::getBookId,
+                        CopyJpaRepository.CopiesCount::getTotal));
     }
 
     private Copy toDomain(CopyJpaEntity entity) {

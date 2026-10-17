@@ -101,7 +101,7 @@ Todos os recursos do catálogo seguem o mesmo contrato, sob o prefixo **/api/v1*
 
 | Recurso | Rota base | Observações |
 |---|---|---|
-| Livros | `/books` | O ISBN é imutável depois do cadastro. A listagem pesquisa por `title`, `author`, `isbn` (por trecho) e `categoryId`, e cada livro traz `availableCopies`. |
+| Livros | `/books` | O ISBN é imutável depois do cadastro. A listagem pesquisa por `title`, `author`, `isbn` (por trecho) e `categoryId`, e cada livro traz `availableCopies`, `totalCopies`, a categoria e os autores com nome. |
 | Autores | `/authors` | Filtro por `name`. |
 | Categorias | `/categories` | Filtro por `name`; o nome é único. |
 | Exemplares | `/copies` | Filtros por `bookId` e `status`; a edição altera só o status. |

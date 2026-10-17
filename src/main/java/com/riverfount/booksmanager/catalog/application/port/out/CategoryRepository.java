@@ -3,7 +3,9 @@ package com.riverfount.booksmanager.catalog.application.port.out;
 import com.riverfount.booksmanager.catalog.domain.Category;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.PageResult;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Outbound port for Category persistence, in the domain's language.
@@ -13,6 +15,9 @@ public interface CategoryRepository {
     Category save(Category category);
 
     Optional<Category> findById(Long id);
+
+    /** The categories with the given ids, active or not, in one query; an id that does not exist is absent. */
+    Map<Long, Category> findAllByIds(Set<Long> ids);
 
     boolean existsByName(String name);
 
