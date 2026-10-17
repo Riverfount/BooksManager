@@ -19,6 +19,7 @@ import com.riverfount.booksmanager.WithOperator;
 import com.riverfount.booksmanager.loan.application.port.in.GetLoanUseCase;
 import com.riverfount.booksmanager.loan.application.port.in.ListLoansQuery;
 import com.riverfount.booksmanager.loan.application.port.in.ListLoansUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.CopySummary;
 import com.riverfount.booksmanager.loan.application.port.in.LoanDetails;
 import com.riverfount.booksmanager.loan.application.port.in.LoanStatus;
 import com.riverfount.booksmanager.loan.application.port.in.RegisterLoanCommand;
@@ -381,7 +382,8 @@ class LoanControllerTest {
         var fine = Fine.reconstitute(5L, 42L, 20L, new BigDecimal("3.00"), FineStatus.PENDING, null);
         var suspension = Suspension.reconstitute(6L, 20L, 42L, LocalDate.of(2026, 11, 18),
                 LocalDate.of(2026, 11, 21), null, null);
-        return new LoanDetails(returned(), fine, suspension);
+        return new LoanDetails(returned(), fine, suspension, "Maria Silva",
+                new CopySummary(7L, "PAT-0007", 3L, "Dom Casmurro"));
     }
 
     @Test
@@ -399,13 +401,18 @@ class LoanControllerTest {
                 .andExpect(jsonPath("$.daysLate").value(3))
                 .andExpect(jsonPath("$.fine.amount").value(3.00))
                 .andExpect(jsonPath("$.fine.status").value("PENDING"))
-                .andExpect(jsonPath("$.suspension.endDate").value("2026-11-21"));
+                .andExpect(jsonPath("$.suspension.endDate").value("2026-11-21"))
+                .andExpect(jsonPath("$.readerName").value("Maria Silva"))
+                .andExpect(jsonPath("$.assetCode").value("PAT-0007"))
+                .andExpect(jsonPath("$.bookId").value(3))
+                .andExpect(jsonPath("$.bookTitle").value("Dom Casmurro"));
     }
 
     @Test
     @WithOperator
     void anActiveLoanShouldHaveNoDaysLateNorPenalty() throws Exception {
-        given(getLoanUseCase.findById(42L)).willReturn(java.util.Optional.of(new LoanDetails(registered(), null, null)));
+        given(getLoanUseCase.findById(42L)).willReturn(
+                java.util.Optional.of(new LoanDetails(registered(), null, null, null, null)));
 
         mockMvc.perform(get(URL + "/42"))
                 .andExpect(status().isOk())
@@ -413,7 +420,9 @@ class LoanControllerTest {
                 .andExpect(jsonPath("$.returnDate").doesNotExist())
                 .andExpect(jsonPath("$.daysLate").doesNotExist())
                 .andExpect(jsonPath("$.fine").doesNotExist())
-                .andExpect(jsonPath("$.suspension").doesNotExist());
+                .andExpect(jsonPath("$.suspension").doesNotExist())
+                .andExpect(jsonPath("$.readerName").doesNotExist())
+                .andExpect(jsonPath("$.assetCode").doesNotExist());
     }
 
     @Test
@@ -437,6 +446,9 @@ class LoanControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[0].id").value(42))
                 .andExpect(jsonPath("$.items[0].fine.id").value(5))
+                .andExpect(jsonPath("$.items[0].readerName").value("Maria Silva"))
+                .andExpect(jsonPath("$.items[0].assetCode").value("PAT-0007"))
+                .andExpect(jsonPath("$.items[0].bookTitle").value("Dom Casmurro"))
                 .andExpect(jsonPath("$.page").value(1))
                 .andExpect(jsonPath("$.size").value(5))
                 .andExpect(jsonPath("$.totalItems").value(11))
