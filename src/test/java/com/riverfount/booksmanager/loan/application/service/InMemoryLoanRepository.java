@@ -57,7 +57,8 @@ class InMemoryLoanRepository implements LoanRepository {
         var result = InMemoryPages.of(loans.values(),
                 loan -> (filter.readerId() == null || loan.getReaderId().equals(filter.readerId()))
                         && (filter.copyId() == null || loan.getCopyId().equals(filter.copyId()))
-                        && (filter.active() == null || loan.isActive() == filter.active()),
+                        && (filter.active() == null || loan.isActive() == filter.active())
+                        && (filter.overdueOn() == null || loan.isOverdue(filter.overdueOn())),
                 COMPARATORS, Loan::getId, page);
         return new PageResult<>(result.items().stream().map(loan -> copyWithId(loan, loan.getId())).toList(),
                 result.page(), result.size(), result.totalItems());

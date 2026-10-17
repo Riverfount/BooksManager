@@ -114,7 +114,9 @@ Todos os recursos do catálogo seguem o mesmo contrato, sob o prefixo **/api/v1*
 | Editar | `PATCH /{recurso}/{id}` | 200, altera só os campos enviados |
 | Inativar | `DELETE /{recurso}/{id}` | 204, nunca exclui fisicamente |
 
-Os erros seguem o formato ProblemDetail (400, 404 e 422). Os detalhes do contrato estão em [`docs/projeto.md`](docs/projeto.md), seção "Interface e API", e cada endpoint está descrito no Swagger.
+Os empréstimos começam em `POST /api/v1/loans`, que recebe só o exemplar e o leitor (`copyId` e `readerId`): a retirada é hoje e a data prevista de devolução vem do prazo da configuração da biblioteca. A resposta é 201 com `Location`; um empréstimo não permitido (exemplar indisponível, limite de empréstimos, multa pendente, suspensão, atraso, leitor inativo ou bloqueado) devolve 422 com todos os motivos, e dois pedidos simultâneos para o mesmo exemplar deixam só um (o outro recebe 409 ou 422).
+
+Os erros seguem o formato ProblemDetail (400, 404, 409 e 422). Os detalhes do contrato estão em [`docs/projeto.md`](docs/projeto.md), seção "Interface e API", e cada endpoint está descrito no Swagger.
 
 ### Testes
 - `make test` (ou `./mvnw test`) roda todos os testes; `make verify` (ou `./mvnw verify`) faz o build completo, inclusive com os testes de arquitetura.

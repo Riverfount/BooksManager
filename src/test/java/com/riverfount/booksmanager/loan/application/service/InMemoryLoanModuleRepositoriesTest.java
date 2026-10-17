@@ -72,10 +72,23 @@ class InMemoryLoanModuleRepositoriesTest {
         }
         loans.save(Loan.create(9L, 11L, DAY, 14));
 
-        var page = loans.findAll(new LoanFilter(10L, null, true), PageQuery.of(0, 2, "pickupDate,desc"));
+        var page = loans.findAll(new LoanFilter(10L, null, true, null), PageQuery.of(0, 2, "pickupDate,desc"));
 
         assertThat(page.items()).extracting(Loan::getPickupDate).containsExactly(DAY.plusDays(2), DAY.plusDays(1));
         assertThat(page.totalItems()).isEqualTo(3);
+    }
+
+    @Test
+    void shouldFilterTheOverdueLoans() {
+        var late = loans.save(Loan.create(1L, 10L, DAY.minusDays(20), 14));
+        loans.save(Loan.create(2L, 10L, DAY, 14));
+        var returned = loans.save(Loan.create(3L, 10L, DAY.minusDays(20), 14));
+        returned.returnCopy(DAY);
+        loans.save(returned);
+
+        var page = loans.findAll(new LoanFilter(10L, null, null, DAY), PageQuery.of(0, 20, "id"));
+
+        assertThat(page.items()).extracting(Loan::getId).containsExactly(late.getId());
     }
 
     // fines
