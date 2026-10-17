@@ -133,9 +133,9 @@ classDiagram
 | `LibraryConfiguration` | `loan` | Migração (issue #136), domínio, com o enum `PenaltyPolicy` (issue #137), persistência (issue #138) e os endpoints `GET` e `PATCH /api/v1/library-configuration` (issue #139) implementados. |
 | `Penalty` e `PenaltyPolicy.calculate` | `loan` | Implementados (issue #140): o cálculo da multa e da suspensão por variante da política. |
 | `BorrowingEligibility` e `BorrowingSituation` | `loan` | Implementados (issue #144): as regras que decidem se um leitor pode pegar um exemplar (RN03, RN04, RN05, RN11). |
-| `Loan` | `loan` | Domínio implementado (issue #141); a migração está pronta (issue #145); faltam os adaptadores de persistência e os casos de uso (issues #146 a #152). |
-| `Fine` | `loan` | Domínio, com o enum `FineStatus`, implementado (issue #142); a migração está pronta (issue #145); faltam os adaptadores de persistência e os casos de uso (issues #146, #153 e #154). |
-| `Suspension` | `loan` | Domínio implementado (issue #143); a migração está pronta (issue #145); faltam os adaptadores de persistência e os casos de uso (issues #146, #154 e #155). A suspensão é um registro do `loan`, não um campo do `Reader` (decisão da issue #135). |
+| `Loan` | `loan` | Domínio implementado (issue #141); a migração (issue #145) e a persistência (issue #146) estão prontas; faltam os casos de uso (issues #147 a #152). |
+| `Fine` | `loan` | Domínio, com o enum `FineStatus`, implementado (issue #142); a migração (issue #145) e a persistência (issue #146) estão prontas; faltam os casos de uso (issues #153 e #154). |
+| `Suspension` | `loan` | Domínio implementado (issue #143); a migração (issue #145) e a persistência (issue #146) estão prontas; faltam os casos de uso (issues #154 e #155). A suspensão é um registro do `loan`, não um campo do `Reader` (decisão da issue #135). |
 | `Reservation` | `loan` | Planejada — fase 4 do plano de desenvolvimento. |
 
 ## Referências
