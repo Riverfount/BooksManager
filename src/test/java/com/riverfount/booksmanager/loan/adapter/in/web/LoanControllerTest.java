@@ -17,6 +17,13 @@ import com.riverfount.booksmanager.WithAdmin;
 import com.riverfount.booksmanager.WithOperator;
 import com.riverfount.booksmanager.loan.application.port.in.RegisterLoanCommand;
 import com.riverfount.booksmanager.loan.application.port.in.RegisterLoanUseCase;
+import com.riverfount.booksmanager.loan.application.port.in.ReturnLoanCommand;
+import com.riverfount.booksmanager.loan.application.port.in.ReturnLoanResult;
+import com.riverfount.booksmanager.loan.application.port.in.ReturnLoanUseCase;
+import com.riverfount.booksmanager.loan.domain.Fine;
+import com.riverfount.booksmanager.loan.domain.FineStatus;
+import com.riverfount.booksmanager.loan.domain.Suspension;
+import java.math.BigDecimal;
 import com.riverfount.booksmanager.loan.domain.Loan;
 import com.riverfount.booksmanager.security.configuration.MethodSecurityConfiguration;
 import com.riverfount.booksmanager.shared.adapter.in.web.GlobalExceptionHandler;
@@ -45,6 +52,9 @@ class LoanControllerTest {
 
     @MockitoBean
     private RegisterLoanUseCase registerLoanUseCase;
+
+    @MockitoBean
+    private ReturnLoanUseCase returnLoanUseCase;
 
     private static Loan registered() {
         return Loan.reconstitute(42L, 7L, 20L, LocalDate.of(2026, 11, 10), LocalDate.of(2026, 11, 24), null, 0);
@@ -169,5 +179,101 @@ class LoanControllerTest {
         register("{\"copyId\":7,\"readerId\":20}").andExpect(status().isUnauthorized());
 
         then(registerLoanUseCase).should(never()).register(any());
+    }
+
+    // returning (RF12, HU08)
+
+    private static final String RETURN_URL = URL + "/42/return";
+
+    private static Loan returned() {
+        return Loan.reconstitute(42L, 7L, 20L, LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 15),
+                LocalDate.of(2026, 11, 18), 0);
+    }
+
+    private ResultActions giveBack() throws Exception {
+        return mockMvc.perform(post(RETURN_URL).with(csrf()));
+    }
+
+    @Test
+    @WithOperator
+    void shouldReturnTheLoanAndAnswer200WithTheResultOnTime() throws Exception {
+        var onTime = Loan.reconstitute(42L, 7L, 20L, LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 15),
+                LocalDate.of(2026, 11, 15), 0);
+        given(returnLoanUseCase.returnLoan(any())).willReturn(new ReturnLoanResult(onTime, 0, null, null));
+
+        giveBack()
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.loan.id").value(42))
+                .andExpect(jsonPath("$.loan.returnDate").value("2026-11-15"))
+                .andExpect(jsonPath("$.loan.active").value(false))
+                .andExpect(jsonPath("$.daysLate").value(0))
+                .andExpect(jsonPath("$.fine").doesNotExist())
+                .andExpect(jsonPath("$.suspension").doesNotExist());
+
+        var captor = ArgumentCaptor.forClass(ReturnLoanCommand.class);
+        then(returnLoanUseCase).should().returnLoan(captor.capture());
+        assertThat(captor.getValue()).isEqualTo(new ReturnLoanCommand(42L));
+    }
+
+    @Test
+    @WithAdmin
+    void shouldShowTheDaysLateTheFineAndTheEndOfTheSuspension() throws Exception {
+        var fine = Fine.reconstitute(5L, 42L, 20L, new BigDecimal("3"), FineStatus.PENDING, null);
+        var suspension = Suspension.reconstitute(6L, 20L, 42L, LocalDate.of(2026, 11, 18),
+                LocalDate.of(2026, 11, 21), null, null);
+        given(returnLoanUseCase.returnLoan(any())).willReturn(new ReturnLoanResult(returned(), 3, fine, suspension));
+
+        giveBack()
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.daysLate").value(3))
+                .andExpect(jsonPath("$.fine.id").value(5))
+                .andExpect(jsonPath("$.fine.amount").value(3.00))
+                .andExpect(jsonPath("$.fine.status").value("PENDING"))
+                .andExpect(jsonPath("$.suspension.id").value(6))
+                .andExpect(jsonPath("$.suspension.startDate").value("2026-11-18"))
+                .andExpect(jsonPath("$.suspension.endDate").value("2026-11-21"));
+    }
+
+    @Test
+    @WithOperator
+    void returningAnAlreadyClosedLoanShouldAnswer422() throws Exception {
+        given(returnLoanUseCase.returnLoan(any()))
+                .willThrow(new BusinessRuleException("o empréstimo já foi encerrado"));
+
+        giveBack()
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.detail").value("o empréstimo já foi encerrado"));
+    }
+
+    @Test
+    @WithOperator
+    void returningALoanThatDoesNotExistShouldAnswer404() throws Exception {
+        given(returnLoanUseCase.returnLoan(any()))
+                .willThrow(new ResourceNotFoundException("empréstimo não encontrado: 42"));
+
+        giveBack().andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithOperator
+    void returningWithAConflictingChangeShouldAnswer409() throws Exception {
+        given(returnLoanUseCase.returnLoan(any())).willThrow(new OptimisticLockingFailureException("stale"));
+
+        giveBack().andExpect(status().isConflict());
+    }
+
+    @Test
+    @WithOperator
+    void anIdThatIsNotANumberShouldAnswer400() throws Exception {
+        mockMvc.perform(post(URL + "/abc/return").with(csrf())).andExpect(status().isBadRequest());
+
+        then(returnLoanUseCase).should(never()).returnLoan(any());
+    }
+
+    @Test
+    void returningWithoutAuthenticationShouldAnswer401() throws Exception {
+        giveBack().andExpect(status().isUnauthorized());
+
+        then(returnLoanUseCase).should(never()).returnLoan(any());
     }
 }

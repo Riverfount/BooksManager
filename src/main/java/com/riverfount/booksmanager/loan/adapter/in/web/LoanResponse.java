@@ -18,7 +18,7 @@ record LoanResponse(
         @Schema(requiredMode = REQUIRED, description = "Data prevista de devolução (ISO-8601)",
                 example = "2026-11-24")
         LocalDate dueDate,
-        @Schema(description = "Data da devolução; só existe depois que o exemplar volta", example = "2026-11-20")
+        @Schema(description = "Data da devolução; nula enquanto o exemplar não volta", example = "2026-11-20")
         LocalDate returnDate,
         @Schema(requiredMode = REQUIRED, description = "Quantas vezes o empréstimo foi renovado", example = "0")
         int renewals,

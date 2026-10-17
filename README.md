@@ -116,6 +116,8 @@ Todos os recursos do catálogo seguem o mesmo contrato, sob o prefixo **/api/v1*
 
 Os empréstimos começam em `POST /api/v1/loans`, que recebe só o exemplar e o leitor (`copyId` e `readerId`): a retirada é hoje e a data prevista de devolução vem do prazo da configuração da biblioteca. A resposta é 201 com `Location`; um empréstimo não permitido (exemplar indisponível, limite de empréstimos, multa pendente, suspensão, atraso, leitor inativo ou bloqueado) devolve 422 com todos os motivos, e dois pedidos simultâneos para o mesmo exemplar deixam só um (o outro recebe 409 ou 422).
 
+A devolução é `POST /api/v1/loans/{id}/return`, sem corpo: encerra o empréstimo com a data de hoje, deixa o exemplar disponível e, se veio depois da data prevista, aplica a penalidade da política vigente na configuração (multa, suspensão, as duas ou nada). A resposta traz os dias de atraso, a multa e a suspensão geradas (nulas quando não houve); devolver de novo um empréstimo encerrado é 422, e mudar a política depois não recalcula devoluções já registradas.
+
 Os erros seguem o formato ProblemDetail (400, 404, 409 e 422). Os detalhes do contrato estão em [`docs/projeto.md`](docs/projeto.md), seção "Interface e API", e cada endpoint está descrito no Swagger.
 
 ### Testes
