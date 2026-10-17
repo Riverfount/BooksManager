@@ -3,12 +3,18 @@ package com.riverfount.booksmanager.catalog.application.service;
 import com.riverfount.booksmanager.catalog.application.port.in.CheckInCopyUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.CheckOutCopyUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.CopyAvailability;
+import com.riverfount.booksmanager.catalog.application.port.in.CopySummary;
 import com.riverfount.booksmanager.catalog.application.port.in.FindCopyAvailabilityUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.FindCopySummariesUseCase;
+import com.riverfount.booksmanager.catalog.application.port.out.BookRepository;
 import com.riverfount.booksmanager.catalog.application.port.out.CopyRepository;
 import com.riverfount.booksmanager.catalog.domain.Copy;
 import com.riverfount.booksmanager.catalog.domain.CopyStatus;
 import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,12 +28,15 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 @Transactional
-class CopyLoanService implements FindCopyAvailabilityUseCase, CheckOutCopyUseCase, CheckInCopyUseCase {
+class CopyLoanService
+        implements FindCopyAvailabilityUseCase, CheckOutCopyUseCase, CheckInCopyUseCase, FindCopySummariesUseCase {
 
     private final CopyRepository copyRepository;
+    private final BookRepository bookRepository;
 
-    CopyLoanService(CopyRepository copyRepository) {
+    CopyLoanService(CopyRepository copyRepository, BookRepository bookRepository) {
         this.copyRepository = copyRepository;
+        this.bookRepository = bookRepository;
     }
 
     @Override
@@ -36,6 +45,17 @@ class CopyLoanService implements FindCopyAvailabilityUseCase, CheckOutCopyUseCas
         return copyRepository.findById(copyId)
                 .map(copy -> new CopyAvailability(copy.getId(), copy.isActive()
                         && copy.getStatus() == CopyStatus.AVAILABLE));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<Long, CopySummary> findSummaries(Set<Long> copyIds) {
+        var copies = copyRepository.findAllByIds(copyIds);
+        var titles = bookRepository.findTitlesByIds(
+                copies.values().stream().map(Copy::getBookId).collect(Collectors.toSet()));
+        return copies.values().stream().collect(Collectors.toMap(Copy::getId,
+                copy -> new CopySummary(copy.getId(), copy.getAssetCode(), copy.getBookId(),
+                        titles.get(copy.getBookId()))));
     }
 
     @Override

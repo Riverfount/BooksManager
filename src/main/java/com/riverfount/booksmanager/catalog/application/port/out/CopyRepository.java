@@ -17,6 +17,9 @@ public interface CopyRepository {
 
     Optional<Copy> findById(Long id);
 
+    /** The copies with the given ids, in one query; an id that does not exist is absent from the map. */
+    Map<Long, Copy> findAllByIds(Set<Long> ids);
+
     boolean existsByAssetCode(String assetCode);
 
     /**

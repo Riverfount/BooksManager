@@ -267,4 +267,23 @@ class CopyPersistenceAdapterTest {
                 saved.getId())).isFalse();
         assertThat(adapter.findById(saved.getId()).orElseThrow().getAssetCode()).isEqualTo("PAT-1");
     }
+
+
+    @Test
+    void shouldFindSeveralCopiesByIdInOneCall() {
+        var first = adapter.save(Copy.create(bookId, "PAT-A"));
+        var second = adapter.save(Copy.create(bookId, "PAT-B"));
+        adapter.save(Copy.create(bookId, "PAT-C"));
+
+        var found = adapter.findAllByIds(java.util.Set.of(first.getId(), second.getId(), -1L));
+
+        assertThat(found).containsOnlyKeys(first.getId(), second.getId());
+        assertThat(found.get(first.getId()).getAssetCode()).isEqualTo("PAT-A");
+        assertThat(found.get(second.getId()).getBookId()).isEqualTo(bookId);
+    }
+
+    @Test
+    void shouldFindNoCopiesForNoIds() {
+        assertThat(adapter.findAllByIds(java.util.Set.of())).isEmpty();
+    }
 }

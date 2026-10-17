@@ -40,6 +40,12 @@ class InMemoryCopyRepository implements CopyRepository {
     }
 
     @Override
+    public Map<Long, Copy> findAllByIds(Set<Long> ids) {
+        return copies.values().stream().filter(copy -> ids.contains(copy.getId()))
+                .collect(Collectors.toMap(Copy::getId, copy -> copy));
+    }
+
+    @Override
     public boolean existsByAssetCode(String assetCode) {
         return copies.values().stream()
                 .anyMatch(copy -> copy.getAssetCode().equals(assetCode));

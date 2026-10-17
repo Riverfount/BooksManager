@@ -232,6 +232,23 @@ class LoanPersistenceAdapterTest {
     }
 
     @Test
+    void theOverdueLoansSortedByDueDateShouldComeFromTheMostToTheLeastLate() {
+        var today = PICKUP.plusDays(60);
+        var least = adapter.save(Loan.create(data.newCopy(), readerId, today.minusDays(16), 14));   // 2 days late
+        var most = adapter.save(Loan.create(data.newCopy(), readerId, today.minusDays(40), 14));    // 26 days late
+        var middle = adapter.save(Loan.create(data.newCopy(), readerId, today.minusDays(25), 14));  // 11 days late
+        adapter.save(Loan.create(data.newCopy(), readerId, today.minusDays(14), 14));               // due today
+        clearPersistenceContext();
+
+        var page = adapter.findAll(new LoanFilter(null, null, null, today), PageQuery.of(0, 2, "dueDate"));
+        var next = adapter.findAll(new LoanFilter(null, null, null, today), PageQuery.of(1, 2, "dueDate"));
+
+        assertThat(page.items()).extracting(Loan::getId).containsExactly(most.getId(), middle.getId());
+        assertThat(next.items()).extracting(Loan::getId).containsExactly(least.getId());
+        assertThat(page.totalItems()).isEqualTo(3);
+    }
+
+    @Test
     void shouldPaginateAndSort() {
         for (var day = 0; day < 3; day++) {
             adapter.save(Loan.create(data.newCopy(), readerId, PICKUP.plusDays(day), 14));
