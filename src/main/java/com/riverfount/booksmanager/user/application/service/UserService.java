@@ -85,7 +85,8 @@ class UserService implements CreateInitialAdminUseCase, AuthenticateUserUseCase,
     @Override
     public User create(CreateUserCommand command) {
         PasswordPolicy.validate(command.password());
-        var user = User.create(command.login(), passwordHasher.hash(command.password()), command.role());
+        var user = User.create(command.login(), passwordHasher.hash(command.password()), command.role(),
+                command.displayName());
         User.validateUniqueLogin(user.getLogin(), userRepository.existsByLogin(user.getLogin()));
         return userRepository.save(user);
     }
@@ -146,6 +147,9 @@ class UserService implements CreateInitialAdminUseCase, AuthenticateUserUseCase,
         if (command.role() != null) {
             var others = administrators.stream().filter(admin -> !admin.getId().equals(user.getId())).count();
             user.changeRoleKeepingAnAdministrator(command.role(), others);
+        }
+        if (command.displayName() != null) {
+            user.changeDisplayName(command.displayName());
         }
         return userRepository.save(user);
     }

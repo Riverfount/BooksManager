@@ -43,12 +43,15 @@ class UserJpaEntity {
     @Column(name = "blocked_until")
     private Instant blockedUntil;
 
+    @Column(name = "display_name", length = 100)
+    private String displayName;
+
     protected UserJpaEntity() {
         // required by JPA
     }
 
     UserJpaEntity(Long id, String login, String passwordHash, Role role, boolean active,
-            int failedLoginAttempts, Instant blockedUntil) {
+            int failedLoginAttempts, Instant blockedUntil, String displayName) {
         this.id = id;
         this.login = login;
         this.passwordHash = passwordHash;
@@ -56,6 +59,7 @@ class UserJpaEntity {
         this.active = active;
         this.failedLoginAttempts = failedLoginAttempts;
         this.blockedUntil = blockedUntil;
+        this.displayName = displayName;
     }
 
     Long getId() {
@@ -84,5 +88,9 @@ class UserJpaEntity {
 
     Instant getBlockedUntil() {
         return blockedUntil;
+    }
+
+    String getDisplayName() {
+        return displayName;
     }
 }

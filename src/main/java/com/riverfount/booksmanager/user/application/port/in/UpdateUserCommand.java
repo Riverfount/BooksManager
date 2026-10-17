@@ -4,8 +4,14 @@ import com.riverfount.booksmanager.user.domain.Role;
 
 /**
  * Partial update of a system user (RF09, HU28): a null field means "keep the
- * current value". Only the profile is editable here; the login never changes,
- * the password has its own route and the activation is the deactivation's.
+ * current value". Only the profile and the display name are editable here; the login never changes,
+ * the password has its own route and the activation is the deactivation's. A blank display
+ * name clears it.
  */
-public record UpdateUserCommand(Long id, Role role) {
+public record UpdateUserCommand(Long id, Role role, String displayName) {
+
+    /** Only the profile. */
+    public UpdateUserCommand(Long id, Role role) {
+        this(id, role, null);
+    }
 }

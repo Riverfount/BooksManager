@@ -18,6 +18,8 @@ record UserResponse(
         Long id,
         @Schema(requiredMode = REQUIRED, description = "Login do usuário, em minúsculas", example = "maria")
         String login,
+        @Schema(description = "Nome de exibição; nulo quando o usuário não tem", example = "Maria Silva")
+        String displayName,
         @Schema(requiredMode = REQUIRED, description = "Perfil do usuário", example = "OPERATOR")
         Role role,
         @Schema(requiredMode = REQUIRED, description = "Se o usuário está ativo", example = "true")
@@ -32,7 +34,7 @@ record UserResponse(
 
     static UserResponse from(User user, Instant now) {
         var blocked = user.isBlocked(now);
-        return new UserResponse(user.getId(), user.getLogin(), user.getRole(), user.isActive(), blocked,
-                blocked ? user.getBlockedUntil() : null);
+        return new UserResponse(user.getId(), user.getLogin(), user.getDisplayName(), user.getRole(),
+                user.isActive(), blocked, blocked ? user.getBlockedUntil() : null);
     }
 }

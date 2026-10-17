@@ -529,6 +529,62 @@ class UserServiceTest {
 
     private static final String GOOD_PASSWORD = "N3w-Pass#word";
 
+    // display name
+
+    @Test
+    void shouldCreateAUserWithTheDisplayName() {
+        var created = service.create(new CreateUserCommand("maria", GOOD_PASSWORD, Role.OPERATOR, " Maria Silva "));
+
+        assertThat(created.getDisplayName()).isEqualTo("Maria Silva");
+        assertThat(repository.findById(created.getId()).orElseThrow().getDisplayName()).isEqualTo("Maria Silva");
+    }
+
+    @Test
+    void shouldCreateAUserWithoutDisplayName() {
+        var created = service.create(new CreateUserCommand("maria", GOOD_PASSWORD, Role.OPERATOR));
+
+        assertThat(created.getDisplayName()).isNull();
+    }
+
+    @Test
+    void shouldRefuseATooLongDisplayNameWithoutCreatingTheUser() {
+        var tooLong = "a".repeat(User.MAX_DISPLAY_NAME_LENGTH + 1);
+
+        assertThatThrownBy(() -> service.create(new CreateUserCommand("maria", GOOD_PASSWORD, Role.OPERATOR,
+                tooLong))).isInstanceOf(BusinessRuleException.class);
+        assertThat(repository.count()).isZero();
+    }
+
+    @Test
+    void shouldChangeOnlyTheDisplayNameKeepingTheRole() {
+        var created = service.create(new CreateUserCommand("chefe", GOOD_PASSWORD, Role.ADMIN, "Chefe"));
+
+        var updated = service.update(new UpdateUserCommand(created.getId(), null, "Carlos Mendes"));
+
+        assertThat(updated.getDisplayName()).isEqualTo("Carlos Mendes");
+        assertThat(updated.getRole()).isEqualTo(Role.ADMIN);
+    }
+
+    @Test
+    void shouldChangeOnlyTheRoleKeepingTheDisplayName() {
+        service.create(new CreateUserCommand("chefe", GOOD_PASSWORD, Role.ADMIN));
+        var created = service.create(new CreateUserCommand("maria", GOOD_PASSWORD, Role.OPERATOR, "Maria"));
+
+        var updated = service.update(new UpdateUserCommand(created.getId(), Role.ADMIN, null));
+
+        assertThat(updated.getRole()).isEqualTo(Role.ADMIN);
+        assertThat(updated.getDisplayName()).isEqualTo("Maria");
+    }
+
+    @Test
+    void aBlankDisplayNameInTheUpdateShouldClearIt() {
+        var created = service.create(new CreateUserCommand("maria", GOOD_PASSWORD, Role.OPERATOR, "Maria"));
+
+        var updated = service.update(new UpdateUserCommand(created.getId(), null, "  "));
+
+        assertThat(updated.getDisplayName()).isNull();
+    }
+
     @Test
     void shouldCreateAnActiveUserWithTheProfileAndAnId() {
         var created = service.create(new CreateUserCommand("Maria", GOOD_PASSWORD, Role.OPERATOR));
@@ -805,9 +861,11 @@ class UserServiceTest {
     }
 
     @Test
-    void theEditCommandShouldCarryOnlyTheProfile() {
+    void theEditCommandShouldCarryOnlyTheProfileAndTheDisplayName() {
+        // never the login, the password or the activation
         assertThat(UpdateUserCommand.class.getRecordComponents())
-                .extracting(java.lang.reflect.RecordComponent::getName).containsExactly("id", "role");
+                .extracting(java.lang.reflect.RecordComponent::getName)
+                .containsExactly("id", "role", "displayName");
     }
 
     @Test

@@ -76,8 +76,9 @@ class UserController {
 
     @PostMapping
     @Operation(summary = "Criar usuário",
-            description = "Cria um usuário do sistema, só para administrador. O login é único (sem diferenciar "
-                    + "maiúsculas) e a senha precisa cumprir a política: de 8 a 25 caracteres, com maiúscula, "
+            description = "Cria um usuário do sistema, só para administrador, com nome de exibição opcional. O login "
+                    + "é único (sem diferenciar maiúsculas) e a senha precisa cumprir a política: de 8 a 25 "
+                    + "caracteres, com maiúscula, "
                     + "minúscula, número e caractere especial. A senha é guardada só como hash e a resposta nunca "
                     + "a traz.")
     @ApiResponses({
@@ -93,7 +94,7 @@ class UserController {
     })
     ResponseEntity<UserResponse> create(@Valid @RequestBody CreateUserRequest request) {
         var user = createUserUseCase.create(new CreateUserCommand(request.login(), request.password(),
-                request.role()));
+                request.role(), request.displayName()));
         var location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")
                 .buildAndExpand(user.getId())
@@ -148,8 +149,9 @@ class UserController {
     }
 
     @PatchMapping("/{id}")
-    @Operation(summary = "Editar o perfil do usuário",
-            description = "Altera o perfil (`ADMIN` ou `OPERATOR`) do usuário, só para administrador. Um campo "
+    @Operation(summary = "Editar o usuário",
+            description = "Altera o perfil (`ADMIN` ou `OPERATOR`) e o nome de exibição do usuário, só para "
+                    + "administrador; um nome de exibição em branco o remove. Um campo "
                     + "omitido ou nulo mantém o valor atual. O login não muda, a senha tem rota própria e a "
                     + "inativação também; esses campos, se vierem no corpo, são ignorados. Não é possível tirar o "
                     + "perfil de administrador do último administrador ativo (422). O perfil novo vale no próximo "
@@ -169,7 +171,7 @@ class UserController {
                             schema = @Schema(implementation = ProblemDetail.class)))
     })
     UserResponse update(@PathVariable Long id, @Valid @RequestBody UpdateUserRequest request) {
-        var user = updateUserUseCase.update(new UpdateUserCommand(id, request.role()));
+        var user = updateUserUseCase.update(new UpdateUserCommand(id, request.role(), request.displayName()));
         return UserResponse.from(user, Instant.now(clock));
     }
 

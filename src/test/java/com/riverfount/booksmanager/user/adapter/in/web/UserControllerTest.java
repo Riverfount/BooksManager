@@ -131,6 +131,59 @@ class UserControllerTest {
 
     @Test
     @WithAdmin
+    void shouldHandTheDisplayNameToTheUseCaseAndShowItInTheResponse() throws Exception {
+        given(createUserUseCase.create(any())).willReturn(
+                User.reconstitute(5L, "maria", HASH, Role.OPERATOR, true, 0, null, "Maria Silva"));
+
+        mockMvc.perform(create("{\"login\":\"maria\",\"password\":\"N3w-Pass#word\",\"role\":\"OPERATOR\","
+                        + "\"displayName\":\"Maria Silva\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.displayName").value("Maria Silva"));
+
+        var captor = ArgumentCaptor.forClass(CreateUserCommand.class);
+        then(createUserUseCase).should().create(captor.capture());
+        assertThat(captor.getValue())
+                .isEqualTo(new CreateUserCommand("maria", "N3w-Pass#word", Role.OPERATOR, "Maria Silva"));
+    }
+
+    @Test
+    @WithAdmin
+    void shouldRefuseADisplayNameOverTheLimitWith400() throws Exception {
+        mockMvc.perform(create("{\"login\":\"maria\",\"password\":\"N3w-Pass#word\",\"role\":\"OPERATOR\","
+                        + "\"displayName\":\"" + "a".repeat(101) + "\"}"))
+                .andExpect(status().isBadRequest());
+
+        then(createUserUseCase).should(never()).create(any());
+    }
+
+    @Test
+    @WithAdmin
+    void shouldEditTheDisplayNameAlone() throws Exception {
+        given(updateUserUseCase.update(any())).willReturn(
+                User.reconstitute(5L, "maria", HASH, Role.OPERATOR, true, 0, null, "Maria Silva"));
+
+        mockMvc.perform(edit(5, "{\"displayName\":\"Maria Silva\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.displayName").value("Maria Silva"));
+
+        var captor = ArgumentCaptor.forClass(UpdateUserCommand.class);
+        then(updateUserUseCase).should().update(captor.capture());
+        assertThat(captor.getValue()).isEqualTo(new UpdateUserCommand(5L, null, "Maria Silva"));
+    }
+
+    @Test
+    @WithAdmin
+    void aUserWithoutDisplayNameShouldShowNullInTheResponse() throws Exception {
+        given(getUserUseCase.findById(5L)).willReturn(Optional.of(User.reconstitute(5L, "maria", HASH,
+                Role.OPERATOR, true)));
+
+        mockMvc.perform(get("/api/v1/users/5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.displayName").doesNotExist());
+    }
+
+    @Test
+    @WithAdmin
     void shouldHandTheRequestToTheUseCaseAsACommand() throws Exception {
         givenTheUserIsCreated();
 
