@@ -118,6 +118,8 @@ Os empréstimos começam em `POST /api/v1/loans`, que recebe só o exemplar e o 
 
 A devolução é `POST /api/v1/loans/{id}/return`, sem corpo: encerra o empréstimo com a data de hoje, deixa o exemplar disponível e, se veio depois da data prevista, aplica a penalidade da política vigente na configuração (multa, suspensão, as duas ou nada). A resposta traz os dias de atraso, a multa e a suspensão geradas (nulas quando não houve); devolver de novo um empréstimo encerrado é 422, e mudar a política depois não recalcula devoluções já registradas.
 
+A renovação é `POST /api/v1/loans/{id}/renew`, sem corpo: a data prevista avança o prazo da configuração a partir da data prevista atual. É recusada (422) para empréstimo encerrado, em atraso ou que já usou o limite de renovações da biblioteca.
+
 Os erros seguem o formato ProblemDetail (400, 404, 409 e 422). Os detalhes do contrato estão em [`docs/projeto.md`](docs/projeto.md), seção "Interface e API", e cada endpoint está descrito no Swagger.
 
 ### Testes

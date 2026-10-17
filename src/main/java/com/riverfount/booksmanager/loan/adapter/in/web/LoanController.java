@@ -2,6 +2,8 @@ package com.riverfount.booksmanager.loan.adapter.in.web;
 
 import com.riverfount.booksmanager.loan.application.port.in.RegisterLoanCommand;
 import com.riverfount.booksmanager.loan.application.port.in.RegisterLoanUseCase;
+import com.riverfount.booksmanager.loan.application.port.in.RenewLoanCommand;
+import com.riverfount.booksmanager.loan.application.port.in.RenewLoanUseCase;
 import com.riverfount.booksmanager.loan.application.port.in.ReturnLoanCommand;
 import com.riverfount.booksmanager.loan.application.port.in.ReturnLoanUseCase;
 import com.riverfount.booksmanager.shared.adapter.in.web.AdminOrOperator;
@@ -24,15 +26,18 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 @AdminOrOperator
 @RestController
 @RequestMapping("/api/v1/loans")
-@Tag(name = "Loans", description = "Empréstimos e devoluções de exemplares (RF11, RF12).")
+@Tag(name = "Loans", description = "Empréstimos, devoluções e renovações de exemplares (RF11, RF12, RF13).")
 class LoanController {
 
     private final RegisterLoanUseCase registerLoanUseCase;
     private final ReturnLoanUseCase returnLoanUseCase;
+    private final RenewLoanUseCase renewLoanUseCase;
 
-    LoanController(RegisterLoanUseCase registerLoanUseCase, ReturnLoanUseCase returnLoanUseCase) {
+    LoanController(RegisterLoanUseCase registerLoanUseCase, ReturnLoanUseCase returnLoanUseCase,
+            RenewLoanUseCase renewLoanUseCase) {
         this.registerLoanUseCase = registerLoanUseCase;
         this.returnLoanUseCase = returnLoanUseCase;
+        this.renewLoanUseCase = renewLoanUseCase;
     }
 
     @PostMapping
@@ -98,5 +103,33 @@ class LoanController {
     })
     ReturnLoanResponse returnLoan(@PathVariable Long id) {
         return ReturnLoanResponse.from(returnLoanUseCase.returnLoan(new ReturnLoanCommand(id)));
+    }
+
+    @PostMapping("/{id}/renew")
+    @Operation(summary = "Renovar empréstimo",
+            description = "Renova um empréstimo ativo (HU09): a data prevista de devolução avança o prazo da "
+                    + "configuração da biblioteca, contado a partir da data prevista atual, e a renovação é "
+                    + "contada. O limite de renovações por empréstimo também vem da configuração. Não renova "
+                    + "empréstimo encerrado, em atraso ou que já usou todas as renovações. Sem corpo.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Empréstimo renovado, com a nova data prevista"),
+            @ApiResponse(responseCode = "400", description = "Identificador inválido",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "404", description = "Empréstimo não encontrado",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "409",
+                    description = "Outra requisição alterou o mesmo empréstimo ao mesmo tempo; tente novamente",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "422",
+                    description = "Renovação não permitida (a mensagem diz o motivo): empréstimo encerrado (RN09), "
+                            + "em atraso ou com o limite de renovações atingido (RN07)",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    LoanResponse renew(@PathVariable Long id) {
+        return LoanResponse.from(renewLoanUseCase.renew(new RenewLoanCommand(id)));
     }
 }
