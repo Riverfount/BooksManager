@@ -30,7 +30,7 @@ Bibliotecários, que operam o sistema no dia a dia, e o administrador, que geren
 - Listar os empréstimos em atraso
 
 ### 1.5 Estado atual
-A Fase 1 (Catálogo) está concluída na API: livros, autores, categorias e exemplares têm cadastro, consulta, listagem paginada, edição e inativação. A pesquisa de livros, com a quantidade de exemplares disponíveis, é a própria listagem com filtros. A Fase 2 (Leitores e acesso) está concluída na API: os leitores têm cadastro, consulta, listagem paginada, edição, inativação e bloqueio (`/api/v1/readers`), e há login com JWT, autorização por perfil e a gestão dos usuários do sistema (`/api/v1/users`); faltam os empréstimos e multas (Fase 3). O plano completo e a situação de cada fase estão em [`docs/projeto.md`](docs/projeto.md), seção "Plano de desenvolvimento".
+A Fase 1 (Catálogo) está concluída na API: livros, autores, categorias e exemplares têm cadastro, consulta, listagem paginada, edição e inativação. A pesquisa de livros, com a quantidade de exemplares disponíveis, é a própria listagem com filtros. A Fase 2 (Leitores e acesso) está concluída na API: os leitores têm cadastro, consulta, listagem paginada, edição, inativação e bloqueio (`/api/v1/readers`), e há login com JWT, autorização por perfil e a gestão dos usuários do sistema (`/api/v1/users`); a Fase 3 (empréstimos, multas e suspensões) está em andamento, e a modelagem dela já está decidida em `docs/projeto.md`. O plano completo e a situação de cada fase estão em [`docs/projeto.md`](docs/projeto.md), seção "Plano de desenvolvimento".
 
 ---
 
@@ -47,7 +47,7 @@ A Fase 1 (Catálogo) está concluída na API: livros, autores, categorias e exem
 
 ## 3. Arquitetura
 
-O projeto segue a **arquitetura hexagonal** (portas e adaptadores), organizado como um monólito modular dividido nos módulos `catalog`, `loan`, `user`, `security` e `shared`. Até agora estão implementados o `catalog` e o `shared`; os demais entram nas próximas fases. As regras de negócio ficam em um domínio escrito em Java puro, sem dependência de Spring ou JPA. Banco de dados, adaptador web (API REST) e serviços externos se conectam ao domínio por meio de portas, implementadas por adaptadores. O `ArchitectureTest` (ArchUnit) já verifica essa separação a cada build: o domínio não pode depender de Spring, JPA/Hibernate, da aplicação nem dos adaptadores, e a aplicação não pode depender dos adaptadores.
+O projeto segue a **arquitetura hexagonal** (portas e adaptadores), organizado como um monólito modular dividido nos módulos `catalog`, `loan`, `user`, `security` e `shared`. Até agora estão implementados o `catalog`, o `user`, o `security` e o `shared`; o `loan` entra na Fase 3. As regras de negócio ficam em um domínio escrito em Java puro, sem dependência de Spring ou JPA. Banco de dados, adaptador web (API REST) e serviços externos se conectam ao domínio por meio de portas, implementadas por adaptadores. O `ArchitectureTest` (ArchUnit) já verifica essa separação a cada build: o domínio não pode depender de Spring, JPA/Hibernate, da aplicação nem dos adaptadores, e a aplicação não pode depender dos adaptadores.
 
 O front-end (React + Tailwind CSS) é um projeto separado que consome esta API apenas por HTTP/JSON; nenhuma regra de negócio vive nele.
 

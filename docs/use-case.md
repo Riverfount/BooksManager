@@ -108,6 +108,7 @@
 **HU08 —** Como operador, quero registrar a devolução de um exemplar, para que ele volte a ficar disponível e o atraso seja penalizado sem cálculo manual.
 - Critério de aceite: ao devolver, o exemplar volta a disponível e o empréstimo é encerrado; um empréstimo já encerrado não pode ser devolvido de novo (RN09).
 - Critério de aceite: se a devolução estiver atrasada, o sistema aplica a penalidade conforme a política configurada (multa, suspensão, ambas ou nenhuma) e mostra o resultado ao operador (RN08).
+- Critério de aceite: o atraso conta em dias corridos, sem carência; devolver no dia do vencimento não é atraso. A multa e a suspensão crescem por dia de atraso, até o teto, com a política vigente no dia da devolução (RN08, RN16).
 
 **HU09 —** Como operador, quero renovar um empréstimo, para dar mais prazo ao leitor sem precisar devolver e emprestar de novo.
 - Critério de aceite: cada empréstimo pode ser renovado no máximo 2 vezes (RN07).
