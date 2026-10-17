@@ -15,7 +15,10 @@ import com.riverfount.booksmanager.shared.domain.InvalidQueryException;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.user.application.port.in.FindReaderNamesUseCase;
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,6 +32,9 @@ import static org.mockito.Mockito.times;
 /** Querying loans (RF14, HU30): active and closed, by reader and by copy, always paginated (RNF14). */
 class LoanQueryServiceTest {
 
+    private static final ZoneId ZONE = ZoneId.of("America/Sao_Paulo");
+    private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-11-20T15:00:00Z"), ZONE);
+    private static final LocalDate TODAY = LocalDate.of(2026, 11, 20);
     private static final LocalDate DAY = LocalDate.of(2026, 11, 1);
     private static final long READER = 20L;
     private static final long OTHER_READER = 21L;
@@ -48,7 +54,7 @@ class LoanQueryServiceTest {
         readerNames = mock(FindReaderNamesUseCase.class);
         copySummaries = mock(FindCopySummariesUseCase.class);
         service = new LoanQueryService(loanRepository, fineRepository, suspensionRepository, readerNames,
-                copySummaries);
+                copySummaries, CLOCK);
     }
 
     private Loan openLoan(long copy, long reader, LocalDate pickup) {
@@ -169,6 +175,93 @@ class LoanQueryServiceTest {
 
         assertThat(page.items()).isEmpty();
         assertThat(page.totalItems()).isZero();
+    }
+
+    // late loans (HU12): the same meaning as the overdue report
+
+    private Loan dueOn(long copy, long reader, LocalDate due) {
+        // a 14 day loan whose due date is the one asked
+        return openLoan(copy, reader, due.minusDays(14));
+    }
+
+    private static ListLoansQuery overdue(LoanStatus status) {
+        return new ListLoansQuery(null, null, status, true, PageQuery.of(0, 20, "id"));
+    }
+
+    @Test
+    void theOverdueFilterShouldKeepOnlyTheActiveLoansPastTheirDueDate() {
+        var late = dueOn(1L, READER, TODAY.minusDays(1));
+        dueOn(2L, READER, TODAY);
+        dueOn(3L, READER, TODAY.plusDays(5));
+        var closed = returnedLoan(4L, READER, TODAY.minusDays(30), TODAY.minusDays(10));
+
+        var page = service.list(overdue(null));
+
+        assertThat(page.items()).extracting(details -> details.loan().getId()).containsExactly(late.getId());
+        assertThat(page.items()).extracting(details -> details.loan().getId()).doesNotContain(closed.getId());
+        assertThat(page.totalItems()).isEqualTo(1);
+    }
+
+    @Test
+    void aLoanDueTodayShouldStillBeOnTime() {
+        dueOn(1L, READER, TODAY);
+
+        assertThat(service.list(overdue(null)).items()).isEmpty();
+    }
+
+    @Test
+    void theOverdueFilterShouldCombineWithTheReaderAndWithTheActiveStatus() {
+        var mine = dueOn(1L, READER, TODAY.minusDays(3));
+        dueOn(2L, OTHER_READER, TODAY.minusDays(3));
+
+        var byReader = service.list(new ListLoansQuery(READER, null, null, true, PageQuery.of(0, 20, "id")));
+        var active = service.list(overdue(LoanStatus.ACTIVE));
+
+        assertThat(byReader.items()).extracting(details -> details.loan().getId()).containsExactly(mine.getId());
+        assertThat(active.items()).hasSize(2);
+    }
+
+    @Test
+    void withoutTheOverdueFilterTheOnTimeLoansComeToo() {
+        dueOn(1L, READER, TODAY.minusDays(1));
+        dueOn(2L, READER, TODAY.plusDays(5));
+
+        assertThat(service.list(query(null, null, null)).items()).hasSize(2);
+    }
+
+    @Test
+    void theOverdueFilterCannotBeAskedForReturnedLoans() {
+        assertThatThrownBy(() -> new ListLoansQuery(null, null, LoanStatus.RETURNED, true, PageQuery.of(0, 20, "id")))
+                .isInstanceOf(InvalidQueryException.class).hasMessageContaining("RETURNED");
+    }
+
+    @Test
+    void anActiveLateLoanShouldShowItsDaysLateByTheClocksDay() {
+        var late = dueOn(1L, READER, TODAY.minusDays(1));
+        var later = dueOn(2L, READER, TODAY.minusDays(9));
+
+        assertThat(service.findById(late.getId()).orElseThrow().daysLate()).isEqualTo(1L);
+        assertThat(service.findById(later.getId()).orElseThrow().daysLate()).isEqualTo(9L);
+        assertThat(service.list(overdue(null)).items()).extracting(LoanDetails::daysLate)
+                .containsExactly(1L, 9L);
+    }
+
+    @Test
+    void anActiveLoanOnTimeShouldHaveNoDaysLate() {
+        var today = dueOn(1L, READER, TODAY);
+        var future = dueOn(2L, READER, TODAY.plusDays(3));
+
+        assertThat(service.findById(today.getId()).orElseThrow().daysLate()).isNull();
+        assertThat(service.findById(future.getId()).orElseThrow().daysLate()).isNull();
+    }
+
+    @Test
+    void aReturnedLoanShouldKeepTheDaysItCameBackLate() {
+        var late = returnedLoan(1L, READER, DAY, DAY.plusDays(20));
+        var onTime = returnedLoan(2L, READER, DAY, DAY.plusDays(5));
+
+        assertThat(service.findById(late.getId()).orElseThrow().daysLate()).isEqualTo(6L);
+        assertThat(service.findById(onTime.getId()).orElseThrow().daysLate()).isZero();
     }
 
     // names of the reader and of the copy (RF14)

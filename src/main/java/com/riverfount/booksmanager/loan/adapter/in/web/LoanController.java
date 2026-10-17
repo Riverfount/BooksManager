@@ -151,11 +151,12 @@ class LoanController {
     @Operation(summary = "Listar empréstimos",
             description = "Lista os empréstimos de forma paginada (máximo de 100 por página), por leitor, por "
                     + "exemplar e por situação: `ACTIVE` (ainda não devolvidos) ou `RETURNED` (encerrados, o "
-                    + "histórico). Sem filtro de situação, vêm todos. Por padrão, do mais recente para o mais "
-                    + "antigo. Cada item traz o nome do leitor, o código de patrimônio do exemplar e o título do "
-                    + "livro, as datas de retirada, prevista e de "
-                    + "devolução e, para o empréstimo devolvido, os dias de atraso e a multa e a "
-                    + "suspensão geradas, quando houver.")
+                    + "histórico). Sem filtro de situação, vêm todos. Com `overdue=true` vêm só os atrasados "
+                    + "(ativos com a data prevista anterior a hoje, como no relatório de atrasos), o que serve à "
+                    + "aba \"Atrasados\". Por padrão, do mais recente para o mais antigo. Cada item traz o nome do "
+                    + "leitor, o código de patrimônio do exemplar e o título do livro, as datas de retirada, "
+                    + "prevista e de devolução, os dias de atraso (do empréstimo devolvido ou do ativo atrasado) e, "
+                    + "para o empréstimo devolvido, a multa e a suspensão geradas, quando houver.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Página de empréstimos"),
             @ApiResponse(responseCode = "400",
@@ -171,6 +172,10 @@ class LoanController {
             @RequestParam(required = false) Long copyId,
             @Parameter(description = "ACTIVE (ainda não devolvidos) ou RETURNED (encerrados); sem o parâmetro, ambos")
             @RequestParam(required = false) LoanStatus status,
+            @Parameter(description = "Só os empréstimos atrasados: ativos com a data prevista anterior a hoje, com "
+                    + "o mesmo significado do relatório de atrasos (vencer hoje ainda é estar em dia). Não vale "
+                    + "com `status=RETURNED` (400)", example = "true")
+            @RequestParam(defaultValue = "false") boolean overdue,
             @Parameter(description = "Número da página, a partir de 0")
             @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Tamanho da página, de 1 a 100")
@@ -178,7 +183,7 @@ class LoanController {
             @Parameter(description = "Ordenação no formato campo[,asc|desc]; campos: id, pickupDate, dueDate, "
                     + "returnDate", example = "pickupDate,desc")
             @RequestParam(defaultValue = ListLoansQuery.DEFAULT_SORT) String sort) {
-        var query = new ListLoansQuery(readerId, copyId, status, PageQuery.of(page, size, sort));
+        var query = new ListLoansQuery(readerId, copyId, status, overdue, PageQuery.of(page, size, sort));
         return PageResponse.from(listLoansUseCase.list(query), LoanDetailsResponse::from);
     }
 
