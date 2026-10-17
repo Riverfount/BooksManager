@@ -77,7 +77,7 @@ As regras ficam na camada de domínio, ou em políticas parametrizáveis, e nunc
 | RN04 | Um leitor pode ter no máximo 3 empréstimos ativos ao mesmo tempo (valor configurável). |
 | RN05 | Leitor com multa pendente, suspensão em vigor ou empréstimo em atraso não pode fazer novos empréstimos. A multa pendente bloqueia até ser paga ou abonada, mesmo depois de a suspensão terminar; o empréstimo em atraso é o ativo com data prevista anterior a hoje. |
 | RN06 | O prazo padrão de empréstimo é de 14 dias (valor configurável). |
-| RN07 | Cada empréstimo pode ser renovado no máximo 2 vezes, e não pode ser renovado se estiver em atraso ou se houver reserva pendente para o livro. |
+| RN07 | Cada empréstimo pode ser renovado no máximo 2 vezes (valor configurável), e não pode ser renovado se estiver em atraso ou se houver reserva pendente para o livro. |
 | RN08 | A penalidade por atraso segue a política configurada pela biblioteca: MULTA (dias de atraso × valor diário, com teto), SUSPENSÃO (dias de suspensão = dias de atraso × fator configurável, com teto), AMBAS ou NENHUMA. **Valores iniciais decididos em 10/10/2026**: MULTA = R$ 1,00 por dia de atraso, com teto de R$ 10,00; SUSPENSÃO = 1 dia por dia de atraso, com teto de 1 ano (365 dias). O acúmulo é **por dia de atraso, até o teto**; o atraso conta em dias corridos, sem carência. A penalidade é calculada na devolução, com a política vigente naquele momento. |
 | RN09 | Empréstimo já encerrado não pode ser renovado nem devolvido novamente. |
 | RN10 | Exemplar com empréstimo ativo não pode ser excluído nem inativado. |

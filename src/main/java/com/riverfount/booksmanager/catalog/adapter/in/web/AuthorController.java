@@ -102,7 +102,8 @@ class AuthorController {
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Consultar autor por id")
+    @Operation(summary = "Consultar autor por id",
+            description = "Devolve o autor com o nome e se está ativo, inclusive para autor inativo.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Autor encontrado"),
             @ApiResponse(responseCode = "404", description = "Autor não encontrado",

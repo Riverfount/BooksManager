@@ -115,7 +115,9 @@ class CopyController {
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Consultar exemplar por id")
+    @Operation(summary = "Consultar exemplar por id",
+            description = "Devolve o exemplar com o livro, o código de patrimônio, o status e se está ativo, "
+                    + "inclusive para exemplar inativo.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Exemplar encontrado"),
             @ApiResponse(responseCode = "404", description = "Exemplar não encontrado",

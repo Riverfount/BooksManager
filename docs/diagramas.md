@@ -133,9 +133,9 @@ classDiagram
 | `LibraryConfiguration` | `loan` | Migração (issue #136), domínio, com o enum `PenaltyPolicy` (issue #137), persistência (issue #138) e os endpoints `GET` e `PATCH /api/v1/library-configuration` (issue #139) implementados. |
 | `Penalty` e `PenaltyPolicy.calculate` | `loan` | Implementados (issue #140): o cálculo da multa e da suspensão por variante da política. |
 | `BorrowingEligibility` e `BorrowingSituation` | `loan` | Implementados (issue #144): as regras que decidem se um leitor pode pegar um exemplar (RN03, RN04, RN05, RN11). |
-| `Loan` | `loan` | Domínio implementado (issue #141); a migração (issue #145) e a persistência (issue #146) estão prontas, o registro (issue #149), a devolução (issue #150) e a renovação (issue #151) e a consulta (issue #152) também: os casos de uso do empréstimo estão completos, e o relatório de atrasos (issue #157) também. |
-| `Fine` | `loan` | Domínio, com o enum `FineStatus`, implementado (issue #142); a migração (issue #145) e a persistência (issue #146) estão prontas; o pagamento, o abono e a consulta (issues #153 e #154) também. |
-| `Suspension` | `loan` | Domínio implementado (issue #143); a migração (issue #145) e a persistência (issue #146) estão prontas, a consulta (issue #154) e o encerramento antecipado (issue #155) também. A suspensão é um registro do `loan`, não um campo do `Reader` (decisão da issue #135). |
+| `Loan` | `loan` | Implementado (Fase 3): domínio (issue #141), migração e persistência (issues #145 e #146) e os endpoints de registro (`POST /api/v1/loans`, issue #149), devolução (`/{id}/return`, issue #150), renovação (`/{id}/renew`, issue #151), consulta e listagem com o histórico (issue #152) e o relatório de atrasos (`/api/v1/reports/overdue-loans`, issue #157). |
+| `Fine` | `loan` | Implementada (Fase 3): domínio, com o enum `FineStatus` (issue #142), migração e persistência (issues #145 e #146) e os endpoints de pagamento e abono (issue #153) e de listagem (`GET /api/v1/fines`, issue #154). |
+| `Suspension` | `loan` | Implementada (Fase 3): domínio (issue #143), migração e persistência (issues #145 e #146) e os endpoints de listagem (issue #154) e de encerramento antecipado (`POST /api/v1/suspensions/{id}/end`, issue #155). A suspensão é um registro do `loan`, não um campo do `Reader` (decisão da issue #135). |
 | `Reservation` | `loan` | Planejada — fase 4 do plano de desenvolvimento. |
 
 ## Referências
