@@ -6,7 +6,10 @@ import com.riverfount.booksmanager.loan.domain.Suspension;
 import com.riverfount.booksmanager.shared.adapter.out.persistence.SpringDataPages;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.PageResult;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -27,6 +30,16 @@ class SuspensionPersistenceAdapter implements SuspensionRepository {
     @Override
     public Optional<Suspension> findById(Long id) {
         return jpaRepository.findById(id).map(this::toDomain);
+    }
+
+    @Override
+    public Map<Long, Suspension> findByLoanIds(Set<Long> loanIds) {
+        if (loanIds.isEmpty()) {
+            return Map.of();
+        }
+        // ordered by id, so when a loan has more than one the latest one wins
+        return jpaRepository.findByLoanIdInOrderByIdAsc(loanIds).stream()
+                .collect(Collectors.toMap(SuspensionJpaEntity::getLoanId, this::toDomain, (older, latest) -> latest));
     }
 
     @Override

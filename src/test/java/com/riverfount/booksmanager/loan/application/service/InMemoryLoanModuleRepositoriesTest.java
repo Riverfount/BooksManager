@@ -128,4 +128,20 @@ class InMemoryLoanModuleRepositoriesTest {
         assertThat(inForce.items()).extracting(Suspension::getId).containsExactly(running.getId());
         assertThat(suspensions.findById(endedEarly.getId()).orElseThrow().isEndedEarly()).isTrue();
     }
+
+    @Test
+    void shouldFindTheFinesAndSuspensionsOfSeveralLoans() {
+        var fine = fines.save(Fine.create(1L, 10L, new BigDecimal("3.00")));
+        var suspension = suspensions.save(Suspension.create(10L, 2L, DAY, 5));
+        var latest = suspensions.save(Suspension.create(10L, 2L, DAY, 9));
+
+        var foundFines = fines.findByLoanIds(java.util.Set.of(1L, 2L, 3L));
+        assertThat(foundFines).containsOnlyKeys(1L);
+        assertThat(foundFines.get(1L).getId()).isEqualTo(fine.getId());
+        assertThat(suspensions.findByLoanIds(java.util.Set.of(1L, 2L, 3L))).containsOnlyKeys(2L);
+        assertThat(suspensions.findByLoanIds(java.util.Set.of(2L)).get(2L).getId())
+                .isEqualTo(latest.getId()).isNotEqualTo(suspension.getId());
+        assertThat(fines.findByLoanIds(java.util.Set.of())).isEmpty();
+        assertThat(suspensions.findByLoanIds(java.util.Set.of())).isEmpty();
+    }
 }

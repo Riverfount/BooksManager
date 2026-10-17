@@ -1,6 +1,8 @@
 package com.riverfount.booksmanager.loan.adapter.out.persistence;
 
 import com.riverfount.booksmanager.loan.domain.FineStatus;
+import java.util.Collection;
+import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -18,4 +20,6 @@ interface FineJpaRepository extends JpaRepository<FineJpaEntity, Long> {
             """)
     Page<FineJpaEntity> search(@Param("readerId") Long readerId, @Param("loanId") Long loanId,
             @Param("status") FineStatus status, Pageable pageable);
+
+    List<FineJpaEntity> findByLoanIdIn(Collection<Long> loanIds);
 }

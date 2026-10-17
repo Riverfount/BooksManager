@@ -168,6 +168,25 @@ class FinePersistenceAdapterTest {
     }
 
     @Test
+    void shouldFindTheFinesOfSeveralLoansInOneCall() {
+        var otherLoan = data.newReturnedLoan(data.newCopy(), readerId, PICKUP);
+        var withoutFine = data.newReturnedLoan(data.newCopy(), readerId, PICKUP);
+        var first = saveFine(loanId, "3.00");
+        var second = saveFine(otherLoan, "4.00");
+
+        var found = adapter.findByLoanIds(java.util.Set.of(loanId, otherLoan, withoutFine));
+
+        assertThat(found).containsOnlyKeys(loanId, otherLoan);
+        assertThat(found.get(loanId).getId()).isEqualTo(first.getId());
+        assertThat(found.get(otherLoan).getId()).isEqualTo(second.getId());
+    }
+
+    @Test
+    void shouldFindNothingForNoLoans() {
+        assertThat(adapter.findByLoanIds(java.util.Set.of())).isEmpty();
+    }
+
+    @Test
     void shouldPaginateAndSort() {
         for (var amount : new String[] {"3.00", "1.00", "2.00"}) {
             saveFine(data.newReturnedLoan(data.newCopy(), readerId, PICKUP), amount);

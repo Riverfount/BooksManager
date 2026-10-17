@@ -8,7 +8,10 @@ import com.riverfount.booksmanager.shared.adapter.out.persistence.SpringDataPage
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.PageResult;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
@@ -39,6 +42,15 @@ class FinePersistenceAdapter implements FineRepository {
     @Override
     public Optional<Fine> findById(Long id) {
         return jpaRepository.findById(id).map(this::toDomain);
+    }
+
+    @Override
+    public Map<Long, Fine> findByLoanIds(Set<Long> loanIds) {
+        if (loanIds.isEmpty()) {
+            return Map.of();
+        }
+        return jpaRepository.findByLoanIdIn(loanIds).stream()
+                .collect(Collectors.toMap(FineJpaEntity::getLoanId, this::toDomain));
     }
 
     @Override
