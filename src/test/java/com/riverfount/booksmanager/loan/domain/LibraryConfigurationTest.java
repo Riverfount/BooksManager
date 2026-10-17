@@ -2,9 +2,11 @@ package com.riverfount.booksmanager.loan.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import java.math.BigDecimal;
+import java.time.Duration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -115,6 +117,34 @@ class LibraryConfigurationTest {
         assertThatThrownBy(() -> with(PenaltyPolicy.FINE, "1.00", "100000000.00", 1, 365, 14, 3, 2, 3))
                 .isInstanceOf(BusinessRuleException.class)
                 .hasMessageContaining("teto da multa");
+    }
+
+    @Test
+    void theMoneyIsAlwaysKeptWithTwoDecimalPlacesWhateverScaleItArrivedWith() {
+        var built = with(PenaltyPolicy.FINE, "1.5", "20", 1, 365, 14, 3, 2, 3);
+        assertThat(built.getDailyFineAmount().toPlainString()).isEqualTo("1.50");
+        assertThat(built.getFineCap().toPlainString()).isEqualTo("20.00");
+
+        var configuration = initial();
+        configuration.update(null, money("2.500"), money("3E+1"), null, null, null, null, null, null);
+        assertThat(configuration.getDailyFineAmount().toPlainString()).isEqualTo("2.50");
+        assertThat(configuration.getFineCap().toPlainString()).isEqualTo("30.00");
+    }
+
+    @Test
+    void aHugeExponentIsRefusedQuicklyAndNeverExpanded() {
+        for (var huge : new String[] {"1E+999999999", "1E+2147483647", "9.99E+999999999"}) {
+            assertTimeoutPreemptively(Duration.ofSeconds(2), () -> assertThatThrownBy(
+                    () -> with(PenaltyPolicy.FINE, "1.00", huge, 1, 365, 14, 3, 2, 3))
+                    .isInstanceOf(BusinessRuleException.class).hasMessageContaining("teto da multa"));
+            assertTimeoutPreemptively(Duration.ofSeconds(2), () -> assertThatThrownBy(
+                    () -> with(PenaltyPolicy.FINE, huge, "10.00", 1, 365, 14, 3, 2, 3))
+                    .isInstanceOf(BusinessRuleException.class).hasMessageContaining("valor diário"));
+        }
+        // a tiny one is refused for its decimal places, also without expanding it
+        assertTimeoutPreemptively(Duration.ofSeconds(2), () -> assertThatThrownBy(
+                () -> with(PenaltyPolicy.FINE, "1E-999999999", "10.00", 1, 365, 14, 3, 2, 3))
+                .isInstanceOf(BusinessRuleException.class).hasMessageContaining("duas casas"));
     }
 
     @Test
