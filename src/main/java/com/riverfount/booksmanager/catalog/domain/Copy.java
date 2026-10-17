@@ -104,9 +104,18 @@ public class Copy {
         }
     }
 
-    public void deactivate() {
-        if (status == CopyStatus.BORROWED) {
-            throw new BusinessRuleException("o exemplar não pode ser inativado enquanto estiver emprestado");
+    /**
+     * Deactivates the copy (RN10, RN14): refused while it is out on a loan. The loan itself is
+     * the source of truth, so whoever calls brings that fact ({@code hasActiveLoan}) the way
+     * {@link #validateUniqueAssetCode} gets its fact; the status {@code BORROWED} is checked as
+     * well, so a copy marked as borrowed is never deactivated either.
+     *
+     * @param hasActiveLoan whether the copy has a loan that was not returned yet
+     */
+    public void deactivate(boolean hasActiveLoan) {
+        if (hasActiveLoan || status == CopyStatus.BORROWED) {
+            throw new BusinessRuleException(
+                    "o exemplar não pode ser inativado enquanto estiver emprestado: há um empréstimo ativo");
         }
         this.active = false;
     }

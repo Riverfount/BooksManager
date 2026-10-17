@@ -259,7 +259,7 @@ class CopyPersistenceAdapterTest {
     @Test
     void deactivatedCopyShouldStayInTheDatabaseWithActiveFalse() {
         var saved = adapter.save(Copy.create(bookId, "PAT-1"));
-        saved.deactivate();
+        saved.deactivate(false);
 
         adapter.save(saved);
 

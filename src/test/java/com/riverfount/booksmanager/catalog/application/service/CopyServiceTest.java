@@ -28,13 +28,15 @@ class CopyServiceTest {
     private CopyService service;
     private InMemoryCopyRepository copyRepository;
     private InMemoryBookRepository bookRepository;
+    private StubActiveLoanChecker activeLoans;
     private Long bookId;
 
     @BeforeEach
     void setUp() {
         copyRepository = new InMemoryCopyRepository();
         bookRepository = new InMemoryBookRepository();
-        service = new CopyService(copyRepository, bookRepository);
+        activeLoans = new StubActiveLoanChecker();
+        service = new CopyService(copyRepository, bookRepository, activeLoans);
 
         var categoryId = 1L;
         var authorId = 1L;
@@ -253,8 +255,42 @@ class CopyServiceTest {
         assertThat(copyRepository.findById(copy.getId()).orElseThrow().isActive()).isTrue();
     }
 
+    @Test
+    void shouldNotDeactivateACopyThatHasAnActiveLoan() {
+        var copy = service.register(new RegisterCopyCommand(bookId, "PAT-1"));
+        activeLoans.markActiveLoan(copy.getId());
+
+        assertThatThrownBy(() -> service.deactivate(copy.getId()))
+                .isInstanceOf(BusinessRuleException.class).hasMessageContaining("empréstimo ativo");
+
+        assertThat(copyRepository.findById(copy.getId()).orElseThrow().isActive()).isTrue();
+    }
+
+    @Test
+    void shouldDeactivateACopyOnceItsLoanWasReturned() {
+        var copy = service.register(new RegisterCopyCommand(bookId, "PAT-1"));
+        activeLoans.markActiveLoan(copy.getId());
+        activeLoans.clearActiveLoan(copy.getId());
+
+        service.deactivate(copy.getId());
+
+        assertThat(copyRepository.findById(copy.getId()).orElseThrow().isActive()).isFalse();
+    }
+
+    @Test
+    void shouldOnlyAskAboutTheLoansOfTheCopyBeingDeactivated() {
+        var copy = service.register(new RegisterCopyCommand(bookId, "PAT-1"));
+        var other = service.register(new RegisterCopyCommand(bookId, "PAT-2"));
+        activeLoans.markActiveLoan(other.getId());
+
+        service.deactivate(copy.getId());
+
+        assertThat(copyRepository.findById(copy.getId()).orElseThrow().isActive()).isFalse();
+        assertThat(copyRepository.findById(other.getId()).orElseThrow().isActive()).isTrue();
+    }
+
     private void deactivate(Copy copy) {
-        copy.deactivate();
+        copy.deactivate(false);
         copyRepository.save(copy);
     }
 }

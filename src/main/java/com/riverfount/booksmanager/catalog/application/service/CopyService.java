@@ -8,6 +8,7 @@ import com.riverfount.booksmanager.catalog.application.port.in.RegisterCopyComma
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterCopyUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateCopyCommand;
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateCopyUseCase;
+import com.riverfount.booksmanager.catalog.application.port.out.ActiveLoanChecker;
 import com.riverfount.booksmanager.catalog.application.port.out.BookRepository;
 import com.riverfount.booksmanager.catalog.application.port.out.CopyRepository;
 import com.riverfount.booksmanager.catalog.domain.Copy;
@@ -32,10 +33,13 @@ class CopyService implements RegisterCopyUseCase, GetCopyUseCase, ListCopiesUseC
 
     private final CopyRepository copyRepository;
     private final BookRepository bookRepository;
+    private final ActiveLoanChecker activeLoanChecker;
 
-    CopyService(CopyRepository copyRepository, BookRepository bookRepository) {
+    CopyService(CopyRepository copyRepository, BookRepository bookRepository,
+            ActiveLoanChecker activeLoanChecker) {
         this.copyRepository = copyRepository;
         this.bookRepository = bookRepository;
+        this.activeLoanChecker = activeLoanChecker;
     }
 
     @Override
@@ -76,7 +80,7 @@ class CopyService implements RegisterCopyUseCase, GetCopyUseCase, ListCopiesUseC
     public void deactivate(Long id) {
         var copy = copyRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("exemplar não encontrado: " + id));
-        copy.deactivate();
+        copy.deactivate(activeLoanChecker.hasActiveLoan(copy.getId()));
         copyRepository.save(copy);
     }
 
