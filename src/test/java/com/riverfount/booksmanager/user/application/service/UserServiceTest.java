@@ -13,6 +13,7 @@ import com.riverfount.booksmanager.security.application.port.in.RevokeRefreshTok
 import com.riverfount.booksmanager.user.application.port.in.CreateUserCommand;
 import com.riverfount.booksmanager.user.application.port.in.DeactivateUserCommand;
 import com.riverfount.booksmanager.user.application.port.in.ListUsersQuery;
+import com.riverfount.booksmanager.user.application.port.in.ResetUserPasswordCommand;
 import com.riverfount.booksmanager.user.application.port.in.UpdateUserCommand;
 import com.riverfount.booksmanager.user.application.port.in.InitialAdminResult;
 import com.riverfount.booksmanager.user.application.port.out.PasswordHasher;
@@ -993,5 +994,93 @@ class UserServiceTest {
 
         assertThat(stored("chefe").isActive()).isTrue();
         assertThat(stored("chefe").getRole()).isEqualTo(Role.ADMIN);
+    }
+
+    // resetting a password (RF09, HU29, RNF07)
+
+    private static final String NEW_PASSWORD = "N3w-Pass#word";
+
+    private ResetUserPasswordCommand reset(String login, String password) {
+        return new ResetUserPasswordCommand(stored(login).getId(), password);
+    }
+
+    @Test
+    void shouldResetThePasswordStoringOnlyTheHashAndRevokeTheRefreshTokens() {
+        registerUser("maria", Role.OPERATOR);
+        var oldHash = stored("maria").getPasswordHash();
+
+        service.resetPassword(reset("maria", NEW_PASSWORD));
+
+        var after = stored("maria");
+        assertThat(after.getPasswordHash()).isNotEqualTo(oldHash).doesNotContain(NEW_PASSWORD);
+        assertThat(hasher.matches(NEW_PASSWORD, after.getPasswordHash())).isTrue();
+        assertThat(revokedFor).containsExactly(after.getId());
+    }
+
+    @Test
+    void theOldPasswordStopsWorkingAndTheNewOneLogsIn() {
+        registerUser("maria", Role.OPERATOR);
+
+        service.resetPassword(reset("maria", NEW_PASSWORD));
+
+        assertThat(canLogIn("maria")).isFalse();
+        assertThat(service.authenticate(new AuthenticateUserCommand("maria", NEW_PASSWORD)).role())
+                .isEqualTo(Role.OPERATOR);
+    }
+
+    @Test
+    void resettingThePasswordShouldChangeNothingElseInTheUser() {
+        registerUser("chefe", Role.ADMIN);
+        var before = stored("chefe");
+
+        service.resetPassword(reset("chefe", NEW_PASSWORD));
+
+        var after = stored("chefe");
+        assertThat(after.getLogin()).isEqualTo(before.getLogin());
+        assertThat(after.getRole()).isEqualTo(Role.ADMIN);
+        assertThat(after.isActive()).isTrue();
+    }
+
+    @Test
+    void shouldRefuseAWeakPasswordKeepingTheCurrentOneAndTheTokens() {
+        registerUser("maria", Role.OPERATOR);
+        var oldHash = stored("maria").getPasswordHash();
+
+        for (var weak : new String[] {"Sh0rt!", "alllowercase1!", "ALLUPPERCASE1!", "NoDigitsHere!", "NoSpecial1234",
+                "Aa1!" + "x".repeat(30)}) {
+            assertThatThrownBy(() -> service.resetPassword(reset("maria", weak)))
+                    .isInstanceOf(BusinessRuleException.class)
+                    .hasMessageContaining("senha")
+                    .hasMessageNotContaining(weak);
+        }
+
+        assertThat(stored("maria").getPasswordHash()).isEqualTo(oldHash);
+        assertThat(revokedFor).isEmpty();
+    }
+
+    @Test
+    void shouldRejectTheResetOfAnUnknownUserWithoutRevokingAnything() {
+        assertThatThrownBy(() -> service.resetPassword(new ResetUserPasswordCommand(99_999L, NEW_PASSWORD)))
+                .isInstanceOf(com.riverfount.booksmanager.shared.domain.ResourceNotFoundException.class);
+
+        assertThat(revokedFor).isEmpty();
+    }
+
+    @Test
+    void shouldResetThePasswordOfAnInactiveUserWithoutReactivatingIt() {
+        registerUser("maria", Role.OPERATOR);
+        deactivate("maria");
+
+        service.resetPassword(reset("maria", NEW_PASSWORD));
+
+        assertThat(stored("maria").isActive()).isFalse();
+        assertThat(hasher.matches(NEW_PASSWORD, stored("maria").getPasswordHash())).isTrue();
+        assertThat(revokedFor).containsExactly(stored("maria").getId());
+    }
+
+    @Test
+    void theResetCommandShouldNotShowThePasswordInItsStringForm() {
+        assertThat(new ResetUserPasswordCommand(5L, NEW_PASSWORD).toString())
+                .doesNotContain(NEW_PASSWORD).contains("5");
     }
 }
