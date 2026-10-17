@@ -17,6 +17,8 @@ import com.riverfount.booksmanager.WithAdmin;
 import com.riverfount.booksmanager.WithOperator;
 import com.riverfount.booksmanager.loan.application.port.in.RegisterLoanCommand;
 import com.riverfount.booksmanager.loan.application.port.in.RegisterLoanUseCase;
+import com.riverfount.booksmanager.loan.application.port.in.RenewLoanCommand;
+import com.riverfount.booksmanager.loan.application.port.in.RenewLoanUseCase;
 import com.riverfount.booksmanager.loan.application.port.in.ReturnLoanCommand;
 import com.riverfount.booksmanager.loan.application.port.in.ReturnLoanResult;
 import com.riverfount.booksmanager.loan.application.port.in.ReturnLoanUseCase;
@@ -55,6 +57,9 @@ class LoanControllerTest {
 
     @MockitoBean
     private ReturnLoanUseCase returnLoanUseCase;
+
+    @MockitoBean
+    private RenewLoanUseCase renewLoanUseCase;
 
     private static Loan registered() {
         return Loan.reconstitute(42L, 7L, 20L, LocalDate.of(2026, 11, 10), LocalDate.of(2026, 11, 24), null, 0);
@@ -275,5 +280,84 @@ class LoanControllerTest {
         giveBack().andExpect(status().isUnauthorized());
 
         then(returnLoanUseCase).should(never()).returnLoan(any());
+    }
+
+    // renewing (RF13, HU09)
+
+    private static final String RENEW_URL = URL + "/42/renew";
+
+    private static Loan renewed() {
+        return Loan.reconstitute(42L, 7L, 20L, LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 29), null, 1);
+    }
+
+    private ResultActions renew() throws Exception {
+        return mockMvc.perform(post(RENEW_URL).with(csrf()));
+    }
+
+    @Test
+    @WithOperator
+    void shouldRenewTheLoanAndAnswer200WithTheNewDueDate() throws Exception {
+        given(renewLoanUseCase.renew(any())).willReturn(renewed());
+
+        renew()
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(42))
+                .andExpect(jsonPath("$.dueDate").value("2026-11-29"))
+                .andExpect(jsonPath("$.renewals").value(1))
+                .andExpect(jsonPath("$.active").value(true));
+
+        var captor = ArgumentCaptor.forClass(RenewLoanCommand.class);
+        then(renewLoanUseCase).should().renew(captor.capture());
+        assertThat(captor.getValue()).isEqualTo(new RenewLoanCommand(42L));
+    }
+
+    @Test
+    @WithAdmin
+    void anAdministratorShouldAlsoRenewTheLoan() throws Exception {
+        given(renewLoanUseCase.renew(any())).willReturn(renewed());
+
+        renew().andExpect(status().isOk());
+    }
+
+    @Test
+    @WithOperator
+    void aRefusedRenewalShouldAnswer422WithTheReason() throws Exception {
+        given(renewLoanUseCase.renew(any())).willThrow(
+                new BusinessRuleException("o limite de renovações (2) deste empréstimo já foi atingido"));
+
+        renew()
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.detail").value("o limite de renovações (2) deste empréstimo já foi atingido"));
+    }
+
+    @Test
+    @WithOperator
+    void renewingALoanThatDoesNotExistShouldAnswer404() throws Exception {
+        given(renewLoanUseCase.renew(any())).willThrow(new ResourceNotFoundException("empréstimo não encontrado: 42"));
+
+        renew().andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithOperator
+    void renewingWithAConflictingChangeShouldAnswer409() throws Exception {
+        given(renewLoanUseCase.renew(any())).willThrow(new OptimisticLockingFailureException("stale"));
+
+        renew().andExpect(status().isConflict());
+    }
+
+    @Test
+    @WithOperator
+    void renewingWithAnIdThatIsNotANumberShouldAnswer400() throws Exception {
+        mockMvc.perform(post(URL + "/abc/renew").with(csrf())).andExpect(status().isBadRequest());
+
+        then(renewLoanUseCase).should(never()).renew(any());
+    }
+
+    @Test
+    void renewingWithoutAuthenticationShouldAnswer401() throws Exception {
+        renew().andExpect(status().isUnauthorized());
+
+        then(renewLoanUseCase).should(never()).renew(any());
     }
 }
