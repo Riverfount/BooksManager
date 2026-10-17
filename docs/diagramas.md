@@ -131,7 +131,8 @@ classDiagram
 | `Reader` | `user` | Implementado: migração (issue #88), domínio (issue #89), persistência (issue #90) e endpoints REST de cadastro, consulta, listagem, edição, inativação e bloqueio (issues #91 a #96). |
 | `User` | `user` | Migração `app_user` (issue #97), domínio (issue #98), persistência (issue #99), administrador inicial (issue #100), autenticação (issues #101 a #105) e criação, consulta, listagem, edição de perfil, desbloqueio, inativação e redefinição de senha de usuário (issues #106 a #110) implementados (fase 2, `docs/projeto.md`). |
 | `LibraryConfiguration` | `loan` | Migração (issue #136), domínio, com o enum `PenaltyPolicy` (issue #137), persistência (issue #138) e os endpoints `GET` e `PATCH /api/v1/library-configuration` (issue #139) implementados. |
-| `Loan`, `Fine`, `Suspension` | `loan` | Planejadas — fase 3 do plano de desenvolvimento (issues #140 a #157). A suspensão é um registro do `loan`, não um campo do `Reader` (decisão da issue #135). |
+| `Penalty` e `PenaltyPolicy.calculate` | `loan` | Implementados (issue #140): o cálculo da multa e da suspensão por variante da política. |
+| `Loan`, `Fine`, `Suspension` | `loan` | Planejadas — fase 3 do plano de desenvolvimento (issues #141 a #157). A suspensão é um registro do `loan`, não um campo do `Reader` (decisão da issue #135). |
 | `Reservation` | `loan` | Planejada — fase 4 do plano de desenvolvimento. |
 
 ## Referências
