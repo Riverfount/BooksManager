@@ -23,11 +23,12 @@ public interface CopyRepository {
     boolean existsByAssetCode(String assetCode);
 
     /**
-     * Lists copies by active flag, optionally filtered by book and status
-     * (null means no filter). The sort field is one of
+     * Lists copies by active flag, optionally filtered by book, status and
+     * asset code (null means no filter; the code must be the whole code, and
+     * its case does not matter). The sort field is one of
      * ListCopiesQuery.SORTABLE_FIELDS.
      */
-    PageResult<Copy> findAll(Long bookId, CopyStatus status, boolean active, PageQuery page);
+    PageResult<Copy> findAll(Long bookId, CopyStatus status, String assetCode, boolean active, PageQuery page);
 
     /**
      * Counts, for each given book, its copies that can be borrowed: active

@@ -8,6 +8,7 @@ import com.riverfount.booksmanager.shared.adapter.out.persistence.SpringDataPage
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.PageResult;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -64,8 +65,10 @@ class CopyPersistenceAdapter implements CopyRepository {
     }
 
     @Override
-    public PageResult<Copy> findAll(Long bookId, CopyStatus status, boolean active, PageQuery page) {
-        var result = jpaRepository.search(bookId, status, active, SpringDataPages.toPageable(page));
+    public PageResult<Copy> findAll(Long bookId, CopyStatus status, String assetCode, boolean active,
+            PageQuery page) {
+        var result = jpaRepository.search(bookId, status, assetCode == null ? null : assetCode.toLowerCase(Locale.ROOT),
+                active, SpringDataPages.toPageable(page));
         return SpringDataPages.toPageResult(result, this::toDomain);
     }
 

@@ -135,11 +135,12 @@ O contrato da API é o OpenAPI gerado pelo SpringDoc (`/v3/api-docs`), e o front
 | 14/10/2026 | O OpenAPI passou a marcar como obrigatórios (`required`) os campos que as respostas sempre trazem. O JSON não muda; clientes gerados a partir do contrato passam a tipar esses campos sem `?`. | Compatível | #85 |
 | 17/10/2026 | `BookResponse` ganhou `totalCopies` (exemplares ativos, em qualquer status), `category` (`id` e `name`) e `authors` (lista de `id` e `name`); `authorIds` e `categoryId` continuam. | Compatível | #213 |
 | 17/10/2026 | `UserResponse` ganhou `displayName` (nulo quando o usuário não tem); `POST /api/v1/users` e `PATCH /api/v1/users/{id}` aceitam `displayName` opcional (até 100 caracteres; em branco, no PATCH, o remove). Novo endpoint `GET /api/v1/users/me` (ADMIN e OPERATOR): `id`, `login`, `displayName` e `role` de quem está logado; 401 para usuário inativo ou inexistente. | Compatível | #215 |
+| 17/10/2026 | `GET /api/v1/copies` ganhou o filtro opcional `assetCode` (código de patrimônio inteiro, sem diferenciar maiúsculas; código inexistente devolve página vazia). | Compatível | #210 |
 
 #### Listagem e paginação (RNF14)
 
 - Parâmetros `page` (a partir de 0), `size` (de 1 a 100, padrão 20) e `sort` no formato `campo[,asc|desc]`, com os campos permitidos definidos por cada listagem. O `active` vale `true` por padrão, então os inativos só aparecem quando pedidos.
-- Filtros próprios de cada recurso: `name` em autores e categorias; `bookId` e `status` em exemplares; `title`, `author`, `isbn` e `categoryId` em livros (ver "Livros", abaixo).
+- Filtros próprios de cada recurso: `name` em autores e categorias; `bookId`, `status` e `assetCode` em exemplares (o código de patrimônio inteiro, sem diferenciar maiúsculas, para o front achar o exemplar que o operador digitou; em branco vale como ausente; o `POST /loans` continua com `copyId`); `title`, `author`, `isbn` e `categoryId` em livros (ver "Livros", abaixo).
 - A resposta é um `PageResponse` com `items`, `page`, `size`, `totalItems` e `totalPages`.
 - Tamanho acima de 100, página negativa, campo de ordenação desconhecido ou filtro com valor inválido (um `status` inexistente, por exemplo) são recusados com 400, e nunca ajustados em silêncio.
 - No núcleo, a paginação usa os tipos `PageQuery` e `PageResult`, de `shared.domain`, em Java puro. O `Pageable` do Spring Data fica restrito aos adaptadores de persistência, que o obtêm por `SpringDataPages` (em `shared.adapter.out.persistence`) e desempatam a ordenação pelo `id` para as páginas serem estáveis.

@@ -129,6 +129,38 @@ class CopyServiceTest {
     }
 
     @Test
+    void shouldFindACopyByItsAssetCodeWithoutCaringAboutCase() {
+        service.register(new RegisterCopyCommand(bookId, "PAT-0007"));
+        service.register(new RegisterCopyCommand(bookId, "PAT-0070"));
+
+        var result = service.list(new ListCopiesQuery(null, null, "pat-0007", true, PageQuery.of(0, 20, "id")));
+
+        assertThat(result.items()).extracting(Copy::getAssetCode).containsExactly("PAT-0007");
+    }
+
+    @Test
+    void anUnknownAssetCodeShouldGiveAnEmptyPage() {
+        service.register(new RegisterCopyCommand(bookId, "PAT-0007"));
+
+        var result = service.list(new ListCopiesQuery(null, null, "PAT-9999", true, PageQuery.of(0, 20, "id")));
+
+        assertThat(result.items()).isEmpty();
+        assertThat(result.totalItems()).isZero();
+    }
+
+    @Test
+    void theAssetCodeShouldLoseItsSurroundingSpacesAndABlankOneShouldBeNoFilter() {
+        service.register(new RegisterCopyCommand(bookId, "PAT-0007"));
+        service.register(new RegisterCopyCommand(bookId, "PAT-0008"));
+
+        assertThat(new ListCopiesQuery(null, null, "  PAT-0007 ", true, PageQuery.of(0, 20, "id")).assetCode())
+                .isEqualTo("PAT-0007");
+        assertThat(new ListCopiesQuery(null, null, "   ", true, PageQuery.of(0, 20, "id")).assetCode()).isNull();
+        assertThat(service.list(new ListCopiesQuery(null, null, "   ", true, PageQuery.of(0, 20, "id"))).items())
+                .hasSize(2);
+    }
+
+    @Test
     void shouldFilterByStatus() {
         service.register(new RegisterCopyCommand(bookId, "PAT-1"));
         var borrowed = service.register(new RegisterCopyCommand(bookId, "PAT-2"));

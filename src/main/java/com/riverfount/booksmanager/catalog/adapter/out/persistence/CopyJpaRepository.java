@@ -13,15 +13,16 @@ interface CopyJpaRepository extends JpaRepository<CopyJpaEntity, Long> {
 
     boolean existsByAssetCode(String assetCode);
 
-    // a null bookId or status means "no filter on that field"
+    // a null bookId, status or assetCode means "no filter on that field"; the assetCode comes lowercase
     @Query("""
             select c from CopyJpaEntity c
             where c.active = :active
               and (:bookId is null or c.bookId = :bookId)
               and (:status is null or c.status = :status)
+              and (:assetCode is null or lower(c.assetCode) = :assetCode)
             """)
     Page<CopyJpaEntity> search(@Param("bookId") Long bookId, @Param("status") CopyStatus status,
-            @Param("active") boolean active, Pageable pageable);
+            @Param("assetCode") String assetCode, @Param("active") boolean active, Pageable pageable);
 
     /** Active AVAILABLE copies per book, in one grouped query (RF05). */
     @Query("""
