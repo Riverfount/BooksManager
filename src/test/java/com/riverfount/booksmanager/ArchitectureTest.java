@@ -34,6 +34,17 @@ class ArchitectureTest {
             .should().dependOnClassesThat().resideInAPackage("..adapter..")
             .allowEmptyShould(true);
 
+    /**
+     * The loan module uses the catalog's public ports, never the other way round: a catalog
+     * that called the loan would make the two services depend on each other, and the
+     * application would not start.
+     */
+    @ArchTest
+    static final ArchRule catalogShouldNotDependOnLoan = noClasses()
+            .that().resideInAPackage("..catalog..")
+            .should().dependOnClassesThat().resideInAPackage("..loan..")
+            .allowEmptyShould(true);
+
     /** A new controller that does not decide who may call it fails the build (see AccessRules). */
     @ArchTest
     static final ArchRule everyControllerDeclaresItsAccess = AccessRules.everyControllerDeclaresItsAccess();

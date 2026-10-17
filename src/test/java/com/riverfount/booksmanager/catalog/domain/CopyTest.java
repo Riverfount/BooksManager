@@ -115,6 +115,16 @@ class CopyTest {
         assertThat(copy.getStatus()).isEqualTo(CopyStatus.AVAILABLE);
     }
 
+    @ParameterizedTest
+    @EnumSource(value = CopyStatus.class, names = {"DAMAGED", "LOST"})
+    void shouldNotMakeADamagedOrLostCopyAvailableWhenItIsChecedIn(CopyStatus status) {
+        var copy = Copy.reconstitute(1L, 1L, "PAT-1", status, true, 0L);
+
+        copy.checkIn();
+
+        assertThat(copy.getStatus()).isEqualTo(status);
+    }
+
     @Test
     void shouldNotCheckInCopyThatIsNotBorrowed() {
         var copy = Copy.create(1L, "PAT-1");
