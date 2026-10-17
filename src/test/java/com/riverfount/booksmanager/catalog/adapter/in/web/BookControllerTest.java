@@ -29,7 +29,9 @@ import com.riverfount.booksmanager.catalog.application.port.in.ListBooksUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterBookUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateBookCommand;
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateBookUseCase;
+import com.riverfount.booksmanager.catalog.domain.Author;
 import com.riverfount.booksmanager.catalog.domain.Book;
+import com.riverfount.booksmanager.catalog.domain.Category;
 import com.riverfount.booksmanager.catalog.domain.Isbn;
 import com.riverfount.booksmanager.shared.adapter.in.web.GlobalExceptionHandler;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
@@ -77,7 +79,12 @@ class BookControllerTest {
     private DeactivateBookUseCase deactivateBookUseCase;
 
     private BookWithAvailability sampleBook() {
-        return new BookWithAvailability(plainBook(), 2);
+        return withNames(plainBook(), 2, 5);
+    }
+
+    private static BookWithAvailability withNames(Book book, long available, long total) {
+        return new BookWithAvailability(book, available, total, Category.reconstitute(1L, "Romance", true),
+                List.of(Author.reconstitute(10L, "Machado de Assis", true)));
     }
 
     private Book plainBook() {
@@ -88,7 +95,7 @@ class BookControllerTest {
     @Test
     @WithOperator
     void shouldRegisterBookAndReturn201WithLocation() throws Exception {
-        given(registerBookUseCase.register(any())).willReturn(new BookWithAvailability(plainBook(), 0));
+        given(registerBookUseCase.register(any())).willReturn(withNames(plainBook(), 0, 0));
 
         mockMvc.perform(post("/api/v1/books")
                         .with(csrf())
@@ -206,7 +213,8 @@ class BookControllerTest {
     void shouldListBooksWithPaginationMetadata() throws Exception {
         given(listBooksUseCase.list(any())).willReturn(new PageResult<>(List.of(new BookWithAvailability(
                 Book.reconstitute(1L, new Isbn("9788533302273"), "Dom Casmurro", "Garnier", 1899, 3L, Set.of(7L),
-                        true), 5)), 0, 1, 2));
+                        true), 5, 8, Category.reconstitute(3L, "Romance", true),
+                List.of(Author.reconstitute(7L, "Machado de Assis", true)))), 0, 1, 2));
 
         mockMvc.perform(get("/api/v1/books").param("size", "1"))
                 .andExpect(status().isOk())
@@ -218,6 +226,11 @@ class BookControllerTest {
                 .andExpect(jsonPath("$.items[0].authorIds[0]").value(7))
                 .andExpect(jsonPath("$.items[0].active").value(true))
                 .andExpect(jsonPath("$.items[0].availableCopies").value(5))
+                .andExpect(jsonPath("$.items[0].totalCopies").value(8))
+                .andExpect(jsonPath("$.items[0].category.id").value(3))
+                .andExpect(jsonPath("$.items[0].category.name").value("Romance"))
+                .andExpect(jsonPath("$.items[0].authors[0].id").value(7))
+                .andExpect(jsonPath("$.items[0].authors[0].name").value("Machado de Assis"))
                 .andExpect(jsonPath("$.page").value(0))
                 .andExpect(jsonPath("$.size").value(1))
                 .andExpect(jsonPath("$.totalItems").value(2))

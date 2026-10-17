@@ -16,11 +16,15 @@ import com.riverfount.booksmanager.catalog.application.port.out.CategoryReposito
 import com.riverfount.booksmanager.catalog.application.port.out.CopyRepository;
 import com.riverfount.booksmanager.catalog.domain.Author;
 import com.riverfount.booksmanager.catalog.domain.Book;
+import com.riverfount.booksmanager.catalog.domain.Category;
 import com.riverfount.booksmanager.catalog.domain.Isbn;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.PageResult;
 import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
 import java.time.Clock;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -62,17 +66,17 @@ class BookService implements RegisterBookUseCase, GetBookUseCase, ListBooksUseCa
         // other repositories.
         var book = Book.create(isbn, command.title(), command.publisher(), command.publicationYear(),
                 command.categoryId(), command.authorIds(), clock);
-        validateCategoryExists(book.getCategoryId());
-        validateAuthorsExist(book.getAuthorIds());
+        var category = validateCategoryExists(book.getCategoryId());
+        var authors = validateAuthorsExist(book.getAuthorIds());
         Book.validateUniqueIsbn(isbn, bookRepository.existsByIsbn(isbn));
         // a new book has no copies yet
-        return new BookWithAvailability(bookRepository.save(book), 0);
+        return new BookWithAvailability(bookRepository.save(book), 0, 0, category, byName(authors));
     }
 
     @Override
     @Transactional(readOnly = true)
     public Optional<BookWithAvailability> findById(Long id) {
-        return bookRepository.findById(id).map(this::withAvailability);
+        return bookRepository.findById(id).map(book -> withDetails(List.of(book)).get(0));
     }
 
     @Override
@@ -80,10 +84,7 @@ class BookService implements RegisterBookUseCase, GetBookUseCase, ListBooksUseCa
     public PageResult<BookWithAvailability> list(ListBooksQuery query) {
         var filter = new BookFilter(query.title(), query.author(), query.isbn(), query.categoryId());
         var page = bookRepository.findAll(filter, query.active(), query.page());
-        // one aggregated query for the whole page, not one per book
-        var bookIds = page.items().stream().map(Book::getId).collect(Collectors.toSet());
-        var availableCopies = copyRepository.countAvailableByBookIds(bookIds);
-        return page.map(book -> new BookWithAvailability(book, availableCopies.getOrDefault(book.getId(), 0L)));
+        return new PageResult<>(withDetails(page.items()), page.page(), page.size(), page.totalItems());
     }
 
     @Override
@@ -113,7 +114,7 @@ class BookService implements RegisterBookUseCase, GetBookUseCase, ListBooksUseCa
                 validateAuthorsExist(addedAuthorIds);
             }
         }
-        return withAvailability(bookRepository.save(book));
+        return withDetails(List.of(bookRepository.save(book))).get(0);
     }
 
     @Override
@@ -124,12 +125,31 @@ class BookService implements RegisterBookUseCase, GetBookUseCase, ListBooksUseCa
         bookRepository.save(book);
     }
 
-    private BookWithAvailability withAvailability(Book book) {
-        var availableCopies = copyRepository.countAvailableByBookIds(Set.of(book.getId()));
-        return new BookWithAvailability(book, availableCopies.getOrDefault(book.getId(), 0L));
+    /**
+     * The books with their copy counts, category and authors. Whatever the number of books, each
+     * of these is fetched in one query for all of them, not one per book.
+     */
+    private List<BookWithAvailability> withDetails(List<Book> books) {
+        var bookIds = books.stream().map(Book::getId).collect(Collectors.toSet());
+        var categoryIds = books.stream().map(Book::getCategoryId).collect(Collectors.toSet());
+        var authorIds = books.stream().flatMap(book -> book.getAuthorIds().stream()).collect(Collectors.toSet());
+        var availableCopies = copyRepository.countAvailableByBookIds(bookIds);
+        var totalCopies = copyRepository.countActiveByBookIds(bookIds);
+        Map<Long, Category> categories = categoryRepository.findAllByIds(categoryIds);
+        var authors = authorRepository.findAllByIds(authorIds).stream()
+                .collect(Collectors.toMap(Author::getId, author -> author));
+        return books.stream()
+                .map(book -> new BookWithAvailability(book, availableCopies.getOrDefault(book.getId(), 0L),
+                        totalCopies.getOrDefault(book.getId(), 0L), categories.get(book.getCategoryId()),
+                        byName(book.getAuthorIds().stream().map(authors::get).filter(Objects::nonNull).toList())))
+                .toList();
     }
 
-    private void validateCategoryExists(Long categoryId) {
+    private static List<Author> byName(List<Author> authors) {
+        return authors.stream().sorted(Comparator.comparing(Author::getName)).toList();
+    }
+
+    private Category validateCategoryExists(Long categoryId) {
         var category = categoryRepository.findById(categoryId);
         if (category.isEmpty()) {
             throw new BusinessRuleException("categoria não encontrada: " + categoryId);
@@ -137,9 +157,10 @@ class BookService implements RegisterBookUseCase, GetBookUseCase, ListBooksUseCa
         if (!category.get().isActive()) {
             throw new BusinessRuleException("categoria inativa: " + categoryId);
         }
+        return category.get();
     }
 
-    private void validateAuthorsExist(Set<Long> authorIds) {
+    private List<Author> validateAuthorsExist(Set<Long> authorIds) {
         // a single batch query, instead of one per authorId
         var found = authorRepository.findAllByIds(authorIds);
         var foundIds = found.stream().map(Author::getId).collect(Collectors.toSet());
@@ -153,5 +174,6 @@ class BookService implements RegisterBookUseCase, GetBookUseCase, ListBooksUseCa
                 throw new BusinessRuleException("autor inativo: " + author.getId());
             }
         }
+        return found;
     }
 }

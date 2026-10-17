@@ -6,7 +6,10 @@ import com.riverfount.booksmanager.shared.adapter.out.persistence.SpringDataPage
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.PageResult;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
@@ -39,6 +42,12 @@ class CategoryPersistenceAdapter implements CategoryRepository {
     @Override
     public Optional<Category> findById(Long id) {
         return jpaRepository.findById(id).map(this::toDomain);
+    }
+
+    @Override
+    public Map<Long, Category> findAllByIds(Set<Long> ids) {
+        return jpaRepository.findAllById(ids).stream().map(this::toDomain)
+                .collect(Collectors.toMap(Category::getId, category -> category));
     }
 
     @Override

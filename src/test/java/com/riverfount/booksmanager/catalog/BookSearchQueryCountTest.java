@@ -20,8 +20,9 @@ import org.springframework.transaction.annotation.Transactional;
  * Guards the "no query per book" criterion of the book search (RF05): the
  * whole use case, with the real adapters and PostgreSQL, runs a fixed
  * number of queries per page, however many books the page has. Those are
- * the page, its total count, the authors of the whole page in one batch
- * and the available copies of the whole page in one aggregated query. A
+ * the page, its total count, the author ids of the whole page in one batch,
+ * the available and the total copies of the whole page in one aggregated
+ * query each, and the categories and the authors' names in one batch each. A
  * regression to one query per book would make the second run below fire
  * far more statements than the first.
  */
@@ -30,7 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 class BookSearchQueryCountTest {
 
-    private static final int QUERIES_PER_PAGE = 4;
+    private static final int QUERIES_PER_PAGE = 7;
 
     @Autowired
     private ListBooksUseCase listBooksUseCase;
@@ -100,7 +101,10 @@ class BookSearchQueryCountTest {
         var page = listBooksUseCase.list(query);
 
         assertThat(page.items()).isNotEmpty()
-                .allSatisfy(item -> assertThat(item.book().getAuthorIds()).hasSize(2));
+                .allSatisfy(item -> assertThat(item.book().getAuthorIds()).hasSize(2))
+                .allSatisfy(item -> assertThat(item.authors()).hasSize(2))
+                .allSatisfy(item -> assertThat(item.category().getName()).isEqualTo("Ficção"))
+                .allSatisfy(item -> assertThat(item.totalCopies()).isEqualTo(2L));
         return statistics.getPrepareStatementCount();
     }
 

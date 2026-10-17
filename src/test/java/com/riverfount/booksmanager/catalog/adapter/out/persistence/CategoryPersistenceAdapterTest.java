@@ -45,6 +45,19 @@ class CategoryPersistenceAdapterTest {
     }
 
     @Test
+    void shouldFindManyCategoriesByIdIncludingInactiveOnesInOneCall() {
+        var active = adapter.save(Category.create("Ficção"));
+        var inactive = adapter.save(Category.reconstitute(null, "Poesia", false));
+
+        var found = adapter.findAllByIds(java.util.Set.of(active.getId(), inactive.getId(), 999999L));
+
+        assertThat(found).containsOnlyKeys(active.getId(), inactive.getId());
+        assertThat(found.get(inactive.getId()).getName()).isEqualTo("Poesia");
+        assertThat(found.get(inactive.getId()).isActive()).isFalse();
+        assertThat(adapter.findAllByIds(java.util.Set.of())).isEmpty();
+    }
+
+    @Test
     void shouldPersistDeactivationKeepingTheRowAndTheBooksThatUseIt() {
         // RN14: deactivating is an update, never a physical delete
         var category = adapter.save(Category.create("Romance"));

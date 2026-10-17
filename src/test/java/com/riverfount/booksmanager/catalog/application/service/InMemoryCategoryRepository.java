@@ -9,6 +9,8 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * In-memory implementation of CategoryRepository, used only in the
@@ -37,6 +39,12 @@ class InMemoryCategoryRepository implements CategoryRepository {
             throw new IllegalArgumentException("o id não pode ser nulo");
         }
         return Optional.ofNullable(categories.get(id));
+    }
+
+    @Override
+    public Map<Long, Category> findAllByIds(Set<Long> ids) {
+        return categories.values().stream().filter(category -> ids.contains(category.getId()))
+                .collect(Collectors.toMap(Category::getId, category -> category));
     }
 
     @Override

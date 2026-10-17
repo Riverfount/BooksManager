@@ -30,9 +30,17 @@ interface CopyJpaRepository extends JpaRepository<CopyJpaEntity, Long> {
               and c.status = com.riverfount.booksmanager.catalog.domain.CopyStatus.AVAILABLE
             group by c.bookId
             """)
-    List<AvailableCopiesCount> countAvailableByBookIds(@Param("bookIds") Collection<Long> bookIds);
+    List<CopiesCount> countAvailableByBookIds(@Param("bookIds") Collection<Long> bookIds);
 
-    interface AvailableCopiesCount {
+    /** Active copies per book, whatever their status, in one grouped query (RF05). */
+    @Query("""
+            select c.bookId as bookId, count(c) as total from CopyJpaEntity c
+            where c.bookId in :bookIds and c.active = true
+            group by c.bookId
+            """)
+    List<CopiesCount> countActiveByBookIds(@Param("bookIds") Collection<Long> bookIds);
+
+    interface CopiesCount {
 
         Long getBookId();
 

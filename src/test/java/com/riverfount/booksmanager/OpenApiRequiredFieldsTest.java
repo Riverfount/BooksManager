@@ -38,7 +38,7 @@ class OpenApiRequiredFieldsTest {
     @Test
     void bookResponseShouldRequireEverythingExceptWhatCanBeNull() throws Exception {
         apiDocs.andExpect(requiredOf("BookResponse", "id", "isbn", "title", "categoryId", "authorIds",
-                "active", "availableCopies"));
+                "active", "availableCopies", "totalCopies", "category", "authors"));
     }
 
     @Test

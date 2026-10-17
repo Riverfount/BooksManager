@@ -480,6 +480,92 @@ class BookServiceTest {
         assertThat(updated.availableCopies()).isEqualTo(1L);
     }
 
+    @Test
+    void shouldShowTheTotalOfActiveCopiesNoMatterTheirStatus() {
+        var book = register("9788533302273", "Dom Casmurro", 1899);
+        copyRepository.save(Copy.create(book.getId(), "PAT-1"));
+        copyRepository.save(Copy.reconstitute(null, book.getId(), "PAT-2", CopyStatus.BORROWED, true, 0L));
+        copyRepository.save(Copy.reconstitute(null, book.getId(), "PAT-3", CopyStatus.DAMAGED, true, 0L));
+        copyRepository.save(Copy.reconstitute(null, book.getId(), "PAT-4", CopyStatus.AVAILABLE, false, 0L));
+
+        var found = service.findById(book.getId()).orElseThrow();
+
+        assertThat(found.totalCopies()).isEqualTo(3L);
+        assertThat(found.availableCopies()).isEqualTo(1L);
+    }
+
+    @Test
+    void shouldShowTheTotalOfCopiesOfEachBookInTheList() {
+        var domCasmurro = register("9788533302273", "Dom Casmurro", 1899);
+        register("9788525406958", "Sem exemplares", 2010);
+        copyRepository.save(Copy.create(domCasmurro.getId(), "PAT-1"));
+        copyRepository.save(Copy.reconstitute(null, domCasmurro.getId(), "PAT-2", CopyStatus.BORROWED, true, 0L));
+
+        var result = service.list(new ListBooksQuery(true, PageQuery.of(0, 20, "title")));
+
+        assertThat(result.items()).extracting(item -> item.book().getTitle(), item -> item.totalCopies())
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("Dom Casmurro", 2L),
+                        org.assertj.core.groups.Tuple.tuple("Sem exemplares", 0L));
+    }
+
+    @Test
+    void shouldShowTheNamesOfTheCategoryAndOfTheAuthorsOrderedByName() {
+        var secondAuthorId = authorRepository.save(Author.create("Aluísio Azevedo")).getId();
+        var registered = service.register(new RegisterBookCommand("9788533302273", "Dom Casmurro", "Editora X",
+                1899, categoryId, Set.of(authorId, secondAuthorId)));
+
+        var found = service.findById(registered.book().getId()).orElseThrow();
+
+        assertThat(found.category().getName()).isEqualTo("Ficção");
+        assertThat(found.authors()).extracting(Author::getName)
+                .containsExactly("Aluísio Azevedo", "Machado de Assis");
+        assertThat(registered.category().getName()).isEqualTo("Ficção");
+        assertThat(registered.authors()).hasSize(2);
+        assertThat(registered.totalCopies()).isZero();
+    }
+
+    @Test
+    void shouldShowTheNamesOfEveryBookOfThePageFromOneBatchEach() {
+        var otherCategoryId = categoryRepository.save(Category.create("Poesia")).getId();
+        var otherAuthorId = authorRepository.save(Author.create("Cecília Meireles")).getId();
+        register("9788533302273", "Dom Casmurro", 1899);
+        service.register(new RegisterBookCommand("9788535914849", "Viagem", "Editora X", 1939, otherCategoryId,
+                Set.of(otherAuthorId)));
+
+        var result = service.list(new ListBooksQuery(true, PageQuery.of(0, 20, "title")));
+
+        assertThat(result.items()).extracting(item -> item.category().getName(),
+                        item -> item.authors().get(0).getName())
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("Ficção", "Machado de Assis"),
+                        org.assertj.core.groups.Tuple.tuple("Poesia", "Cecília Meireles"));
+    }
+
+    @Test
+    void shouldKeepShowingTheNameOfAnInactiveCategoryAndAuthor() {
+        var book = register("9788533302273", "Dom Casmurro", 1899);
+        new CategoryService(categoryRepository).deactivate(categoryId);
+        new AuthorService(authorRepository).deactivate(authorId);
+
+        var found = service.findById(book.getId()).orElseThrow();
+
+        assertThat(found.category().getName()).isEqualTo("Ficção");
+        assertThat(found.authors()).extracting(Author::getName).containsExactly("Machado de Assis");
+    }
+
+    @Test
+    void shouldShowTheNamesAndTheTotalWhenUpdating() {
+        var book = register("9788533302273", "Dom Casmurro", 1899);
+        copyRepository.save(Copy.create(book.getId(), "PAT-1"));
+
+        var updated = service.update(new UpdateBookCommand(book.getId(), "Novo título", null, null, null, null));
+
+        assertThat(updated.totalCopies()).isEqualTo(1L);
+        assertThat(updated.category().getName()).isEqualTo("Ficção");
+        assertThat(updated.authors()).extracting(Author::getName).containsExactly("Machado de Assis");
+    }
+
     private Book register(String isbn, String title, Integer publicationYear) {
         return service.register(new RegisterBookCommand(isbn, title, "Editora X", publicationYear, categoryId,
                 Set.of(authorId))).book();

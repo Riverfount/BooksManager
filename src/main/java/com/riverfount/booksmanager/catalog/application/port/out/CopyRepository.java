@@ -35,4 +35,11 @@ public interface CopyRepository {
      * books; a book with no available copy is absent from the map.
      */
     Map<Long, Long> countAvailableByBookIds(Set<Long> bookIds);
+
+    /**
+     * Counts, for each given book, its active copies whatever their status
+     * (RF05). One aggregated query for all the books; a book with no
+     * active copy is absent from the map.
+     */
+    Map<Long, Long> countActiveByBookIds(Set<Long> bookIds);
 }

@@ -70,4 +70,12 @@ class InMemoryCopyRepository implements CopyRepository {
                 .filter(copy -> copy.isActive() && copy.getStatus() == CopyStatus.AVAILABLE)
                 .collect(Collectors.groupingBy(Copy::getBookId, Collectors.counting()));
     }
+
+    @Override
+    public Map<Long, Long> countActiveByBookIds(Set<Long> bookIds) {
+        return copies.values().stream()
+                .filter(copy -> bookIds.contains(copy.getBookId()))
+                .filter(Copy::isActive)
+                .collect(Collectors.groupingBy(Copy::getBookId, Collectors.counting()));
+    }
 }
