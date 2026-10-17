@@ -47,8 +47,8 @@ public class LibraryConfiguration {
                 loanLimit, renewalLimit, reservationPickupDays);
         this.id = id;
         this.penaltyPolicy = penaltyPolicy;
-        this.dailyFineAmount = dailyFineAmount;
-        this.fineCap = fineCap;
+        this.dailyFineAmount = withMoneyScale(dailyFineAmount);
+        this.fineCap = withMoneyScale(fineCap);
         this.suspensionDaysPerDay = suspensionDaysPerDay;
         this.suspensionCapDays = suspensionCapDays;
         this.loanPeriodDays = loanPeriodDays;
@@ -86,8 +86,8 @@ public class LibraryConfiguration {
         validate(newPolicy, newDailyFine, newFineCap, newDaysPerDay, newSuspensionCap, newPeriod, newLoanLimit,
                 newRenewalLimit, newPickup);
         this.penaltyPolicy = newPolicy;
-        this.dailyFineAmount = newDailyFine;
-        this.fineCap = newFineCap;
+        this.dailyFineAmount = withMoneyScale(newDailyFine);
+        this.fineCap = withMoneyScale(newFineCap);
         this.suspensionDaysPerDay = newDaysPerDay;
         this.suspensionCapDays = newSuspensionCap;
         this.loanPeriodDays = newPeriod;
@@ -137,6 +137,15 @@ public class LibraryConfiguration {
         if (reservationPickupDays < 1) {
             throw new BusinessRuleException("o prazo de retirada de reservas deve ser de pelo menos 1 dia");
         }
+    }
+
+    /**
+     * The money always has two decimal places, as the database stores it, so what the
+     * API answers after a change is what it answers later (1.5 becomes 1.50). The
+     * value was already validated to have at most two, so this never rounds.
+     */
+    private static BigDecimal withMoneyScale(BigDecimal amount) {
+        return amount.setScale(MONEY_SCALE);
     }
 
     private static void validateMoney(BigDecimal amount, String subject) {

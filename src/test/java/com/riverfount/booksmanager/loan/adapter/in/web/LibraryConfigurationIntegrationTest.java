@@ -103,6 +103,29 @@ class LibraryConfigurationIntegrationTest {
     }
 
     @Test
+    void thePatchAnswersTheMoneyWithTwoDecimalPlacesJustLikeTheGet() throws Exception {
+        var patched = edit("ADMIN", "{\"dailyFineAmount\":1.5,\"fineCap\":20}").andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        var read = mockMvc.perform(get(URL).header("Authorization", token("ADMIN"))).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(patched).contains("\"dailyFineAmount\":1.50").contains("\"fineCap\":20.00");
+        assertThat(read).contains("\"dailyFineAmount\":1.50").contains("\"fineCap\":20.00");
+        assertThat(patched).isEqualTo(read);
+    }
+
+    @Test
+    void aHugeExponentGets422QuicklyAndChangesNothing() throws Exception {
+        org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(java.time.Duration.ofSeconds(5), () -> {
+            edit("ADMIN", "{\"fineCap\":1e999999999}").andExpect(status().isUnprocessableContent());
+            edit("ADMIN", "{\"dailyFineAmount\":1e-999999999}").andExpect(status().isUnprocessableContent());
+        });
+
+        assertThat(jdbcTemplate.queryForObject("select fine_cap from library_configuration", java.math.BigDecimal.class))
+                .isEqualByComparingTo("10.00");
+    }
+
+    @Test
     void aValueThatBreaksARuleGets422AndChangesNothing() throws Exception {
         for (var json : new String[] {"{\"loanPeriodDays\":0}", "{\"loanLimit\":-1}", "{\"renewalLimit\":-1}",
                 "{\"dailyFineAmount\":-1}", "{\"dailyFineAmount\":1.001}", "{\"fineCap\":0}",
