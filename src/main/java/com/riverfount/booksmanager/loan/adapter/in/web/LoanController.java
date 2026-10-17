@@ -187,6 +187,9 @@ class LoanController {
                     + "para empréstimo encerrado.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Empréstimo encontrado"),
+            @ApiResponse(responseCode = "400", description = "Identificador inválido",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class))),
             @ApiResponse(responseCode = "404", description = "Empréstimo não encontrado",
                     content = @Content(mediaType = "application/problem+json",
                             schema = @Schema(implementation = ProblemDetail.class)))

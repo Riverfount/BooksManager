@@ -30,7 +30,7 @@ Bibliotecários, que operam o sistema no dia a dia, e o administrador, que geren
 - Listar os empréstimos em atraso
 
 ### 1.5 Estado atual
-A Fase 1 (Catálogo) está concluída na API: livros, autores, categorias e exemplares têm cadastro, consulta, listagem paginada, edição e inativação. A pesquisa de livros, com a quantidade de exemplares disponíveis, é a própria listagem com filtros. A Fase 2 (Leitores e acesso) está concluída na API: os leitores têm cadastro, consulta, listagem paginada, edição, inativação e bloqueio (`/api/v1/readers`), e há login com JWT, autorização por perfil e a gestão dos usuários do sistema (`/api/v1/users`); a Fase 3 (empréstimos, multas e suspensões) está em andamento, e a modelagem dela já está decidida em `docs/projeto.md`. O plano completo e a situação de cada fase estão em [`docs/projeto.md`](docs/projeto.md), seção "Plano de desenvolvimento".
+A Fase 1 (Catálogo) está concluída na API: livros, autores, categorias e exemplares têm cadastro, consulta, listagem paginada, edição e inativação. A pesquisa de livros, com a quantidade de exemplares disponíveis, é a própria listagem com filtros. A Fase 2 (Leitores e acesso) está concluída na API: os leitores têm cadastro, consulta, listagem paginada, edição, inativação e bloqueio (`/api/v1/readers`), e há login com JWT, autorização por perfil e a gestão dos usuários do sistema (`/api/v1/users`); a Fase 3 (empréstimos, multas e suspensões) está concluída na API: configuração da biblioteca, empréstimo, devolução com a penalidade da política configurada, renovação, consultas e histórico, pagamento e abono de multas, suspensões e o relatório de atrasos (`/api/v1/loans`, `/fines`, `/suspensions`, `/reports` e `/library-configuration`). A Fase 4 (reservas e relatórios adicionais) é a próxima. O plano completo e a situação de cada fase estão em [`docs/projeto.md`](docs/projeto.md), seção "Plano de desenvolvimento".
 
 ---
 
@@ -47,7 +47,7 @@ A Fase 1 (Catálogo) está concluída na API: livros, autores, categorias e exem
 
 ## 3. Arquitetura
 
-O projeto segue a **arquitetura hexagonal** (portas e adaptadores), organizado como um monólito modular dividido nos módulos `catalog`, `loan`, `user`, `security` e `shared`. Até agora estão implementados o `catalog`, o `user`, o `security` e o `shared`; o `loan` entra na Fase 3. As regras de negócio ficam em um domínio escrito em Java puro, sem dependência de Spring ou JPA. Banco de dados, adaptador web (API REST) e serviços externos se conectam ao domínio por meio de portas, implementadas por adaptadores. O `ArchitectureTest` (ArchUnit) já verifica essa separação a cada build: o domínio não pode depender de Spring, JPA/Hibernate, da aplicação nem dos adaptadores, e a aplicação não pode depender dos adaptadores.
+O projeto segue a **arquitetura hexagonal** (portas e adaptadores), organizado como um monólito modular dividido nos módulos `catalog`, `loan`, `user`, `security` e `shared`. Os cinco estão implementados (o `loan` com a Fase 3; as reservas entram na Fase 4). Os módulos só conversam por portas públicas e a dependência é de uma via: o `loan` usa as portas do `catalog` e do `user`, e o `catalog` pergunta ao `loan` por uma porta de saída própria, implementada por um adaptador do `loan`. As regras de negócio ficam em um domínio escrito em Java puro, sem dependência de Spring ou JPA. Banco de dados, adaptador web (API REST) e serviços externos se conectam ao domínio por meio de portas, implementadas por adaptadores. O `ArchitectureTest` (ArchUnit) já verifica essa separação a cada build: o domínio não pode depender de Spring, JPA/Hibernate, da aplicação nem dos adaptadores, e a aplicação não pode depender dos adaptadores. Outras regras do mesmo teste: o `catalog` e o `user` não dependem do `loan`, e todo controller declara quem pode chamá-lo.
 
 O front-end (React + Tailwind CSS) é um projeto separado que consome esta API apenas por HTTP/JSON; nenhuma regra de negócio vive nele.
 
@@ -114,23 +114,31 @@ Todos os recursos do catálogo seguem o mesmo contrato, sob o prefixo **/api/v1*
 | Editar | `PATCH /{recurso}/{id}` | 200, altera só os campos enviados |
 | Inativar | `DELETE /{recurso}/{id}` | 204, nunca exclui fisicamente |
 
-Os empréstimos começam em `POST /api/v1/loans`, que recebe só o exemplar e o leitor (`copyId` e `readerId`): a retirada é hoje e a data prevista de devolução vem do prazo da configuração da biblioteca. A resposta é 201 com `Location`; um empréstimo não permitido (exemplar indisponível, limite de empréstimos, multa pendente, suspensão, atraso, leitor inativo ou bloqueado) devolve 422 com todos os motivos, e dois pedidos simultâneos para o mesmo exemplar deixam só um (o outro recebe 409 ou 422).
+### Endpoints de empréstimos, multas e relatórios
+Todos aceitam os perfis `ADMIN` e `OPERATOR` (a configuração da biblioteca é só do `ADMIN`) e as listagens são paginadas, com até 100 itens por página (`size` acima disso é 400):
 
-A devolução é `POST /api/v1/loans/{id}/return`, sem corpo: encerra o empréstimo com a data de hoje, deixa o exemplar disponível e, se veio depois da data prevista, aplica a penalidade da política vigente na configuração (multa, suspensão, as duas ou nada). A resposta traz os dias de atraso, a multa e a suspensão geradas (nulas quando não houve); devolver de novo um empréstimo encerrado é 422, e mudar a política depois não recalcula devoluções já registradas.
+| Operação | Requisição | Resposta |
+|---|---|---|
+| Registrar empréstimo | `POST /api/v1/loans` com `copyId` e `readerId` | 201 com `Location`; 422 com todos os motivos da recusa |
+| Devolver | `POST /api/v1/loans/{id}/return` | 200 com os dias de atraso e a multa e a suspensão geradas |
+| Renovar | `POST /api/v1/loans/{id}/renew` | 200 com a nova data prevista; 422 se encerrado, em atraso ou no limite |
+| Consultar empréstimo | `GET /api/v1/loans/{id}` | 200, inclusive para empréstimo encerrado |
+| Listar empréstimos | `GET /api/v1/loans?readerId=&copyId=&status=` | 200; `status` é `ACTIVE` ou `RETURNED` (o histórico) |
+| Listar multas | `GET /api/v1/fines?readerId=&status=` | 200; cada multa traz o `pendingAmount` |
+| Pagar multa | `POST /api/v1/fines/{id}/pay` | 200; 422 se já resolvida |
+| Abonar multa | `POST /api/v1/fines/{id}/waive` com `{"reason": "..."}` | 200; 400 sem justificativa |
+| Listar suspensões | `GET /api/v1/suspensions?readerId=&inForce=` | 200; traz o término e o `releaseDate` |
+| Encerrar suspensão | `POST /api/v1/suspensions/{id}/end` com `{"reason": "..."}` | 200; 400 sem justificativa; sem efeito se já terminou |
+| Relatório de atrasos | `GET /api/v1/reports/overdue-loans` | 200, do maior para o menor atraso |
+| Configuração da biblioteca | `GET` e `PATCH /api/v1/library-configuration` | 200 (só `ADMIN`) |
 
-A renovação é `POST /api/v1/loans/{id}/renew`, sem corpo: a data prevista avança o prazo da configuração a partir da data prevista atual. É recusada (422) para empréstimo encerrado, em atraso ou que já usou o limite de renovações da biblioteca.
-
-Para consultar, `GET /api/v1/loans/{id}` (vale também para empréstimo encerrado) e `GET /api/v1/loans`, paginado (até 100 por página) com os filtros `readerId`, `copyId` e `status` (`ACTIVE` ou `RETURNED`): é o histórico de um leitor ou de um exemplar. Cada empréstimo traz as datas de retirada, prevista e de devolução e, se foi devolvido, os dias de atraso e a multa e a suspensão geradas.
-
-A multa gerada por um atraso é resolvida com `POST /api/v1/fines/{id}/pay` (pagamento, sem corpo) ou `POST /api/v1/fines/{id}/waive` (abono, com `{"reason": "..."}`, justificativa obrigatória). Só a multa pendente impede novos empréstimos; depois de paga ou abonada o leitor volta a poder emprestar, e uma multa já resolvida não pode ser paga nem abonada de novo (422).
-
-A situação de um leitor para decidir um novo empréstimo se consulta em `GET /api/v1/fines` (filtros `readerId` e `status`; cada multa traz o `pendingAmount`) e `GET /api/v1/suspensions` (filtros `readerId` e `inForce`; cada suspensão traz o término e o dia em que o leitor volta a poder emprestar). Uma suspensão que já terminou não aparece como em vigor, e as duas listagens são paginadas, com até 100 itens por página.
-
-O operador pode liberar um leitor antes do prazo com `POST /api/v1/suspensions/{id}/end` e `{"reason": "..."}`: a justificativa é obrigatória (400 sem ela) e fica registrada; depois disso o leitor volta a poder emprestar, se nada mais o impedir. Encerrar uma suspensão que já terminou não tem efeito (200, com o estado atual).
-
-O relatório de atrasos é `GET /api/v1/reports/overdue-loans`, paginado (até 100 por página): os empréstimos ativos com a data prevista vencida, do maior para o menor atraso, com o leitor, o exemplar e os dias de atraso. Um empréstimo que vence hoje ainda está em dia, e um já devolvido não aparece.
-
-Um exemplar com empréstimo ativo não pode ser inativado (`DELETE /api/v1/copies/{id}` devolve 422 até a devolução, RN10).
+O que vale saber:
+- A retirada é sempre hoje (no fuso `America/Sao_Paulo`) e a data prevista de devolução soma o prazo da configuração; nenhuma data é aceita no corpo.
+- Um empréstimo é recusado por exemplar indisponível, limite de empréstimos simultâneos, multa pendente, suspensão em vigor, empréstimo em atraso ou leitor inativo ou bloqueado, e a mensagem traz todos os motivos de uma vez.
+- A política de penalidade (multa, suspensão, as duas ou nada) e seus números vêm da configuração. A penalidade é calculada na devolução e guardada: mudar a política depois não recalcula devoluções já registradas.
+- Só a multa pendente impede novos empréstimos; paga ou abonada, o leitor volta a poder emprestar. Uma suspensão que já terminou não está em vigor, sem nenhuma rotina para fechá-la.
+- Um exemplar com empréstimo ativo não pode ser inativado (`DELETE /api/v1/copies/{id}` devolve 422 até a devolução).
+- Dois pedidos simultâneos sobre o mesmo registro deixam só um: o outro recebe 409 (tente novamente) ou 422.
 
 Os erros seguem o formato ProblemDetail (400, 404, 409 e 422). Os detalhes do contrato estão em [`docs/projeto.md`](docs/projeto.md), seção "Interface e API", e cada endpoint está descrito no Swagger.
 

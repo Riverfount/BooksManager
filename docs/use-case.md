@@ -111,7 +111,7 @@
 - Critério de aceite: o atraso conta em dias corridos, sem carência; devolver no dia do vencimento não é atraso. A multa e a suspensão crescem por dia de atraso, até o teto, com a política vigente no dia da devolução (RN08, RN16).
 
 **HU09 —** Como operador, quero renovar um empréstimo, para dar mais prazo ao leitor sem precisar devolver e emprestar de novo.
-- Critério de aceite: cada empréstimo pode ser renovado no máximo 2 vezes (RN07).
+- Critério de aceite: cada empréstimo pode ser renovado no máximo 2 vezes, valor configurável (RN07).
 - Critério de aceite: a renovação é recusada se o empréstimo estiver em atraso ou se houver reserva pendente para o livro (RN07).
 
 **HU30 —** Como operador, quero consultar os empréstimos ativos e o histórico de um leitor ou de um exemplar, para responder dúvidas e acompanhar a circulação do acervo.

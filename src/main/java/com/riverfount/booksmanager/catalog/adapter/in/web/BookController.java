@@ -120,7 +120,10 @@ class BookController {
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Consultar livro por id")
+    @Operation(summary = "Consultar livro por id",
+            description = "Devolve o livro com o ISBN, o título, a editora, o ano, a categoria, os autores, se está "
+                    + "ativo e a quantidade de exemplares disponíveis (`availableCopies`), inclusive para livro "
+                    + "inativo.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Livro encontrado"),
             @ApiResponse(responseCode = "404", description = "Livro não encontrado",

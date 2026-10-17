@@ -105,7 +105,8 @@ class CategoryController {
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Consultar categoria por id")
+    @Operation(summary = "Consultar categoria por id",
+            description = "Devolve a categoria com o nome e se está ativa, inclusive para categoria inativa.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Categoria encontrada"),
             @ApiResponse(responseCode = "404", description = "Categoria não encontrada",
