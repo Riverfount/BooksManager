@@ -231,7 +231,7 @@ class ReturnLoanServiceTest {
 
         assertThat(fineRepository.findById(first.fine().getId()).orElseThrow().getAmount())
                 .isEqualByComparingTo("6.00");
-        assertThat(suspensionRepository.findAll(new SuspensionFilter(READER, null, null), ALL).totalItems())
+        assertThat(suspensionRepository.findAll(new SuspensionFilter(READER, null, null, null), ALL).totalItems())
                 .as("the first return, under the fine policy, got no suspension").isZero();
         assertThat(second.fine()).isNull();
         assertThat(second.suspension()).isNotNull();

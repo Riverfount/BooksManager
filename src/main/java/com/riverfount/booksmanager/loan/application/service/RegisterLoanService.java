@@ -85,7 +85,7 @@ class RegisterLoanService implements RegisterLoanUseCase {
                 .totalItems();
         var pendingFines = fineRepository.findAll(new FineFilter(readerId, null, FineStatus.PENDING), JUST_THE_COUNT)
                 .totalItems();
-        var suspensions = suspensionRepository.findAll(new SuspensionFilter(readerId, null, today), JUST_THE_COUNT)
+        var suspensions = suspensionRepository.findAll(new SuspensionFilter(readerId, null, today, null), JUST_THE_COUNT)
                 .totalItems();
         return new BorrowingSituation(copy.lendable(), reader.active(), reader.blocked(),
                 Math.toIntExact(activeLoans), pendingFines > 0, suspensions > 0, overdueLoans > 0);

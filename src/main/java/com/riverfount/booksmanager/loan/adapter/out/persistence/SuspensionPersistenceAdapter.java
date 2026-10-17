@@ -44,7 +44,7 @@ class SuspensionPersistenceAdapter implements SuspensionRepository {
 
     @Override
     public PageResult<Suspension> findAll(SuspensionFilter filter, PageQuery page) {
-        var result = jpaRepository.search(filter.readerId(), filter.loanId(), filter.inForceOn(),
+        var result = jpaRepository.search(filter.readerId(), filter.loanId(), filter.inForceOn(), filter.notInForceOn(),
                 SpringDataPages.toPageable(page));
         return SpringDataPages.toPageResult(result, this::toDomain);
     }

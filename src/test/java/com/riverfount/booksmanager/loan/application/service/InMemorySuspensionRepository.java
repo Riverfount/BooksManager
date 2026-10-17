@@ -59,7 +59,8 @@ class InMemorySuspensionRepository implements SuspensionRepository {
         var result = InMemoryPages.of(suspensions.values(),
                 suspension -> (filter.readerId() == null || suspension.getReaderId().equals(filter.readerId()))
                         && (filter.loanId() == null || suspension.getLoanId().equals(filter.loanId()))
-                        && (filter.inForceOn() == null || suspension.isInForce(filter.inForceOn())),
+                        && (filter.inForceOn() == null || suspension.isInForce(filter.inForceOn()))
+                        && (filter.notInForceOn() == null || !suspension.isInForce(filter.notInForceOn())),
                 COMPARATORS, Suspension::getId, page);
         return new PageResult<>(result.items().stream()
                 .map(suspension -> copyWithId(suspension, suspension.getId())).toList(),

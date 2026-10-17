@@ -6,6 +6,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -13,6 +14,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.riverfount.booksmanager.WithAdmin;
 import com.riverfount.booksmanager.WithOperator;
+import com.riverfount.booksmanager.loan.application.port.in.ListFinesQuery;
+import com.riverfount.booksmanager.loan.application.port.in.ListFinesUseCase;
 import com.riverfount.booksmanager.loan.application.port.in.PayFineUseCase;
 import com.riverfount.booksmanager.loan.application.port.in.WaiveFineCommand;
 import com.riverfount.booksmanager.loan.application.port.in.WaiveFineUseCase;
@@ -22,7 +25,9 @@ import com.riverfount.booksmanager.security.configuration.MethodSecurityConfigur
 import com.riverfount.booksmanager.shared.adapter.in.web.GlobalExceptionHandler;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
+import com.riverfount.booksmanager.shared.domain.PageResult;
 import java.math.BigDecimal;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,6 +54,9 @@ class FineControllerTest {
 
     @MockitoBean
     private WaiveFineUseCase waiveFineUseCase;
+
+    @MockitoBean
+    private ListFinesUseCase listFinesUseCase;
 
     private static Fine paid() {
         return Fine.reconstitute(5L, 42L, 20L, new BigDecimal("6.00"), FineStatus.PAID, null);
@@ -80,6 +88,7 @@ class FineControllerTest {
                 .andExpect(jsonPath("$.readerId").value(20))
                 .andExpect(jsonPath("$.amount").value(6.00))
                 .andExpect(jsonPath("$.status").value("PAID"))
+                .andExpect(jsonPath("$.pendingAmount").value(0.00))
                 .andExpect(jsonPath("$.waiverReason").doesNotExist());
     }
 
@@ -203,5 +212,83 @@ class FineControllerTest {
         waive("{\"reason\":\"Hospital stay\"}").andExpect(status().isUnauthorized());
 
         then(waiveFineUseCase).should(never()).waive(any());
+    }
+
+    // listing (RF22, HU11, RNF14)
+
+    private static Fine pending() {
+        return Fine.reconstitute(5L, 42L, 20L, new BigDecimal("6.00"), FineStatus.PENDING, null);
+    }
+
+    @Test
+    @WithOperator
+    void shouldListTheFinesShowingTheAmountStillPending() throws Exception {
+        given(listFinesUseCase.list(any())).willReturn(new PageResult<>(List.of(pending(), paid()), 0, 20, 2));
+
+        mockMvc.perform(get("/api/v1/fines"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].status").value("PENDING"))
+                .andExpect(jsonPath("$.items[0].amount").value(6.00))
+                .andExpect(jsonPath("$.items[0].pendingAmount").value(6.00))
+                .andExpect(jsonPath("$.items[1].status").value("PAID"))
+                .andExpect(jsonPath("$.items[1].pendingAmount").value(0.00))
+                .andExpect(jsonPath("$.totalItems").value(2))
+                .andExpect(jsonPath("$.totalPages").value(1));
+    }
+
+    @Test
+    @WithAdmin
+    void shouldPassTheFiltersAndThePageToTheUseCase() throws Exception {
+        given(listFinesUseCase.list(any())).willReturn(new PageResult<>(List.of(), 2, 5, 0));
+
+        mockMvc.perform(get("/api/v1/fines").param("readerId", "20").param("status", "PENDING")
+                        .param("page", "2").param("size", "5").param("sort", "amount,asc"))
+                .andExpect(status().isOk());
+
+        var captor = ArgumentCaptor.forClass(ListFinesQuery.class);
+        then(listFinesUseCase).should().list(captor.capture());
+        var query = captor.getValue();
+        assertThat(query.readerId()).isEqualTo(20L);
+        assertThat(query.status()).isEqualTo(FineStatus.PENDING);
+        assertThat(query.page().page()).isEqualTo(2);
+        assertThat(query.page().size()).isEqualTo(5);
+        assertThat(query.page().sortBy()).isEqualTo("amount");
+    }
+
+    @Test
+    @WithOperator
+    void withoutParametersTheListingShouldBeUnfilteredWithTheNewestFirst() throws Exception {
+        given(listFinesUseCase.list(any())).willReturn(new PageResult<>(List.of(), 0, 20, 0));
+
+        mockMvc.perform(get("/api/v1/fines")).andExpect(status().isOk());
+
+        var captor = ArgumentCaptor.forClass(ListFinesQuery.class);
+        then(listFinesUseCase).should().list(captor.capture());
+        assertThat(captor.getValue().readerId()).isNull();
+        assertThat(captor.getValue().status()).isNull();
+        assertThat(captor.getValue().page().size()).isEqualTo(20);
+        assertThat(captor.getValue().page().sortBy()).isEqualTo("id");
+    }
+
+    @Test
+    @WithOperator
+    void aPageSizeAbove100ShouldAnswer400() throws Exception {
+        mockMvc.perform(get("/api/v1/fines").param("size", "101")).andExpect(status().isBadRequest());
+
+        then(listFinesUseCase).should(never()).list(any());
+    }
+
+    @Test
+    @WithOperator
+    void anUnknownStatusOrSortFieldShouldAnswer400() throws Exception {
+        mockMvc.perform(get("/api/v1/fines").param("status", "OPEN")).andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/v1/fines").param("sort", "readerId")).andExpect(status().isBadRequest());
+
+        then(listFinesUseCase).should(never()).list(any());
+    }
+
+    @Test
+    void listingWithoutAuthenticationShouldAnswer401() throws Exception {
+        mockMvc.perform(get("/api/v1/fines")).andExpect(status().isUnauthorized());
     }
 }

@@ -134,8 +134,8 @@ classDiagram
 | `Penalty` e `PenaltyPolicy.calculate` | `loan` | Implementados (issue #140): o cálculo da multa e da suspensão por variante da política. |
 | `BorrowingEligibility` e `BorrowingSituation` | `loan` | Implementados (issue #144): as regras que decidem se um leitor pode pegar um exemplar (RN03, RN04, RN05, RN11). |
 | `Loan` | `loan` | Domínio implementado (issue #141); a migração (issue #145) e a persistência (issue #146) estão prontas, o registro (issue #149), a devolução (issue #150) e a renovação (issue #151) e a consulta (issue #152) também: os casos de uso do empréstimo estão completos. |
-| `Fine` | `loan` | Domínio, com o enum `FineStatus`, implementado (issue #142); a migração (issue #145) e a persistência (issue #146) estão prontas; o pagamento e o abono (issue #153) também; falta a consulta (issue #154). |
-| `Suspension` | `loan` | Domínio implementado (issue #143); a migração (issue #145) e a persistência (issue #146) estão prontas; faltam os casos de uso (issues #154 e #155). A suspensão é um registro do `loan`, não um campo do `Reader` (decisão da issue #135). |
+| `Fine` | `loan` | Domínio, com o enum `FineStatus`, implementado (issue #142); a migração (issue #145) e a persistência (issue #146) estão prontas; o pagamento, o abono e a consulta (issues #153 e #154) também. |
+| `Suspension` | `loan` | Domínio implementado (issue #143); a migração (issue #145) e a persistência (issue #146) estão prontas, e a consulta (issue #154) também; falta o encerramento antecipado (issue #155). A suspensão é um registro do `loan`, não um campo do `Reader` (decisão da issue #135). |
 | `Reservation` | `loan` | Planejada — fase 4 do plano de desenvolvimento. |
 
 ## Referências

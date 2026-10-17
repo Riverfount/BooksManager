@@ -122,9 +122,9 @@ class SuspensionPersistenceAdapterTest {
         var otherLoan = data.newReturnedLoan(data.newCopy(), data.newReader(), LocalDate.of(2026, 11, 1));
         adapter.save(Suspension.create(data.newReader(), otherLoan, START, 3));
 
-        assertThat(adapter.findAll(new SuspensionFilter(readerId, null, null), byId()).items())
+        assertThat(adapter.findAll(new SuspensionFilter(readerId, null, null, null), byId()).items())
                 .extracting(Suspension::getId).containsExactly(mine.getId());
-        assertThat(adapter.findAll(new SuspensionFilter(null, loanId, null), byId()).items())
+        assertThat(adapter.findAll(new SuspensionFilter(null, loanId, null, null), byId()).items())
                 .extracting(Suspension::getId).containsExactly(mine.getId());
     }
 
@@ -135,19 +135,39 @@ class SuspensionPersistenceAdapterTest {
         endedEarly.endEarly(START.plusDays(1), "Pardoned");
         adapter.save(endedEarly);
         clearPersistenceContext();
-        var all = adapter.findAll(new SuspensionFilter(readerId, null, null), byId()).items();
+        var all = adapter.findAll(new SuspensionFilter(readerId, null, null, null), byId()).items();
 
         for (var offset = -1; offset <= 11; offset++) {
             var day = START.plusDays(offset);
             var expected = all.stream().filter(s -> s.isInForce(day)).map(Suspension::getId).toList();
 
-            var inForce = adapter.findAll(new SuspensionFilter(readerId, null, day), byId()).items();
+            var inForce = adapter.findAll(new SuspensionFilter(readerId, null, day, null), byId()).items();
 
             assertThat(inForce).as("day %s", day).extracting(Suspension::getId)
                     .containsExactlyElementsOf(expected);
         }
-        assertThat(adapter.findAll(new SuspensionFilter(readerId, null, START), byId()).items())
+        assertThat(adapter.findAll(new SuspensionFilter(readerId, null, START, null), byId()).items())
                 .extracting(Suspension::getId).containsExactly(running.getId(), endedEarly.getId());
+    }
+
+    @Test
+    void shouldFilterTheOnesNotInForceOnADayAsTheComplementOfTheDomain() {
+        saveSuspension(3);
+        var endedEarly = adapter.save(Suspension.create(readerId, loanId, START, 10));
+        endedEarly.endEarly(START.plusDays(1), "Pardoned");
+        adapter.save(endedEarly);
+        clearPersistenceContext();
+        var all = adapter.findAll(new SuspensionFilter(readerId, null, null, null), byId()).items();
+
+        for (var offset = -1; offset <= 11; offset++) {
+            var day = START.plusDays(offset);
+            var expected = all.stream().filter(s -> !s.isInForce(day)).map(Suspension::getId).toList();
+
+            var notInForce = adapter.findAll(new SuspensionFilter(readerId, null, null, day), byId()).items();
+
+            assertThat(notInForce).as("day %s", day).extracting(Suspension::getId)
+                    .containsExactlyElementsOf(expected);
+        }
     }
 
     @Test
@@ -185,7 +205,7 @@ class SuspensionPersistenceAdapterTest {
             saveSuspension(days);
         }
 
-        var page = adapter.findAll(new SuspensionFilter(readerId, null, null), PageQuery.of(0, 2, "endDate,desc"));
+        var page = adapter.findAll(new SuspensionFilter(readerId, null, null, null), PageQuery.of(0, 2, "endDate,desc"));
 
         assertThat(page.items()).extracting(Suspension::getEndDate)
                 .containsExactly(START.plusDays(3), START.plusDays(2));
