@@ -45,6 +45,13 @@ class ArchitectureTest {
             .should().dependOnClassesThat().resideInAPackage("..loan..")
             .allowEmptyShould(true);
 
+    /** Same one-way dependency for the user module: the loan calls its public ports, never the reverse. */
+    @ArchTest
+    static final ArchRule userShouldNotDependOnLoan = noClasses()
+            .that().resideInAPackage("..user..")
+            .should().dependOnClassesThat().resideInAPackage("..loan..")
+            .allowEmptyShould(true);
+
     /** A new controller that does not decide who may call it fails the build (see AccessRules). */
     @ArchTest
     static final ArchRule everyControllerDeclaresItsAccess = AccessRules.everyControllerDeclaresItsAccess();
