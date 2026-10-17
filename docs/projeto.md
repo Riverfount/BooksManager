@@ -177,9 +177,10 @@ O livro (a obra) é separado do exemplar (a cópia física), o que permite vári
 | Autor | id, nome, ativo |
 | Categoria | id, nome, ativo |
 | Exemplar | id, livroId, código de patrimônio, status (DISPONÍVEL, EMPRESTADO, RESERVADO, DANIFICADO, EXTRAVIADO), ativo, versão (lock otimista) |
-| Leitor | id, nome, documento, e-mail, telefone, data de nascimento, responsável (nome, e-mail e telefone; só para menor de 18 anos), ativo, bloqueado, suspenso até (data) |
-| Empréstimo | id, data de retirada, data prevista de devolução, data de devolução, número de renovações |
-| Multa | id, valor, status (PENDENTE, PAGA, ABONADA), justificativa do abono |
+| Leitor | id, nome, documento, e-mail, telefone, data de nascimento, responsável (nome, e-mail e telefone; só para menor de 18 anos), ativo, bloqueado |
+| Empréstimo | id, exemplarId, leitorId, data de retirada, data prevista de devolução, data de devolução, número de renovações |
+| Multa | id, empréstimoId, leitorId, valor, status (PENDENTE, PAGA, ABONADA), justificativa do abono |
+| Suspensão | id, leitorId, empréstimoId, data de início, data de término, encerrada antes do prazo (data e justificativa) |
 | Reserva | id, data da reserva, status (ATIVA, ATENDIDA, CANCELADA, EXPIRADA) |
 | Usuário | id, login, hash da senha, perfil (ADMINISTRADOR, OPERADOR), ativo |
 | Configuração | id, política de penalidade (MULTA, SUSPENSÃO, AMBAS, NENHUMA), valor diário da multa, teto da multa, dias de suspensão por dia de atraso, teto da suspensão, prazo de empréstimo, limite de empréstimos simultâneos, limite de renovações, prazo de retirada de reservas |
@@ -194,6 +195,8 @@ O livro (a obra) é separado do exemplar (a cópia física), o que permite vári
 | Exemplar | um para muitos | Empréstimo |
 | Leitor | um para muitos | Empréstimo |
 | Empréstimo | um para zero ou um | Multa |
+| Empréstimo | um para zero ou um | Suspensão |
+| Leitor | um para muitos | Suspensão |
 | Leitor | um para muitos | Reserva |
 | Livro | um para muitos | Reserva |
 
@@ -316,7 +319,7 @@ O front-end é criado, executado e acompanhado separadamente, em seu próprio re
 | 0. Base | Projeto configurado, banco com Docker Compose, Flyway, ArchUnit, health check, configuração de segurança provisória, CORS e integração contínua. O projeto do front-end (React e Tailwind CSS) é criado e acompanhado no repositório próprio dele, fora deste plano. | **Concluída** neste repositório: Docker Compose, Flyway, ArchUnit, `Makefile`, validação do esquema, health check do banco (RNF23), CORS (RNF09) e integração contínua (RNF06). |
 | 1. Catálogo | Livros, autores, categorias e exemplares, com migrações, interface e testes. | **Concluída na API**, com cadastro, consulta, listagem, edição e inativação dos quatro recursos e a pesquisa de livros com exemplares disponíveis (RF05, issue #83). A interface fica no repositório do front-end. |
 | 2. Leitores e acesso | Cadastro de leitores, usuários do sistema, login e perfis, na API e no front-end. | **Concluída na API** (issues #87 a #110): decisões registradas (#87); leitores (#88 a #96, concluídos na API); usuários do sistema (#97 a #100, com a migração `app_user` (#97) o domínio `User` (#98) a persistência do `User` (#99) e o administrador inicial (#100) prontos); autenticação (#101 a #105, **concluída**: cadeia de segurança JWT (#101), tabela de refresh tokens (#102), login (#103), renovação e logout (#104) e autorização por perfil (#105)); gestão de usuários (#106 a #110, com a criação (#106), a consulta e a listagem (#107), a edição de perfil e o desbloqueio (#108) a inativação (#109) e a redefinição de senha (#110) prontas). Migração dos leitores (#88), domínio `Reader` (#89) e persistência do `Reader` (#90) e cadastro de leitor, `POST /api/v1/readers` (#91), consulta por id, `GET /api/v1/readers/{id}` (#92), listagem, `GET /api/v1/readers` (#93), edição, `PATCH /api/v1/readers/{id}` (#94), inativação, `DELETE /api/v1/readers/{id}` (#95), e bloqueio e desbloqueio, `POST /api/v1/readers/{id}/block` e `/unblock` (#96), prontos; com isso o bloco de leitores da API está completo. |
-| 3. Empréstimos | Configuração da biblioteca (política de penalidade), empréstimo, devolução, renovação, penalidades por atraso (multa ou suspensão) e relatório de atrasos, com o domínio completo e testes. | Não iniciada. |
+| 3. Empréstimos | Configuração da biblioteca (política de penalidade), empréstimo, devolução, renovação, penalidades por atraso (multa ou suspensão) e relatório de atrasos, com o domínio completo e testes. | **Em andamento** (issues #135 a #158): decisões de modelagem registradas (#135); configuração da biblioteca (#136 a #139), domínio (#140 a #144), persistência (#145 e #146), portas entre módulos (#147 e #148), casos de uso e endpoints (#149 a #157) e fechamento (#158) ainda por fazer. |
 | 4. Complementos | Reservas, relatórios adicionais e demais parâmetros configuráveis. | Não iniciada. |
 | 5. Evolução | Notificações por e-mail, importação por ISBN, exportação de relatórios. | Não iniciada. |
 
@@ -358,3 +361,10 @@ Se no fim de dezembro a fase 3 ainda não estiver encaminhada, a fase 4 sai do p
   - Bloqueio (issue #96): `POST /api/v1/readers/{id}/block` e `/unblock` devolvem 204, são idempotentes e devolvem 404 para id inexistente. Bloquear um leitor inativo devolve 422 (regra do `Reader`); desbloquear é permitido mesmo para o inativo que foi bloqueado antes de ser inativado. O leitor bloqueado tem `canBorrow` falso (RN11), `blocked` aparece na consulta e filtra a listagem. Não há motivo de bloqueio. O esquema fica pronto para anonimização futura (RN14 com a LGPD), inclusive dos dados do responsável, sem implementá-la.
 - **Penalidade por atraso configurável.** A biblioteca escolhe, em configuração, entre multa, suspensão, ambas ou nenhuma (RF20, RF26, RN08 e RN16). O sistema não fixa essa escolha.
 - **Valores iniciais da política de penalidade** (decidido em 10/10/2026): multa de R$ 1,00 por dia de atraso com teto de R$ 10,00; suspensão de 1 dia por dia de atraso com teto de 1 ano (ver nota em RN08 sobre o modelo de acúmulo assumido).
+- **Modelagem da Fase 3** (decidido em 17/10/2026, issue #135):
+  - **Acúmulo da penalidade (RN08):** por dia de atraso, até o teto. Com os valores iniciais, 3 dias de atraso são R$ 3,00 de multa e 15 dias são R$ 10,00 (no teto); a suspensão segue o mesmo modelo (1 dia por dia de atraso, até 365 dias). Não existe valor fixo por empréstimo.
+  - **A suspensão é um registro próprio do módulo `loan`** (`Suspension`: leitor, empréstimo, início, término e, se encerrada antes do prazo, a data e a justificativa; RN15). O `Reader` **não** tem o campo "suspenso até": o estado "em suspensão" é derivado da consulta ao `loan`. Assim a justificativa e o histórico ficam guardados, e o `loan` não escreve dentro do `user`. O `user` expõe só o estado próprio do leitor (ativo e bloqueado, RN11).
+  - **Atraso:** a devolução depois da data prevista, em dias corridos e sem carência; devolver no dia do vencimento não é atraso. Dias de atraso = data da devolução − data prevista (e, para um empréstimo ainda ativo, hoje − data prevista). O `Clock` da aplicação usa o fuso `America/Sao_Paulo`, para que "hoje" seja o dia do operador (hoje ele usa o fuso padrão do sistema, o que muda no primeiro caso de uso do `loan`, issue #149).
+  - **Bloqueio de novo empréstimo (RN05):** a multa pendente bloqueia até ser paga ou abonada, mesmo depois de a suspensão acabar e mesmo que a política mude depois para só suspensão. O empréstimo em atraso é **derivado** (empréstimo ativo com data prevista anterior a hoje): não há status `OVERDUE` guardado nem rotina agendada.
+  - **Renovação e reservas (RN07):** na Fase 3 a renovação valida só o limite, o atraso e o empréstimo encerrado. A checagem de reserva pendente entra na Fase 4, com a porta de consulta de reservas; não se cria uma porta sem uso agora.
+  - **Qual configuração vale (RN16):** a data prevista é fixada no empréstimo (mudar o prazo não altera empréstimos feitos), e a multa e a suspensão são calculadas **na devolução, com a política vigente naquele momento**. Devoluções já registradas nunca são recalculadas; um empréstimo que já estava atrasado quando a política mudou é penalizado pela política nova.

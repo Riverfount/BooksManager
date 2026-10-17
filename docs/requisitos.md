@@ -75,10 +75,10 @@ As regras ficam na camada de domínio, ou em políticas parametrizáveis, e nunc
 | RN02 | O código de patrimônio deve ser único por exemplar. |
 | RN03 | Só é permitido emprestar exemplares com status DISPONÍVEL. |
 | RN04 | Um leitor pode ter no máximo 3 empréstimos ativos ao mesmo tempo (valor configurável). |
-| RN05 | Leitor com multa pendente, suspensão em vigor ou empréstimo em atraso não pode fazer novos empréstimos. |
+| RN05 | Leitor com multa pendente, suspensão em vigor ou empréstimo em atraso não pode fazer novos empréstimos. A multa pendente bloqueia até ser paga ou abonada, mesmo depois de a suspensão terminar; o empréstimo em atraso é o ativo com data prevista anterior a hoje. |
 | RN06 | O prazo padrão de empréstimo é de 14 dias (valor configurável). |
 | RN07 | Cada empréstimo pode ser renovado no máximo 2 vezes, e não pode ser renovado se estiver em atraso ou se houver reserva pendente para o livro. |
-| RN08 | A penalidade por atraso segue a política configurada pela biblioteca: MULTA (dias de atraso × valor diário, com teto), SUSPENSÃO (dias de suspensão = dias de atraso × fator configurável, com teto), AMBAS ou NENHUMA. **Valores iniciais decididos em 10/10/2026**: MULTA = R$ 1,00 por dia de atraso, com teto de R$ 10,00; SUSPENSÃO = 1 dia por dia de atraso, com teto de 1 ano. |
+| RN08 | A penalidade por atraso segue a política configurada pela biblioteca: MULTA (dias de atraso × valor diário, com teto), SUSPENSÃO (dias de suspensão = dias de atraso × fator configurável, com teto), AMBAS ou NENHUMA. **Valores iniciais decididos em 10/10/2026**: MULTA = R$ 1,00 por dia de atraso, com teto de R$ 10,00; SUSPENSÃO = 1 dia por dia de atraso, com teto de 1 ano (365 dias). O acúmulo é **por dia de atraso, até o teto**; o atraso conta em dias corridos, sem carência. A penalidade é calculada na devolução, com a política vigente naquele momento. |
 | RN09 | Empréstimo já encerrado não pode ser renovado nem devolvido novamente. |
 | RN10 | Exemplar com empréstimo ativo não pode ser excluído nem inativado. |
 | RN11 | Leitor inativo, bloqueado ou suspenso não pode fazer empréstimos nem reservas. |
@@ -88,7 +88,7 @@ As regras ficam na camada de domínio, ou em políticas parametrizáveis, e nunc
 | RN15 | A suspensão começa na devolução em atraso e termina automaticamente na data calculada. O operador pode encerrá-la antes, com justificativa registrada. |
 | RN16 | A política de penalidade e seus valores são definidos pela biblioteca, em configuração, e nunca fixados no código. A alteração vale apenas para atrasos futuros. |
 
-> Os valores de RN08 ficam pendentes de confirmação quanto ao modelo de acúmulo: assumimos "por dia de atraso, até o teto" (ex.: 3 dias de atraso = R$ 3,00; 15 dias de atraso = R$ 10,00, já no teto). Se a intenção era um valor fixo único por empréstimo em atraso, atualize esta linha.
+> O modelo de acúmulo de RN08 foi confirmado em 17/10/2026 ("por dia de atraso, até o teto": 3 dias de atraso = R$ 3,00; 15 dias = R$ 10,00, já no teto). As demais decisões de modelagem da Fase 3 estão em `docs/projeto.md`, seção "Decisões tomadas".
 
 ## Requisitos não funcionais
 

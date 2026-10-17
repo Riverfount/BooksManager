@@ -42,7 +42,6 @@ classDiagram
         Guardian guardian
         boolean active
         boolean blocked
-        LocalDate suspendedUntil
     }
     class Guardian {
         String name
@@ -51,6 +50,8 @@ classDiagram
     }
     class Loan {
         Long id
+        Long copyId
+        Long readerId
         LocalDate pickupDate
         LocalDate dueDate
         LocalDate returnDate
@@ -58,9 +59,20 @@ classDiagram
     }
     class Fine {
         Long id
+        Long loanId
+        Long readerId
         BigDecimal amount
         FineStatus status
         String waiverReason
+    }
+    class Suspension {
+        Long id
+        Long readerId
+        Long loanId
+        LocalDate startDate
+        LocalDate endDate
+        LocalDate endedEarlyOn
+        String endedEarlyReason
     }
     class Reservation {
         Long id
@@ -95,6 +107,8 @@ classDiagram
     Reader "1" --> "0..1" Guardian : has (if under 18)
     Reader "1" --> "*" Loan : performs
     Loan "1" --> "0..1" Fine : generates
+    Loan "1" --> "0..1" Suspension : generates
+    Reader "1" --> "*" Suspension : receives
     Reader "1" --> "*" Reservation : makes
     Book "1" --> "*" Reservation : receives
 ```
@@ -114,9 +128,10 @@ classDiagram
 | Entidade | Módulo | Situação |
 | --- | --- | --- |
 | `Category`, `Author`, `Book`, `Copy` | `catalog` | Implementadas: domínio, persistência, casos de uso e endpoints REST de cadastro, consulta, listagem, edição e inativação (issues #5–#16, #35–#37 e #43–#58), inclusive a pesquisa de livros com exemplares disponíveis (RF05, issue #83). |
-| `Reader` | `user` | Domínio (issue #89), migração `reader` (issue #88) e persistência (issue #90) implementados; faltam casos de uso e endpoints (fase 2, `docs/projeto.md`). |
+| `Reader` | `user` | Implementado: migração (issue #88), domínio (issue #89), persistência (issue #90) e endpoints REST de cadastro, consulta, listagem, edição, inativação e bloqueio (issues #91 a #96). |
 | `User` | `user` | Migração `app_user` (issue #97), domínio (issue #98), persistência (issue #99), administrador inicial (issue #100), autenticação (issues #101 a #105) e criação, consulta, listagem, edição de perfil, desbloqueio, inativação e redefinição de senha de usuário (issues #106 a #110) implementados (fase 2, `docs/projeto.md`). |
-| `Loan`, `Fine`, `Reservation`, `LibraryConfiguration` | `loan` | Planejadas — fases 3 e 4 do plano de desenvolvimento. |
+| `Loan`, `Fine`, `Suspension`, `LibraryConfiguration` | `loan` | Planejadas — fase 3 do plano de desenvolvimento (issues #136 a #157). A suspensão é um registro do `loan`, não um campo do `Reader` (decisão da issue #135). |
+| `Reservation` | `loan` | Planejada — fase 4 do plano de desenvolvimento. |
 
 ## Referências
 
