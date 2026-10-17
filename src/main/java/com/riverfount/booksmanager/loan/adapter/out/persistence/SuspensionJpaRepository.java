@@ -1,6 +1,8 @@
 package com.riverfount.booksmanager.loan.adapter.out.persistence;
 
 import java.time.LocalDate;
+import java.util.Collection;
+import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -23,4 +25,6 @@ interface SuspensionJpaRepository extends JpaRepository<SuspensionJpaEntity, Lon
             """)
     Page<SuspensionJpaEntity> search(@Param("readerId") Long readerId, @Param("loanId") Long loanId,
             @Param("day") LocalDate day, Pageable pageable);
+
+    List<SuspensionJpaEntity> findByLoanIdInOrderByIdAsc(Collection<Long> loanIds);
 }

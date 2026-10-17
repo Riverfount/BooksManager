@@ -120,6 +120,8 @@ A devolução é `POST /api/v1/loans/{id}/return`, sem corpo: encerra o emprést
 
 A renovação é `POST /api/v1/loans/{id}/renew`, sem corpo: a data prevista avança o prazo da configuração a partir da data prevista atual. É recusada (422) para empréstimo encerrado, em atraso ou que já usou o limite de renovações da biblioteca.
 
+Para consultar, `GET /api/v1/loans/{id}` (vale também para empréstimo encerrado) e `GET /api/v1/loans`, paginado (até 100 por página) com os filtros `readerId`, `copyId` e `status` (`ACTIVE` ou `RETURNED`): é o histórico de um leitor ou de um exemplar. Cada empréstimo traz as datas de retirada, prevista e de devolução e, se foi devolvido, os dias de atraso e a multa e a suspensão geradas.
+
 Os erros seguem o formato ProblemDetail (400, 404, 409 e 422). Os detalhes do contrato estão em [`docs/projeto.md`](docs/projeto.md), seção "Interface e API", e cada endpoint está descrito no Swagger.
 
 ### Testes

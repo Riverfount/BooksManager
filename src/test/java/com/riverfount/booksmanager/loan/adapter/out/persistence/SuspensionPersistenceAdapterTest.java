@@ -151,6 +151,35 @@ class SuspensionPersistenceAdapterTest {
     }
 
     @Test
+    void shouldFindTheSuspensionsOfSeveralLoansInOneCall() {
+        var otherLoan = data.newReturnedLoan(data.newCopy(), readerId, LocalDate.of(2026, 11, 1));
+        var withoutSuspension = data.newReturnedLoan(data.newCopy(), readerId, LocalDate.of(2026, 11, 1));
+        var first = saveSuspension(3);
+        var second = adapter.save(Suspension.create(readerId, otherLoan, START, 5));
+
+        var found = adapter.findByLoanIds(java.util.Set.of(loanId, otherLoan, withoutSuspension));
+
+        assertThat(found).containsOnlyKeys(loanId, otherLoan);
+        assertThat(found.get(loanId).getId()).isEqualTo(first.getId());
+        assertThat(found.get(otherLoan).getId()).isEqualTo(second.getId());
+    }
+
+    @Test
+    void shouldKeepTheLatestWhenALoanHasMoreThanOneSuspension() {
+        saveSuspension(3);
+        var latest = saveSuspension(9);
+
+        var found = adapter.findByLoanIds(java.util.Set.of(loanId));
+
+        assertThat(found.get(loanId).getId()).isEqualTo(latest.getId());
+    }
+
+    @Test
+    void shouldFindNothingForNoLoans() {
+        assertThat(adapter.findByLoanIds(java.util.Set.of())).isEmpty();
+    }
+
+    @Test
     void shouldPaginateAndSort() {
         for (var days : new int[] {3, 1, 2}) {
             saveSuspension(days);

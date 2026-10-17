@@ -8,6 +8,8 @@ import com.riverfount.booksmanager.shared.domain.PageResult;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.Optional;
 
 /**
@@ -42,6 +44,14 @@ class InMemorySuspensionRepository implements SuspensionRepository {
     @Override
     public Optional<Suspension> findById(Long id) {
         return Optional.ofNullable(suspensions.get(id)).map(suspension -> copyWithId(suspension, id));
+    }
+
+    @Override
+    public Map<Long, Suspension> findByLoanIds(Set<Long> loanIds) {
+        return suspensions.values().stream().filter(suspension -> loanIds.contains(suspension.getLoanId()))
+                .sorted(Comparator.comparing(Suspension::getId))
+                .collect(Collectors.toMap(Suspension::getLoanId,
+                        suspension -> copyWithId(suspension, suspension.getId()), (older, latest) -> latest));
     }
 
     @Override

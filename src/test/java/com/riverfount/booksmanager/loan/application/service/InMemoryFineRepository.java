@@ -9,6 +9,8 @@ import com.riverfount.booksmanager.shared.domain.PageResult;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.Optional;
 
 /**
@@ -47,6 +49,12 @@ class InMemoryFineRepository implements FineRepository {
     @Override
     public Optional<Fine> findById(Long id) {
         return Optional.ofNullable(fines.get(id)).map(fine -> copyWithId(fine, id));
+    }
+
+    @Override
+    public Map<Long, Fine> findByLoanIds(Set<Long> loanIds) {
+        return fines.values().stream().filter(fine -> loanIds.contains(fine.getLoanId()))
+                .collect(Collectors.toMap(Fine::getLoanId, fine -> copyWithId(fine, fine.getId())));
     }
 
     @Override
