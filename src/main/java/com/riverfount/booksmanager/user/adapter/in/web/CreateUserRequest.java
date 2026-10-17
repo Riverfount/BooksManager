@@ -27,11 +27,18 @@ record CreateUserRequest(
         @Schema(description = "Perfil do usuário: ADMIN gerencia usuários e configuração; OPERATOR opera o dia a dia",
                 example = "OPERATOR")
         @NotNull(message = "o perfil é obrigatório")
-        Role role) {
+        Role role,
+        @Schema(description = "Nome de exibição (opcional), o que as telas mostram para quem está logado; sem ele "
+                + "mostra-se o login. Até " + User.MAX_DISPLAY_NAME_LENGTH + " caracteres.",
+                example = "Maria Silva")
+        @Size(max = User.MAX_DISPLAY_NAME_LENGTH, message = "o nome de exibição deve ter até "
+                + User.MAX_DISPLAY_NAME_LENGTH + " caracteres")
+        String displayName) {
 
     /** Without the password, so the string form is safe to log. */
     @Override
     public String toString() {
-        return "CreateUserRequest[login=" + login + ", password=***, role=" + role + "]";
+        return "CreateUserRequest[login=" + login + ", password=***, role=" + role + ", displayName="
+                + displayName + "]";
     }
 }

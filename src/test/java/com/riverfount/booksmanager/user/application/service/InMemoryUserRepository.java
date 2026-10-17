@@ -32,7 +32,7 @@ class InMemoryUserRepository implements UserRepository {
 
     private static User copyWithId(User user, Long id) {
         return User.reconstitute(id, user.getLogin(), user.getPasswordHash(), user.getRole(), user.isActive(),
-                user.getFailedLoginAttempts(), user.getBlockedUntil());
+                user.getFailedLoginAttempts(), user.getBlockedUntil(), user.getDisplayName());
     }
 
     @Override

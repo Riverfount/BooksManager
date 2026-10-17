@@ -47,6 +47,27 @@ class UserPersistenceAdapterTest {
     // mapping
 
     @Test
+    void shouldPersistTheDisplayNameAndLetItBeChangedOrCleared() {
+        var saved = adapter.save(User.create("maria", HASH, Role.OPERATOR, "Maria Silva"));
+        assertThat(adapter.findById(saved.getId()).orElseThrow().getDisplayName()).isEqualTo("Maria Silva");
+
+        saved.changeDisplayName("Maria S.");
+        adapter.save(saved);
+        assertThat(adapter.findById(saved.getId()).orElseThrow().getDisplayName()).isEqualTo("Maria S.");
+
+        saved.changeDisplayName(null);
+        adapter.save(saved);
+        assertThat(adapter.findById(saved.getId()).orElseThrow().getDisplayName()).isNull();
+    }
+
+    @Test
+    void aUserWithoutDisplayNameShouldComeBackWithoutOne() {
+        var saved = saveUser("joao", Role.OPERATOR);
+
+        assertThat(adapter.findById(saved.getId()).orElseThrow().getDisplayName()).isNull();
+    }
+
+    @Test
     void shouldSaveAndFindTheUserWithTheSameState() {
         var saved = saveUser("Maria", Role.ADMIN);
 

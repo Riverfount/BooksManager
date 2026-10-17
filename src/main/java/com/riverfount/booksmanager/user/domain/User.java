@@ -22,11 +22,15 @@ import java.util.Locale;
  * inactive or already blocked user are not counted. The limit and the
  * duration come by parameter, and so does the current instant: the domain
  * never reads the clock.
+ *
+ * <p>The display name is what a screen shows for who is logged in. It is optional: blank
+ * means none (the screens fall back to the login), and it is kept without surrounding spaces.
  */
 public class User {
 
     public static final int MAX_LOGIN_LENGTH = 50;
     public static final int MAX_PASSWORD_HASH_LENGTH = 100;
+    public static final int MAX_DISPLAY_NAME_LENGTH = 100;
 
     private final Long id;
     private final String login;
@@ -35,9 +39,10 @@ public class User {
     private boolean active;
     private int failedLoginAttempts;
     private Instant blockedUntil;
+    private String displayName;
 
     private User(Long id, String login, String passwordHash, Role role, boolean active, int failedLoginAttempts,
-            Instant blockedUntil) {
+            Instant blockedUntil, String displayName) {
         this.id = id;
         this.login = login;
         this.passwordHash = passwordHash;
@@ -45,22 +50,32 @@ public class User {
         this.active = active;
         this.failedLoginAttempts = failedLoginAttempts;
         this.blockedUntil = blockedUntil;
+        this.displayName = displayName;
     }
 
     public static User create(String login, String passwordHash, Role role) {
+        return create(login, passwordHash, role, null);
+    }
+
+    public static User create(String login, String passwordHash, Role role, String displayName) {
         validatePasswordHash(passwordHash);
         validateRole(role);
-        return new User(null, validLogin(login), passwordHash, role, true, 0, null);
+        return new User(null, validLogin(login), passwordHash, role, true, 0, null, validDisplayName(displayName));
     }
 
     /** A persisted user with no failed attempts and not blocked. */
     public static User reconstitute(Long id, String login, String passwordHash, Role role, boolean active) {
-        return new User(id, login, passwordHash, role, active, 0, null);
+        return new User(id, login, passwordHash, role, active, 0, null, null);
     }
 
     public static User reconstitute(Long id, String login, String passwordHash, Role role, boolean active,
             int failedLoginAttempts, Instant blockedUntil) {
-        return new User(id, login, passwordHash, role, active, failedLoginAttempts, blockedUntil);
+        return new User(id, login, passwordHash, role, active, failedLoginAttempts, blockedUntil, null);
+    }
+
+    public static User reconstitute(Long id, String login, String passwordHash, Role role, boolean active,
+            int failedLoginAttempts, Instant blockedUntil, String displayName) {
+        return new User(id, login, passwordHash, role, active, failedLoginAttempts, blockedUntil, displayName);
     }
 
     /**
@@ -101,6 +116,11 @@ public class User {
                     "não é possível tirar o perfil de administrador do último administrador ativo");
         }
         this.role = newRole;
+    }
+
+    /** Changes the display name; a blank one clears it. A refused name leaves the current one untouched. */
+    public void changeDisplayName(String newDisplayName) {
+        this.displayName = validDisplayName(newDisplayName);
     }
 
     public void changePasswordHash(String newPasswordHash) {
@@ -212,6 +232,18 @@ public class User {
         return normalizeLogin(login);
     }
 
+    private static String validDisplayName(String displayName) {
+        if (displayName == null || displayName.isBlank()) {
+            return null;
+        }
+        var stripped = displayName.strip();
+        if (stripped.length() > MAX_DISPLAY_NAME_LENGTH) {
+            throw new BusinessRuleException("o nome de exibição deve ter até " + MAX_DISPLAY_NAME_LENGTH
+                    + " caracteres");
+        }
+        return stripped;
+    }
+
     private static void validatePasswordHash(String passwordHash) {
         if (passwordHash == null || passwordHash.isBlank()) {
             throw new BusinessRuleException("o hash da senha é obrigatório");
@@ -254,5 +286,10 @@ public class User {
 
     public Instant getBlockedUntil() {
         return blockedUntil;
+    }
+
+    /** The name screens show for this user, or null when there is none (they fall back to the login). */
+    public String getDisplayName() {
+        return displayName;
     }
 }

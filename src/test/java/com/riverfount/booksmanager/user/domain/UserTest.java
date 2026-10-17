@@ -29,6 +29,66 @@ class UserTest {
         assertThat(Role.values()).containsExactly(Role.ADMIN, Role.OPERATOR);
     }
 
+    // display name (the name the screens show for who is logged in)
+
+    @Test
+    void shouldCreateWithoutDisplayNameByDefault() {
+        assertThat(operator().getDisplayName()).isNull();
+    }
+
+    @Test
+    void shouldKeepTheDisplayNameWithoutSurroundingSpaces() {
+        var user = User.create("maria", HASH, Role.OPERATOR, "  Maria Silva ");
+
+        assertThat(user.getDisplayName()).isEqualTo("Maria Silva");
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"   ", "\t"})
+    void aBlankDisplayNameShouldBeNoDisplayName(String blank) {
+        assertThat(User.create("maria", HASH, Role.OPERATOR, blank).getDisplayName()).isNull();
+    }
+
+    @Test
+    void shouldRefuseADisplayNameLongerThanTheLimit() {
+        var tooLong = "a".repeat(User.MAX_DISPLAY_NAME_LENGTH + 1);
+
+        assertThatThrownBy(() -> User.create("maria", HASH, Role.OPERATOR, tooLong))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining(String.valueOf(User.MAX_DISPLAY_NAME_LENGTH));
+        assertThat(User.create("maria", HASH, Role.OPERATOR, "a".repeat(User.MAX_DISPLAY_NAME_LENGTH))
+                .getDisplayName()).hasSize(User.MAX_DISPLAY_NAME_LENGTH);
+    }
+
+    @Test
+    void shouldChangeTheDisplayNameAndClearItWithABlankOne() {
+        var user = operator();
+
+        user.changeDisplayName(" Maria Silva ");
+        assertThat(user.getDisplayName()).isEqualTo("Maria Silva");
+
+        user.changeDisplayName("  ");
+        assertThat(user.getDisplayName()).isNull();
+    }
+
+    @Test
+    void aTooLongNewDisplayNameShouldLeaveTheCurrentOneUntouched() {
+        var user = User.create("maria", HASH, Role.OPERATOR, "Maria");
+
+        assertThatThrownBy(() -> user.changeDisplayName("a".repeat(User.MAX_DISPLAY_NAME_LENGTH + 1)))
+                .isInstanceOf(BusinessRuleException.class);
+        assertThat(user.getDisplayName()).isEqualTo("Maria");
+    }
+
+    @Test
+    void shouldReconstituteWithTheDisplayName() {
+        var user = User.reconstitute(7L, "maria", HASH, Role.OPERATOR, true, 0, null, "Maria Silva");
+
+        assertThat(user.getDisplayName()).isEqualTo("Maria Silva");
+        assertThat(User.reconstitute(7L, "maria", HASH, Role.OPERATOR, true).getDisplayName()).isNull();
+    }
+
     // creation
 
     @Test
