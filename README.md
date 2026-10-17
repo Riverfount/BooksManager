@@ -146,6 +146,7 @@ Os erros seguem o formato ProblemDetail (400, 404, 409 e 422). Os detalhes do co
 - `make test` (ou `./mvnw test`) roda todos os testes; `make verify` (ou `./mvnw verify`) faz o build completo, inclusive com os testes de arquitetura.
 - Os testes de persistência usam o PostgreSQL real via Testcontainers, por isso o Docker precisa estar em execução.
 - Para rodar uma classe só: `./mvnw test -Dtest=BookTest`.
+- **Cobertura mínima de 95%.** O JaCoCo roda com os testes e o `./mvnw verify` falha se a cobertura de instruções ou de linhas ficar abaixo de 95%, no código todo e, à parte, no domínio e na aplicação. O CI executa o mesmo `verify`, então um pull request abaixo do mínimo não passa (e, com o check `verify` obrigatório na `main`, não pode ser mesclado). O relatório fica em `target/site/jacoco/index.html` e, no CI, como o artefato `coverage-report`.
 
 ### CORS
 O navegador só deixa o front-end chamar a API se a origem dele estiver liberada. Defina a variável de ambiente **APP_CORS_ALLOWED_ORIGINS** com a origem do front-end (várias, separadas por vírgula), por exemplo `http://localhost:5173`. Sem ela, nenhuma origem é aceita. O `.env-sample` traz o exemplo. São permitidos os métodos `GET`, `POST`, `PATCH`, `DELETE` e `OPTIONS` e os cabeçalhos `Authorization` e `Content-Type`.

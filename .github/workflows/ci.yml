@@ -28,9 +28,51 @@ jobs:
           cache: maven
 
       # Runs the unit tests, the Testcontainers tests (the runner already has
-      # Docker) and the ArchUnit architecture tests. No secrets are needed.
+      # Docker), the ArchUnit architecture tests and the JaCoCo coverage check:
+      # `verify` fails when the covered ratio of instructions or of lines drops
+      # below jacoco.minimum.coverage (95%, see the pom), for the whole code and
+      # for the domain and the application. No secrets are needed.
       - name: Build and test
         run: ./mvnw --batch-mode --no-transfer-progress verify
+
+      # Shows the numbers on the run page, also when the coverage check fails.
+      - name: Coverage summary
+        if: always()
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import csv, os
+          path = "target/site/jacoco/jacoco.csv"
+          if not os.path.exists(path):
+              print("No coverage report: the build stopped before the JaCoCo report.")
+              raise SystemExit
+          rows = list(csv.DictReader(open(path)))
+          def ratio(select):
+              out = {}
+              for counter in ("INSTRUCTION", "LINE", "BRANCH"):
+                  missed = sum(int(r[counter + "_MISSED"]) for r in rows if select(r["PACKAGE"]))
+                  covered = sum(int(r[counter + "_COVERED"]) for r in rows if select(r["PACKAGE"]))
+                  out[counter] = 100.0 * covered / (missed + covered) if missed + covered else 100.0
+              return out
+          layers = ("All the code", lambda p: True), ("Domain and application", lambda p: p.endswith("domain") or ".application" in p)
+          print("### Code coverage (JaCoCo)")
+          print()
+          print("| Scope | Instructions | Lines | Branches |")
+          print("| --- | ---: | ---: | ---: |")
+          for name, select in layers:
+              r = ratio(select)
+              print(f"| {name} | {r['INSTRUCTION']:.1f}% | {r['LINE']:.1f}% | {r['BRANCH']:.1f}% |")
+          print()
+          print("The build fails when instructions or lines drop below 95% (`jacoco.minimum.coverage` in the pom). Branches are only reported.")
+          PY
+
+      - name: Upload the coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: target/site/jacoco
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Upload the test reports
         if: failure()
