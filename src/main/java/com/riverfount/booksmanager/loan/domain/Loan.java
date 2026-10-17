@@ -1,0 +1,188 @@
+package com.riverfount.booksmanager.loan.domain;
+
+import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+
+/**
+ * The loan of a copy to a reader (RF11, RF12, RF13). It keeps the ids of the copy and
+ * of the reader, not the objects, so the aggregates stay small and apart. It is active
+ * until the copy is returned, and then it is closed for good (RN09).
+ *
+ * <p>The domain never reads the clock: the date of every operation comes by parameter.
+ * The loan period, the renewal limit and everything else that is a number of the library
+ * comes from its configuration, also by parameter (RN16); nothing here is a constant.
+ *
+ * <p>Being late is derived, not stored: an active loan is late once today is after the
+ * due date (the due date itself is still on time), and the days late are calendar days.
+ * A returned loan is never late, and keeps the days it was late when it came back.
+ */
+public class Loan {
+
+    private final Long id;
+    private final Long copyId;
+    private final Long readerId;
+    private final LocalDate pickupDate;
+    private LocalDate dueDate;
+    private LocalDate returnDate;
+    private int renewals;
+
+    private Loan(Long id, Long copyId, Long readerId, LocalDate pickupDate, LocalDate dueDate, LocalDate returnDate,
+            int renewals) {
+        this.id = id;
+        this.copyId = copyId;
+        this.readerId = readerId;
+        this.pickupDate = pickupDate;
+        this.dueDate = dueDate;
+        this.returnDate = returnDate;
+        this.renewals = renewals;
+    }
+
+    /** A new active loan, due {@code loanPeriodDays} after the pickup (RN06). */
+    public static Loan create(Long copyId, Long readerId, LocalDate pickupDate, int loanPeriodDays) {
+        validateParties(copyId, readerId);
+        if (pickupDate == null) {
+            throw new BusinessRuleException("a data de retirada é obrigatória");
+        }
+        if (loanPeriodDays < 1) {
+            throw new IllegalArgumentException("the loan period must be at least one day");
+        }
+        return new Loan(null, copyId, readerId, pickupDate, pickupDate.plusDays(loanPeriodDays), null, 0);
+    }
+
+    public static Loan reconstitute(Long id, Long copyId, Long readerId, LocalDate pickupDate, LocalDate dueDate,
+            LocalDate returnDate, int renewals) {
+        validateParties(copyId, readerId);
+        if (pickupDate == null || dueDate == null) {
+            throw new BusinessRuleException("as datas de retirada e de devolução prevista são obrigatórias");
+        }
+        if (dueDate.isBefore(pickupDate)) {
+            throw new BusinessRuleException("a devolução prevista não pode ser anterior à retirada");
+        }
+        if (returnDate != null && returnDate.isBefore(pickupDate)) {
+            throw new BusinessRuleException("a devolução não pode ser anterior à retirada");
+        }
+        if (renewals < 0) {
+            throw new BusinessRuleException("o número de renovações não pode ser negativo");
+        }
+        return new Loan(id, copyId, readerId, pickupDate, dueDate, returnDate, renewals);
+    }
+
+    /**
+     * Renews the loan (RF13): the due date moves forward by the loan period, counted from
+     * the current due date, so a renewal never gives the reader less time than there was.
+     * Refused when the loan is already closed (RN09), is late, or has used all the renewals
+     * the library allows (RN07). Nothing changes when it is refused.
+     *
+     * @param renewalLimit how many renewals the library allows per loan; zero means none
+     * @param loanPeriodDays how many days a renewal adds
+     */
+    public void renew(LocalDate today, int renewalLimit, int loanPeriodDays) {
+        requireDate(today);
+        if (renewalLimit < 0 || loanPeriodDays < 1) {
+            throw new IllegalArgumentException("the renewal limit cannot be negative and the period must be one day or more");
+        }
+        requireActive();
+        if (isOverdue(today)) {
+            throw new BusinessRuleException("o empréstimo está em atraso e não pode ser renovado");
+        }
+        if (renewals >= renewalLimit) {
+            throw new BusinessRuleException(
+                    "o limite de renovações (" + renewalLimit + ") deste empréstimo já foi atingido");
+        }
+        this.dueDate = dueDate.plusDays(loanPeriodDays);
+        this.renewals++;
+    }
+
+    /**
+     * Closes the loan with the copy back (RF12). A loan that was already closed cannot be
+     * returned again (RN09), and the return cannot be before the pickup.
+     *
+     * @return the days the copy came back late, zero when it was on time or early
+     */
+    public long returnCopy(LocalDate today) {
+        requireDate(today);
+        requireActive();
+        if (today.isBefore(pickupDate)) {
+            throw new BusinessRuleException("a devolução não pode ser anterior à retirada");
+        }
+        this.returnDate = today;
+        return daysLate(today);
+    }
+
+    /**
+     * Whether an active loan is late on {@code today}: past the due date (the due date itself
+     * is on time). A returned loan is never late.
+     */
+    public boolean isOverdue(LocalDate today) {
+        requireDate(today);
+        return isActive() && today.isAfter(dueDate);
+    }
+
+    /**
+     * The calendar days past the due date, never negative. For an active loan it is counted up
+     * to {@code today}; for a returned one, up to the day it came back, whatever the date asked.
+     */
+    public long daysLate(LocalDate today) {
+        requireDate(today);
+        var until = returnDate != null ? returnDate : today;
+        return Math.max(0, ChronoUnit.DAYS.between(dueDate, until));
+    }
+
+    public boolean isActive() {
+        return returnDate == null;
+    }
+
+    public boolean isReturned() {
+        return returnDate != null;
+    }
+
+    private void requireActive() {
+        if (isReturned()) {
+            throw new BusinessRuleException("o empréstimo já foi encerrado");
+        }
+    }
+
+    private static void requireDate(LocalDate today) {
+        if (today == null) {
+            throw new IllegalArgumentException("the date is required");
+        }
+    }
+
+    private static void validateParties(Long copyId, Long readerId) {
+        if (copyId == null) {
+            throw new BusinessRuleException("o exemplar é obrigatório");
+        }
+        if (readerId == null) {
+            throw new BusinessRuleException("o leitor é obrigatório");
+        }
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public Long getCopyId() {
+        return copyId;
+    }
+
+    public Long getReaderId() {
+        return readerId;
+    }
+
+    public LocalDate getPickupDate() {
+        return pickupDate;
+    }
+
+    public LocalDate getDueDate() {
+        return dueDate;
+    }
+
+    public LocalDate getReturnDate() {
+        return returnDate;
+    }
+
+    public int getRenewals() {
+        return renewals;
+    }
+}
