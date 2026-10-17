@@ -131,6 +131,7 @@ Todos aceitam os perfis `ADMIN` e `OPERATOR` (a configuração da biblioteca é 
 | Encerrar suspensão | `POST /api/v1/suspensions/{id}/end` com `{"reason": "..."}` | 200; 400 sem justificativa; sem efeito se já terminou |
 | Relatório de atrasos | `GET /api/v1/reports/overdue-loans` | 200, do maior para o menor atraso |
 | Configuração da biblioteca | `GET` e `PATCH /api/v1/library-configuration` | 200 (só `ADMIN`) |
+| Prazo e limites de empréstimo | `GET /api/v1/library-configuration/rules` | 200 com `loanPeriodDays`, `loanLimit`, `renewalLimit` e `reservationPickupDays`; `ADMIN` e `OPERATOR`, só leitura |
 
 O que vale saber:
 - A retirada é sempre hoje (no fuso `America/Sao_Paulo`) e a data prevista de devolução soma o prazo da configuração; nenhuma data é aceita no corpo.
