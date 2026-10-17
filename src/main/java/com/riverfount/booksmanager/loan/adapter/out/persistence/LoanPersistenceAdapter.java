@@ -46,7 +46,7 @@ class LoanPersistenceAdapter implements LoanRepository {
     @Override
     public PageResult<Loan> findAll(LoanFilter filter, PageQuery page) {
         var result = jpaRepository.search(filter.readerId(), filter.copyId(), filter.active(),
-                SpringDataPages.toPageable(page));
+                filter.overdueOn(), SpringDataPages.toPageable(page));
         return SpringDataPages.toPageResult(result, this::toDomain);
     }
 

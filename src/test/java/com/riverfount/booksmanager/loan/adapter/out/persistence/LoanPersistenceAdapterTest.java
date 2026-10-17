@@ -178,7 +178,7 @@ class LoanPersistenceAdapterTest {
         var mine = saveLoan(copyId, readerId);
         saveLoan(data.newCopy(), data.newReader());
 
-        var page = adapter.findAll(new LoanFilter(readerId, null, null), byId());
+        var page = adapter.findAll(new LoanFilter(readerId, null, null, null), byId());
 
         assertThat(page.items()).extracting(Loan::getId).containsExactly(mine.getId());
     }
@@ -191,7 +191,7 @@ class LoanPersistenceAdapterTest {
         var second = adapter.save(Loan.create(copyId, readerId, PICKUP.plusDays(6), 14));
         saveLoan(data.newCopy(), readerId);
 
-        var page = adapter.findAll(new LoanFilter(null, copyId, null), byId());
+        var page = adapter.findAll(new LoanFilter(null, copyId, null, null), byId());
 
         assertThat(page.items()).extracting(Loan::getId).containsExactly(first.getId(), second.getId());
     }
@@ -203,10 +203,32 @@ class LoanPersistenceAdapterTest {
         adapter.save(returned);
         var active = saveLoan(data.newCopy(), readerId);
 
-        assertThat(adapter.findAll(new LoanFilter(readerId, null, true), byId()).items())
+        assertThat(adapter.findAll(new LoanFilter(readerId, null, true, null), byId()).items())
                 .extracting(Loan::getId).containsExactly(active.getId());
-        assertThat(adapter.findAll(new LoanFilter(readerId, null, false), byId()).items())
+        assertThat(adapter.findAll(new LoanFilter(readerId, null, false, null), byId()).items())
                 .extracting(Loan::getId).containsExactly(returned.getId());
+    }
+
+    @Test
+    void shouldFilterTheOverdueLoansTheSameWayTheDomainDoes() {
+        var onTime = adapter.save(Loan.create(copyId, readerId, PICKUP, 14));
+        var late = adapter.save(Loan.create(data.newCopy(), readerId, PICKUP.minusDays(20), 14));
+        var lateButReturned = adapter.save(Loan.create(data.newCopy(), readerId, PICKUP.minusDays(20), 14));
+        lateButReturned.returnCopy(PICKUP);
+        adapter.save(lateButReturned);
+        clearPersistenceContext();
+        var all = adapter.findAll(new LoanFilter(readerId, null, null, null), byId()).items();
+
+        for (var offset = -1; offset <= 1; offset++) {
+            var day = onTime.getDueDate().plusDays(offset);
+            var expected = all.stream().filter(loan -> loan.isOverdue(day)).map(Loan::getId).toList();
+
+            var overdue = adapter.findAll(new LoanFilter(readerId, null, null, day), byId()).items();
+
+            assertThat(overdue).as("day %s", day).extracting(Loan::getId).containsExactlyElementsOf(expected);
+        }
+        assertThat(adapter.findAll(new LoanFilter(readerId, null, null, PICKUP), byId()).items())
+                .extracting(Loan::getId).containsExactly(late.getId());
     }
 
     @Test
@@ -215,7 +237,7 @@ class LoanPersistenceAdapterTest {
             adapter.save(Loan.create(data.newCopy(), readerId, PICKUP.plusDays(day), 14));
         }
 
-        var page = adapter.findAll(new LoanFilter(readerId, null, null),
+        var page = adapter.findAll(new LoanFilter(readerId, null, null, null),
                 PageQuery.of(0, 2, "pickupDate,desc"));
 
         assertThat(page.items()).extracting(Loan::getPickupDate)
