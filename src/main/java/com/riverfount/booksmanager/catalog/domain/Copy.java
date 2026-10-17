@@ -46,7 +46,15 @@ public class Copy {
         this.status = CopyStatus.BORROWED;
     }
 
+    /**
+     * The copy came back from a loan: a borrowed copy becomes available. A damaged or lost
+     * copy stays as it is, since coming back does not repair it; it only returns to
+     * available by the manual change (RF04). Any other status is a mistake and is refused.
+     */
     public void checkIn() {
+        if (status == CopyStatus.DAMAGED || status == CopyStatus.LOST) {
+            return;
+        }
         if (status != CopyStatus.BORROWED) {
             throw new BusinessRuleException("o exemplar só pode ser devolvido se estiver emprestado");
         }
