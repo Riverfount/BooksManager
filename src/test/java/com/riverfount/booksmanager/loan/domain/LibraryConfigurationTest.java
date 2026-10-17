@@ -1,0 +1,237 @@
+package com.riverfount.booksmanager.loan.domain;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
+import java.math.BigDecimal;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+
+/** The rules of the library as the domain sees them (RF26, RN16, RN08). */
+class LibraryConfigurationTest {
+
+    private static BigDecimal money(String value) {
+        return new BigDecimal(value);
+    }
+
+    /** The values the first migration creates (decided on 10/10/2026). */
+    private static LibraryConfiguration initial() {
+        return LibraryConfiguration.reconstitute(1L, PenaltyPolicy.FINE, money("1.00"), money("10.00"), 1, 365, 14,
+                3, 2, 3);
+    }
+
+    private static LibraryConfiguration with(PenaltyPolicy policy, String dailyFine, String fineCap, int daysPerDay,
+            int suspensionCap, int period, int loanLimit, int renewalLimit, int pickupDays) {
+        return LibraryConfiguration.reconstitute(1L, policy, money(dailyFine), money(fineCap), daysPerDay,
+                suspensionCap, period, loanLimit, renewalLimit, pickupDays);
+    }
+
+    // reconstitution
+
+    @Test
+    void shouldExposeEveryValueItWasBuiltWith() {
+        var configuration = initial();
+
+        assertThat(configuration.getId()).isEqualTo(1L);
+        assertThat(configuration.getPenaltyPolicy()).isEqualTo(PenaltyPolicy.FINE);
+        assertThat(configuration.getDailyFineAmount()).isEqualByComparingTo("1.00");
+        assertThat(configuration.getFineCap()).isEqualByComparingTo("10.00");
+        assertThat(configuration.getSuspensionDaysPerDay()).isEqualTo(1);
+        assertThat(configuration.getSuspensionCapDays()).isEqualTo(365);
+        assertThat(configuration.getLoanPeriodDays()).isEqualTo(14);
+        assertThat(configuration.getLoanLimit()).isEqualTo(3);
+        assertThat(configuration.getRenewalLimit()).isEqualTo(2);
+        assertThat(configuration.getReservationPickupDays()).isEqualTo(3);
+    }
+
+    @Test
+    void shouldAcceptAnyPolicyVariant() {
+        for (var policy : PenaltyPolicy.values()) {
+            assertThat(with(policy, "1.00", "10.00", 1, 365, 14, 3, 2, 3).getPenaltyPolicy()).isEqualTo(policy);
+        }
+    }
+
+    @Test
+    void shouldAcceptZeroDailyFineAndZeroRenewalsWhichMeanSomething() {
+        var configuration = with(PenaltyPolicy.SUSPENSION, "0", "10.00", 1, 365, 14, 3, 0, 3);
+
+        assertThat(configuration.getDailyFineAmount()).isEqualByComparingTo("0");
+        assertThat(configuration.getRenewalLimit()).isZero();
+    }
+
+    @Test
+    void shouldRequireThePolicyAndEveryNumber() {
+        assertThatThrownBy(() -> LibraryConfiguration.reconstitute(1L, null, money("1.00"), money("10.00"), 1, 365,
+                14, 3, 2, 3)).isInstanceOf(BusinessRuleException.class).hasMessageContaining("política");
+        assertThatThrownBy(() -> LibraryConfiguration.reconstitute(1L, PenaltyPolicy.FINE, null, money("10.00"), 1,
+                365, 14, 3, 2, 3)).isInstanceOf(BusinessRuleException.class).hasMessageContaining("valor diário");
+        assertThatThrownBy(() -> LibraryConfiguration.reconstitute(1L, PenaltyPolicy.FINE, money("1.00"), null, 1,
+                365, 14, 3, 2, 3)).isInstanceOf(BusinessRuleException.class).hasMessageContaining("teto da multa");
+    }
+
+    // the rules (RN16), one by one
+
+    @Test
+    void theDailyFineCannotBeNegative() {
+        assertThatThrownBy(() -> with(PenaltyPolicy.FINE, "-0.01", "10.00", 1, 365, 14, 3, 2, 3))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("valor diário da multa");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "-1.00"})
+    void theFineCapMustBePositive(String cap) {
+        assertThatThrownBy(() -> with(PenaltyPolicy.FINE, "0", cap, 1, 365, 14, 3, 2, 3))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("teto da multa");
+    }
+
+    @Test
+    void theFineCapCannotBeBelowOneDayOfFine() {
+        assertThatThrownBy(() -> with(PenaltyPolicy.FINE, "5.00", "4.99", 1, 365, 14, 3, 2, 3))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("teto da multa")
+                .hasMessageContaining("valor diário");
+    }
+
+    @Test
+    void theFineCapMayEqualOneDayOfFine() {
+        assertThat(with(PenaltyPolicy.FINE, "5.00", "5.00", 1, 365, 14, 3, 2, 3).getFineCap())
+                .isEqualByComparingTo("5.00");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"1.001", "0.005", "10.999"})
+    void theMoneyCannotHaveMoreThanTwoDecimalPlaces(String amount) {
+        assertThatThrownBy(() -> with(PenaltyPolicy.FINE, amount, "20.00", 1, 365, 14, 3, 2, 3))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("duas casas");
+    }
+
+    @Test
+    void theMoneyCannotBeBiggerThanTheColumnHolds() {
+        assertThatThrownBy(() -> with(PenaltyPolicy.FINE, "1.00", "100000000.00", 1, 365, 14, 3, 2, 3))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("teto da multa");
+    }
+
+    @Test
+    void trailingZerosInTheMoneyAreNotExtraDecimalPlaces() {
+        assertThat(with(PenaltyPolicy.FINE, "1.500", "10.0000", 1, 365, 14, 3, 2, 3).getDailyFineAmount())
+                .isEqualByComparingTo("1.5");
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, -1})
+    void theSuspensionFactorAndCapMustBeAtLeastOne(int value) {
+        assertThatThrownBy(() -> with(PenaltyPolicy.SUSPENSION, "1.00", "10.00", value, 365, 14, 3, 2, 3))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("dias de suspensão por dia de atraso");
+        assertThatThrownBy(() -> with(PenaltyPolicy.SUSPENSION, "1.00", "10.00", 1, value, 14, 3, 2, 3))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("teto da suspensão");
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, -1})
+    void theLoanPeriodTheLoanLimitAndThePickupPeriodMustBeAtLeastOne(int value) {
+        assertThatThrownBy(() -> with(PenaltyPolicy.FINE, "1.00", "10.00", 1, 365, value, 3, 2, 3))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("prazo de empréstimo");
+        assertThatThrownBy(() -> with(PenaltyPolicy.FINE, "1.00", "10.00", 1, 365, 14, value, 2, 3))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("limite de empréstimos");
+        assertThatThrownBy(() -> with(PenaltyPolicy.FINE, "1.00", "10.00", 1, 365, 14, 3, 2, value))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("prazo de retirada");
+    }
+
+    @Test
+    void theRenewalLimitCannotBeNegative() {
+        assertThatThrownBy(() -> with(PenaltyPolicy.FINE, "1.00", "10.00", 1, 365, 14, 3, -1, 3))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("limite de renovações");
+    }
+
+    // partial update (the PATCH contract: an omitted or null value keeps the current one)
+
+    @Test
+    void shouldChangeOnlyTheValuesInformed() {
+        var configuration = initial();
+
+        configuration.update(PenaltyPolicy.BOTH, null, null, null, null, 21, null, null, null);
+
+        assertThat(configuration.getPenaltyPolicy()).isEqualTo(PenaltyPolicy.BOTH);
+        assertThat(configuration.getLoanPeriodDays()).isEqualTo(21);
+        assertThat(configuration.getDailyFineAmount()).isEqualByComparingTo("1.00");
+        assertThat(configuration.getFineCap()).isEqualByComparingTo("10.00");
+        assertThat(configuration.getSuspensionDaysPerDay()).isEqualTo(1);
+        assertThat(configuration.getSuspensionCapDays()).isEqualTo(365);
+        assertThat(configuration.getLoanLimit()).isEqualTo(3);
+        assertThat(configuration.getRenewalLimit()).isEqualTo(2);
+        assertThat(configuration.getReservationPickupDays()).isEqualTo(3);
+    }
+
+    @Test
+    void shouldChangeEveryValueWhenAllAreInformed() {
+        var configuration = initial();
+
+        configuration.update(PenaltyPolicy.SUSPENSION, money("2.50"), money("30.00"), 2, 90, 7, 5, 0, 1);
+
+        assertThat(configuration.getPenaltyPolicy()).isEqualTo(PenaltyPolicy.SUSPENSION);
+        assertThat(configuration.getDailyFineAmount()).isEqualByComparingTo("2.50");
+        assertThat(configuration.getFineCap()).isEqualByComparingTo("30.00");
+        assertThat(configuration.getSuspensionDaysPerDay()).isEqualTo(2);
+        assertThat(configuration.getSuspensionCapDays()).isEqualTo(90);
+        assertThat(configuration.getLoanPeriodDays()).isEqualTo(7);
+        assertThat(configuration.getLoanLimit()).isEqualTo(5);
+        assertThat(configuration.getRenewalLimit()).isZero();
+        assertThat(configuration.getReservationPickupDays()).isEqualTo(1);
+    }
+
+    @Test
+    void updatingWithNothingInformedChangesNothing() {
+        var configuration = initial();
+
+        configuration.update(null, null, null, null, null, null, null, null, null);
+
+        assertThat(configuration).usingRecursiveComparison().isEqualTo(initial());
+    }
+
+    @Test
+    void shouldChangeNothingWhenAnyValueIsInvalid() {
+        var configuration = initial();
+
+        // the first values are fine; the last one (a zero loan limit) is not
+        assertThatThrownBy(() -> configuration.update(PenaltyPolicy.NONE, money("2.00"), money("20.00"), 3, 30, 10,
+                0, 1, 2)).isInstanceOf(BusinessRuleException.class);
+
+        assertThat(configuration).usingRecursiveComparison().isEqualTo(initial());
+    }
+
+    @Test
+    void theRulesAlsoCoverTheValuesKeptNotOnlyTheOnesInformed() {
+        var configuration = initial();
+
+        // the cap stays at 10.00, so a daily fine of 20.00 would exceed it
+        assertThatThrownBy(() -> configuration.update(null, money("20.00"), null, null, null, null, null, null, null))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("teto da multa");
+        assertThat(configuration.getDailyFineAmount()).isEqualByComparingTo("1.00");
+
+        // raising both together is fine
+        configuration.update(null, money("20.00"), money("50.00"), null, null, null, null, null, null);
+        assertThat(configuration.getDailyFineAmount()).isEqualByComparingTo("20.00");
+    }
+
+    @Test
+    void shouldNotChangeTheId() {
+        var configuration = initial();
+
+        configuration.update(PenaltyPolicy.NONE, null, null, null, null, null, null, null, null);
+
+        assertThat(configuration.getId()).isEqualTo(1L);
+    }
+}
