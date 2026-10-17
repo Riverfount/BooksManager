@@ -122,6 +122,8 @@ A renovação é `POST /api/v1/loans/{id}/renew`, sem corpo: a data prevista ava
 
 Para consultar, `GET /api/v1/loans/{id}` (vale também para empréstimo encerrado) e `GET /api/v1/loans`, paginado (até 100 por página) com os filtros `readerId`, `copyId` e `status` (`ACTIVE` ou `RETURNED`): é o histórico de um leitor ou de um exemplar. Cada empréstimo traz as datas de retirada, prevista e de devolução e, se foi devolvido, os dias de atraso e a multa e a suspensão geradas.
 
+A multa gerada por um atraso é resolvida com `POST /api/v1/fines/{id}/pay` (pagamento, sem corpo) ou `POST /api/v1/fines/{id}/waive` (abono, com `{"reason": "..."}`, justificativa obrigatória). Só a multa pendente impede novos empréstimos; depois de paga ou abonada o leitor volta a poder emprestar, e uma multa já resolvida não pode ser paga nem abonada de novo (422).
+
 Os erros seguem o formato ProblemDetail (400, 404, 409 e 422). Os detalhes do contrato estão em [`docs/projeto.md`](docs/projeto.md), seção "Interface e API", e cada endpoint está descrito no Swagger.
 
 ### Testes
