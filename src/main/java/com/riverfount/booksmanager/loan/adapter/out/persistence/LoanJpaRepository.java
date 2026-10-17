@@ -27,4 +27,18 @@ interface LoanJpaRepository extends JpaRepository<LoanJpaEntity, Long> {
     Page<LoanJpaEntity> search(@Param("readerId") Long readerId, @Param("copyId") Long copyId,
             @Param("active") Boolean active, @Param("overdueDay") LocalDate overdueDay,
             Pageable pageable);
+
+    /** The count behind {@link #search}: same conditions, no rows loaded. Keep both in step. */
+    @Query("""
+            select count(l) from LoanJpaEntity l
+            where (:readerId is null or l.readerId = :readerId)
+              and (:copyId is null or l.copyId = :copyId)
+              and (:active is null
+                   or (:active = true and l.returnDate is null)
+                   or (:active = false and l.returnDate is not null))
+              and (cast(:overdueDay as LocalDate) is null
+                   or (l.returnDate is null and l.dueDate < :overdueDay))
+            """)
+    long countMatching(@Param("readerId") Long readerId, @Param("copyId") Long copyId,
+            @Param("active") Boolean active, @Param("overdueDay") LocalDate overdueDay);
 }

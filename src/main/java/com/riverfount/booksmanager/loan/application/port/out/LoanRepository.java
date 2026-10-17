@@ -20,4 +20,7 @@ public interface LoanRepository {
 
     /** Listing, always paginated (RNF14). */
     PageResult<Loan> findAll(LoanFilter filter, PageQuery page);
+
+    /** How many loans the filter keeps, in one aggregated query: the same total {@link #findAll} gives. */
+    long count(LoanFilter filter);
 }

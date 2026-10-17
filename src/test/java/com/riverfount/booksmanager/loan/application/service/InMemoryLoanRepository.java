@@ -53,6 +53,16 @@ class InMemoryLoanRepository implements LoanRepository {
     }
 
     @Override
+    public long count(LoanFilter filter) {
+        return loans.values().stream()
+                .filter(loan -> (filter.readerId() == null || loan.getReaderId().equals(filter.readerId()))
+                        && (filter.copyId() == null || loan.getCopyId().equals(filter.copyId()))
+                        && (filter.active() == null || loan.isActive() == filter.active())
+                        && (filter.overdueOn() == null || loan.isOverdue(filter.overdueOn())))
+                .count();
+    }
+
+    @Override
     public PageResult<Loan> findAll(LoanFilter filter, PageQuery page) {
         var result = InMemoryPages.of(loans.values(),
                 loan -> (filter.readerId() == null || loan.getReaderId().equals(filter.readerId()))

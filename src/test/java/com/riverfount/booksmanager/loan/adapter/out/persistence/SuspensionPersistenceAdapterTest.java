@@ -81,6 +81,37 @@ class SuspensionPersistenceAdapterTest {
     }
 
     @Test
+    void shouldCountTheReadersWithASuspensionInForceNotTheSuspensions() {
+        // two suspensions of the same reader in force on the same day, and another reader's
+        saveSuspension(5);
+        var secondLoan = data.newReturnedLoan(data.newCopy(), readerId, LocalDate.of(2026, 11, 2));
+        adapter.save(Suspension.create(readerId, secondLoan, START.plusDays(1), 5));
+        var otherReader = data.newReader();
+        var otherLoan = data.newReturnedLoan(data.newCopy(), otherReader, LocalDate.of(2026, 11, 3));
+        adapter.save(Suspension.create(otherReader, otherLoan, START, 5));
+        clearPersistenceContext();
+
+        assertThat(adapter.countReadersInForceOn(START.plusDays(2))).isEqualTo(2L);
+        assertThat(adapter.countReadersInForceOn(START.plusDays(2))).isEqualTo(
+                adapter.findAll(new SuspensionFilter(null, null, START.plusDays(2), null), byId()).items().stream()
+                        .map(Suspension::getReaderId).distinct().count());
+    }
+
+    @Test
+    void theReadersCountShouldFollowTheSameDaysAsTheInForceFilter() {
+        var suspension = saveSuspension(3);
+        suspension.endEarly(START.plusDays(1), "Pardoned");
+        adapter.save(suspension);
+        clearPersistenceContext();
+
+        assertThat(adapter.countReadersInForceOn(START.minusDays(1))).isZero();
+        assertThat(adapter.countReadersInForceOn(START)).isEqualTo(1L);
+        // ended early on START + 1: that day is already free
+        assertThat(adapter.countReadersInForceOn(START.plusDays(1))).isZero();
+        assertThat(adapter.countReadersInForceOn(START.plusDays(10))).isZero();
+    }
+
+    @Test
     void shouldNotFindAnUnknownSuspension() {
         assertThat(adapter.findById(-1L)).isEmpty();
     }

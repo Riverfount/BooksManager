@@ -3,6 +3,7 @@ package com.riverfount.booksmanager.loan.application.port.out;
 import com.riverfount.booksmanager.loan.domain.Suspension;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.PageResult;
+import java.time.LocalDate;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -21,6 +22,12 @@ public interface SuspensionRepository {
      * (highest id) is the one kept.
      */
     Map<Long, Suspension> findByLoanIds(Set<Long> loanIds);
+
+    /**
+     * How many different readers have a suspension in force on the day, in one aggregated query. A suspension
+     * is in force with the meaning of {@code Suspension.isInForce}; a reader with two counts once.
+     */
+    long countReadersInForceOn(LocalDate day);
 
     /** Listing, always paginated (RNF14). */
     PageResult<Suspension> findAll(SuspensionFilter filter, PageQuery page);

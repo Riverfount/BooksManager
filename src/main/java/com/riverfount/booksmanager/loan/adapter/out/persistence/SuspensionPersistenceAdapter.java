@@ -6,6 +6,7 @@ import com.riverfount.booksmanager.loan.domain.Suspension;
 import com.riverfount.booksmanager.shared.adapter.out.persistence.SpringDataPages;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.PageResult;
+import java.time.LocalDate;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -47,6 +48,11 @@ class SuspensionPersistenceAdapter implements SuspensionRepository {
         var result = jpaRepository.search(filter.readerId(), filter.loanId(), filter.inForceOn(), filter.notInForceOn(),
                 SpringDataPages.toPageable(page));
         return SpringDataPages.toPageResult(result, this::toDomain);
+    }
+
+    @Override
+    public long countReadersInForceOn(LocalDate day) {
+        return jpaRepository.countReadersInForceOn(day);
     }
 
     private static SuspensionJpaEntity create(Suspension suspension) {

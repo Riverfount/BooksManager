@@ -84,6 +84,28 @@ class LoanPersistenceAdapterTest {
     }
 
     @Test
+    void theCountShouldAgreeWithTheTotalOfTheListingForEveryFilter() {
+        var returned = adapter.save(Loan.create(copyId, readerId, LocalDate.of(2026, 1, 1), 14));
+        returned.returnCopy(LocalDate.of(2026, 1, 5));
+        adapter.save(returned);
+        var secondCopy = data.newCopy();
+        adapter.save(Loan.create(secondCopy, readerId, LocalDate.of(2026, 1, 1), 14));
+        var thirdCopy = data.newCopy();
+        adapter.save(Loan.create(thirdCopy, readerId, LocalDate.of(2026, 3, 1), 14));
+        clearPersistenceContext();
+
+        var day = LocalDate.of(2026, 2, 1);
+        for (var filter : new LoanFilter[] {LoanFilter.none(), new LoanFilter(readerId, null, true, null),
+                new LoanFilter(readerId, null, false, null), new LoanFilter(null, secondCopy, null, null),
+                new LoanFilter(null, null, true, day), new LoanFilter(null, null, null, day),
+                new LoanFilter(-1L, null, null, null)}) {
+            assertThat(adapter.count(filter)).as(filter.toString())
+                    .isEqualTo(adapter.findAll(filter, byId()).totalItems());
+        }
+        assertThat(adapter.count(new LoanFilter(null, null, true, day))).isEqualTo(1L);
+    }
+
+    @Test
     void shouldNotFindAnUnknownLoan() {
         assertThat(adapter.findById(-1L)).isEmpty();
     }
