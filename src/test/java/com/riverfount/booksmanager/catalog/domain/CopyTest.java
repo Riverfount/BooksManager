@@ -154,16 +154,36 @@ class CopyTest {
     void shouldDeactivateAvailableCopy() {
         var copy = Copy.create(1L, "PAT-1");
 
-        copy.deactivate();
+        copy.deactivate(false);
 
         assertThat(copy.isActive()).isFalse();
+    }
+
+    @Test
+    void shouldNotDeactivateACopyThatHasAnActiveLoanEvenWhenItsStatusDoesNotShowIt() {
+        var copy = Copy.create(1L, "PAT-1");
+
+        assertThatThrownBy(() -> copy.deactivate(true)).isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("empréstimo ativo");
+
+        assertThat(copy.isActive()).isTrue();
+    }
+
+    @ParameterizedTest
+    @EnumSource(CopyStatus.class)
+    void aCopyWithAnActiveLoanShouldNeverBeDeactivatedWhateverItsStatus(CopyStatus status) {
+        var copy = Copy.reconstitute(1L, 1L, "PAT-1", status, true, 0L);
+
+        assertThatThrownBy(() -> copy.deactivate(true)).isInstanceOf(BusinessRuleException.class);
+
+        assertThat(copy.isActive()).isTrue();
     }
 
     @Test
     void shouldDeactivateDamagedCopy() {
         var copy = Copy.reconstitute(1L, 1L, "PAT-1", CopyStatus.DAMAGED, true, 0L);
 
-        copy.deactivate();
+        copy.deactivate(false);
 
         assertThat(copy.isActive()).isFalse();
     }
@@ -172,7 +192,7 @@ class CopyTest {
     void shouldNotDeactivateBorrowedCopy() {
         var copy = Copy.reconstitute(1L, 1L, "PAT-1", CopyStatus.BORROWED, true, 0L);
 
-        assertThatThrownBy(copy::deactivate).isInstanceOf(BusinessRuleException.class);
+        assertThatThrownBy(() -> copy.deactivate(false)).isInstanceOf(BusinessRuleException.class);
     }
 
     @ParameterizedTest
@@ -257,9 +277,9 @@ class CopyTest {
     @Test
     void deactivatingAnInactiveCopyShouldBeNoOp() {
         var copy = Copy.create(1L, "PAT-1");
-        copy.deactivate();
+        copy.deactivate(false);
 
-        copy.deactivate();
+        copy.deactivate(false);
 
         assertThat(copy.isActive()).isFalse();
     }
@@ -268,7 +288,7 @@ class CopyTest {
     void deactivatingShouldKeepTheCopyData() {
         var copy = Copy.reconstitute(1L, 7L, "PAT-1", CopyStatus.LOST, true, 3L);
 
-        copy.deactivate();
+        copy.deactivate(false);
 
         assertThat(copy.getBookId()).isEqualTo(7L);
         assertThat(copy.getAssetCode()).isEqualTo("PAT-1");
@@ -280,7 +300,7 @@ class CopyTest {
     void borrowedCopyShouldStayActiveWhenDeactivationIsRefused() {
         var copy = Copy.reconstitute(1L, 1L, "PAT-1", CopyStatus.BORROWED, true, 0L);
 
-        assertThatThrownBy(copy::deactivate)
+        assertThatThrownBy(() -> copy.deactivate(false))
                 .isInstanceOf(BusinessRuleException.class)
                 .hasMessageContaining("emprestado");
         assertThat(copy.isActive()).isTrue();

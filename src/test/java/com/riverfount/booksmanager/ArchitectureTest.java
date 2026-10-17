@@ -37,19 +37,21 @@ class ArchitectureTest {
     /**
      * The loan module uses the catalog's public ports, never the other way round: a catalog
      * that called the loan would make the two services depend on each other, and the
-     * application would not start.
+     * application would not start. The packages are anchored at the module root, so an adapter
+     * of the loan that implements a port of the catalog (loan.adapter.out.catalog) is not taken for
+     * the catalog.
      */
     @ArchTest
     static final ArchRule catalogShouldNotDependOnLoan = noClasses()
-            .that().resideInAPackage("..catalog..")
-            .should().dependOnClassesThat().resideInAPackage("..loan..")
+            .that().resideInAPackage("com.riverfount.booksmanager.catalog..")
+            .should().dependOnClassesThat().resideInAPackage("com.riverfount.booksmanager.loan..")
             .allowEmptyShould(true);
 
     /** Same one-way dependency for the user module: the loan calls its public ports, never the reverse. */
     @ArchTest
     static final ArchRule userShouldNotDependOnLoan = noClasses()
-            .that().resideInAPackage("..user..")
-            .should().dependOnClassesThat().resideInAPackage("..loan..")
+            .that().resideInAPackage("com.riverfount.booksmanager.user..")
+            .should().dependOnClassesThat().resideInAPackage("com.riverfount.booksmanager.loan..")
             .allowEmptyShould(true);
 
     /** A new controller that does not decide who may call it fails the build (see AccessRules). */
