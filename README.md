@@ -120,7 +120,7 @@ Todos aceitam os perfis `ADMIN` e `OPERATOR` (a configuração da biblioteca é 
 | Operação | Requisição | Resposta |
 |---|---|---|
 | Registrar empréstimo | `POST /api/v1/loans` com `copyId` e `readerId` | 201 com `Location`; 422 com todos os motivos da recusa |
-| Devolver | `POST /api/v1/loans/{id}/return` | 200 com os dias de atraso e a multa e a suspensão geradas |
+| Devolver | `POST /api/v1/loans/{id}/return` | 200 com os dias de atraso e a multa e a suspensão geradas; corpo opcional `{"condition": "GOOD\|DAMAGED\|LOST"}` (RF15) |
 | Renovar | `POST /api/v1/loans/{id}/renew` | 200 com a nova data prevista; 422 se encerrado, em atraso ou no limite |
 | Consultar empréstimo | `GET /api/v1/loans/{id}` | 200, inclusive para empréstimo encerrado |
 | Listar empréstimos | `GET /api/v1/loans?readerId=&copyId=&status=&overdue=` | 200 com o nome do leitor, o código do exemplar e o título do livro; `status` é `ACTIVE` ou `RETURNED` (o histórico); `overdue=true` traz só os atrasados e traz `daysLate` (400 com `status=RETURNED`) |

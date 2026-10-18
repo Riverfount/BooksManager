@@ -3,6 +3,7 @@ package com.riverfount.booksmanager.loan.adapter.in.web;
 import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 
 import com.riverfount.booksmanager.loan.application.port.in.LoanDetails;
+import com.riverfount.booksmanager.loan.domain.ReturnCondition;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDate;
 
@@ -28,6 +29,9 @@ record LoanDetailsResponse(
         LocalDate dueDate,
         @Schema(description = "Data da devolução; nula enquanto o exemplar não volta", example = "2026-11-18")
         LocalDate returnDate,
+        @Schema(description = "Condição em que o exemplar voltou (GOOD, DAMAGED ou LOST); nula enquanto o "
+                + "exemplar não volta", example = "GOOD")
+        ReturnCondition returnCondition,
         @Schema(requiredMode = REQUIRED, description = "Quantas vezes o empréstimo foi renovado", example = "0")
         int renewals,
         @Schema(requiredMode = REQUIRED, description = "Se o empréstimo está ativo (ainda não devolvido)",
@@ -48,7 +52,8 @@ record LoanDetailsResponse(
         return new LoanDetailsResponse(loan.getId(), loan.getCopyId(), loan.getReaderId(), details.readerName(),
                 copy == null ? null : copy.assetCode(), copy == null ? null : copy.bookId(),
                 copy == null ? null : copy.bookTitle(), loan.getPickupDate(),
-                loan.getDueDate(), loan.getReturnDate(), loan.getRenewals(), loan.isActive(),
+                loan.getDueDate(), loan.getReturnDate(), loan.getReturnCondition(), loan.getRenewals(),
+                loan.isActive(),
                 details.daysLate(),
                 details.fine() == null ? null : FineSummary.from(details.fine()),
                 details.suspension() == null ? null : SuspensionSummary.from(details.suspension()));

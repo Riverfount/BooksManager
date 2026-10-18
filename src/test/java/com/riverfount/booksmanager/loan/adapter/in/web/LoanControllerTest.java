@@ -34,6 +34,7 @@ import com.riverfount.booksmanager.loan.domain.FineStatus;
 import com.riverfount.booksmanager.loan.domain.Suspension;
 import java.math.BigDecimal;
 import com.riverfount.booksmanager.loan.domain.Loan;
+import com.riverfount.booksmanager.loan.domain.ReturnCondition;
 import com.riverfount.booksmanager.security.configuration.MethodSecurityConfiguration;
 import com.riverfount.booksmanager.shared.adapter.in.web.GlobalExceptionHandler;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
@@ -42,6 +43,8 @@ import com.riverfount.booksmanager.shared.domain.PageResult;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -235,6 +238,52 @@ class LoanControllerTest {
         assertThat(captor.getValue()).isEqualTo(new ReturnLoanCommand(42L));
     }
 
+    private ResultActions giveBackWith(String json) throws Exception {
+        return mockMvc.perform(post(RETURN_URL).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(json));
+    }
+
+    private static Loan returnedAs(ReturnCondition condition) {
+        return Loan.reconstitute(42L, 7L, 20L, LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 15),
+                LocalDate.of(2026, 11, 15), 0, condition);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ReturnCondition.class, names = {"DAMAGED", "LOST"})
+    @WithOperator
+    void shouldPassTheConditionOfTheBodyAndShowItInTheAnswer(ReturnCondition condition) throws Exception {
+        given(returnLoanUseCase.returnLoan(any()))
+                .willReturn(new ReturnLoanResult(returnedAs(condition), 0, null, null));
+
+        giveBackWith("{\"condition\": \"" + condition + "\"}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.loan.returnCondition").value(condition.name()));
+
+        var captor = ArgumentCaptor.forClass(ReturnLoanCommand.class);
+        then(returnLoanUseCase).should().returnLoan(captor.capture());
+        assertThat(captor.getValue()).isEqualTo(new ReturnLoanCommand(42L, condition));
+    }
+
+    @Test
+    @WithOperator
+    void aBodyWithoutConditionShouldCountAsGood() throws Exception {
+        given(returnLoanUseCase.returnLoan(any()))
+                .willReturn(new ReturnLoanResult(returnedAs(ReturnCondition.GOOD), 0, null, null));
+
+        giveBackWith("{}").andExpect(status().isOk()).andExpect(jsonPath("$.loan.returnCondition").value("GOOD"));
+
+        var captor = ArgumentCaptor.forClass(ReturnLoanCommand.class);
+        then(returnLoanUseCase).should().returnLoan(captor.capture());
+        assertThat(captor.getValue()).isEqualTo(new ReturnLoanCommand(42L));
+    }
+
+    @Test
+    @WithOperator
+    void anUnknownConditionShouldAnswer400() throws Exception {
+        giveBackWith("{\"condition\": \"STOLEN\"}").andExpect(status().isBadRequest());
+
+        then(returnLoanUseCase).should(never()).returnLoan(any());
+    }
+
     @Test
     @WithAdmin
     void shouldShowTheDaysLateTheFineAndTheEndOfTheSuspension() throws Exception {
@@ -397,6 +446,7 @@ class LoanControllerTest {
                 .andExpect(jsonPath("$.pickupDate").value("2026-11-01"))
                 .andExpect(jsonPath("$.dueDate").value("2026-11-15"))
                 .andExpect(jsonPath("$.returnDate").value("2026-11-18"))
+                .andExpect(jsonPath("$.returnCondition").value("GOOD"))
                 .andExpect(jsonPath("$.active").value(false))
                 .andExpect(jsonPath("$.daysLate").value(3))
                 .andExpect(jsonPath("$.fine.amount").value(3.00))
@@ -418,6 +468,7 @@ class LoanControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.active").value(true))
                 .andExpect(jsonPath("$.returnDate").doesNotExist())
+                .andExpect(jsonPath("$.returnCondition").doesNotExist())
                 .andExpect(jsonPath("$.daysLate").doesNotExist())
                 .andExpect(jsonPath("$.fine").doesNotExist())
                 .andExpect(jsonPath("$.suspension").doesNotExist())

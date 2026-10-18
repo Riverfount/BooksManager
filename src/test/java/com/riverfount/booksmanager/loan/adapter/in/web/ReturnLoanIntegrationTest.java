@@ -2,6 +2,7 @@ package com.riverfount.booksmanager.loan.adapter.in.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -20,6 +21,8 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -125,6 +128,77 @@ class ReturnLoanIntegrationTest {
     private int count(String table) {
         return jdbcTemplate.queryForObject("select count(*) from " + table + " where reader_id = ?", Integer.class,
                 readerId);
+    }
+
+    // the condition of the copy (RF15)
+
+    private ResultActions giveBackAs(long loanId, String body) throws Exception {
+        return mockMvc.perform(post("/api/v1/loans/" + loanId + "/return").header("Authorization", token())
+                .contentType("application/json").content(body));
+    }
+
+    private String conditionOf(long loanId) {
+        return jdbcTemplate.queryForObject("select return_condition from loan where id = ?", String.class, loanId);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"DAMAGED", "LOST"})
+    void aCopyReturnedDamagedOrLostShouldCloseTheLoanAndNeverBecomeAvailable(String condition) throws Exception {
+        var loanId = activeLoan(5);
+
+        giveBackAs(loanId, "{\"condition\": \"" + condition + "\"}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.loan.active").value(false))
+                .andExpect(jsonPath("$.loan.returnCondition").value(condition));
+
+        assertThat(copyStatusOf(loanId)).isEqualTo(condition);
+        assertThat(conditionOf(loanId)).isEqualTo(condition);
+    }
+
+    @Test
+    void aReturnWithoutBodyShouldStillBeGood() throws Exception {
+        var loanId = activeLoan(5);
+
+        giveBack(loanId).andExpect(status().isOk()).andExpect(jsonPath("$.loan.returnCondition").value("GOOD"));
+
+        assertThat(copyStatusOf(loanId)).isEqualTo("AVAILABLE");
+        assertThat(conditionOf(loanId)).isEqualTo("GOOD");
+    }
+
+    @Test
+    void aLateReturnOfALostCopyShouldStillStoreThePenalty() throws Exception {
+        policyIs("BOTH");
+        var loanId = activeLoan(20);
+
+        giveBackAs(loanId, "{\"condition\": \"LOST\"}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.daysLate").value(6))
+                .andExpect(jsonPath("$.fine.amount").value(6.00))
+                .andExpect(jsonPath("$.suspension.endDate").value(TODAY.plusDays(6).toString()));
+
+        assertThat(copyStatusOf(loanId)).isEqualTo("LOST");
+        assertThat(count("fine")).isEqualTo(1);
+        assertThat(count("suspension")).isEqualTo(1);
+    }
+
+    @Test
+    void anUnknownConditionShouldAnswer400AndChangeNothing() throws Exception {
+        var loanId = activeLoan(5);
+
+        giveBackAs(loanId, "{\"condition\": \"STOLEN\"}").andExpect(status().isBadRequest());
+
+        assertThat(copyStatusOf(loanId)).isEqualTo("BORROWED");
+        assertThat(conditionOf(loanId)).isNull();
+    }
+
+    @Test
+    void theHistoryShouldShowTheConditionOfTheReturn() throws Exception {
+        var loanId = activeLoan(5);
+        giveBackAs(loanId, "{\"condition\": \"DAMAGED\"}").andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/loans/" + loanId).header("Authorization", token()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.returnCondition").value("DAMAGED"));
     }
 
     // on time and late (HU08)
