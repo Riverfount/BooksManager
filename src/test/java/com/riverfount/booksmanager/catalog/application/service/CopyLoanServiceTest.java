@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.riverfount.booksmanager.catalog.domain.Book;
 import com.riverfount.booksmanager.catalog.domain.Copy;
 import com.riverfount.booksmanager.catalog.domain.Isbn;
+import com.riverfount.booksmanager.catalog.domain.CopyReturnCondition;
 import com.riverfount.booksmanager.catalog.domain.CopyStatus;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
@@ -136,6 +137,41 @@ class CopyLoanServiceTest {
 
         assertThatThrownBy(() -> service.checkIn(id)).isInstanceOf(BusinessRuleException.class);
         assertThat(statusOf(id)).isEqualTo(status);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = CopyReturnCondition.class, names = {"DAMAGED", "LOST"})
+    void aBorrowedCopyCheckedInDamagedOrLostShouldNeverBecomeAvailable(CopyReturnCondition condition) {
+        var id = saveCopy(CopyStatus.BORROWED, true);
+
+        service.checkIn(id, condition);
+
+        assertThat(statusOf(id)).isEqualTo(CopyStatus.valueOf(condition.name()));
+        assertThat(service.findAvailability(id).orElseThrow().lendable()).isFalse();
+    }
+
+    @Test
+    void checkingInWithGoodConditionShouldMakeTheCopyAvailable() {
+        var id = saveCopy(CopyStatus.BORROWED, true);
+
+        service.checkIn(id, CopyReturnCondition.GOOD);
+
+        assertThat(statusOf(id)).isEqualTo(CopyStatus.AVAILABLE);
+    }
+
+    @Test
+    void shouldNotCheckInWithConditionACopyThatWasNotBorrowed() {
+        var id = saveCopy(CopyStatus.AVAILABLE, true);
+
+        assertThatThrownBy(() -> service.checkIn(id, CopyReturnCondition.LOST))
+                .isInstanceOf(BusinessRuleException.class);
+        assertThat(statusOf(id)).isEqualTo(CopyStatus.AVAILABLE);
+    }
+
+    @Test
+    void shouldNotCheckInWithConditionACopyThatDoesNotExist() {
+        assertThatThrownBy(() -> service.checkIn(999L, CopyReturnCondition.DAMAGED))
+                .isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test

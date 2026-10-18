@@ -126,6 +126,70 @@ class CopyTest {
     }
 
     @Test
+    void shouldCheckInABorrowedCopyAsAvailableWhenItCameBackInGoodCondition() {
+        var copy = Copy.reconstitute(1L, 1L, "PAT-1", CopyStatus.BORROWED, true, 0L);
+
+        copy.checkIn(CopyReturnCondition.GOOD);
+
+        assertThat(copy.getStatus()).isEqualTo(CopyStatus.AVAILABLE);
+    }
+
+    @Test
+    void aBorrowedCopyThatCameBackDamagedShouldBecomeDamagedAndNeverAvailable() {
+        var copy = Copy.reconstitute(1L, 1L, "PAT-1", CopyStatus.BORROWED, true, 0L);
+
+        copy.checkIn(CopyReturnCondition.DAMAGED);
+
+        assertThat(copy.getStatus()).isEqualTo(CopyStatus.DAMAGED);
+    }
+
+    @Test
+    void aBorrowedCopyThatWasLostShouldBecomeLostAndNeverAvailable() {
+        var copy = Copy.reconstitute(1L, 1L, "PAT-1", CopyStatus.BORROWED, true, 0L);
+
+        copy.checkIn(CopyReturnCondition.LOST);
+
+        assertThat(copy.getStatus()).isEqualTo(CopyStatus.LOST);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = CopyStatus.class, names = {"AVAILABLE", "RESERVED"})
+    void shouldNotCheckInWithAConditionACopyThatIsNotBorrowed(CopyStatus status) {
+        var copy = Copy.reconstitute(1L, 1L, "PAT-1", status, true, 0L);
+
+        assertThatThrownBy(() -> copy.checkIn(CopyReturnCondition.DAMAGED))
+                .isInstanceOf(BusinessRuleException.class);
+        assertThat(copy.getStatus()).isEqualTo(status);
+    }
+
+    @Test
+    void shouldRefuseACheckInWithoutCondition() {
+        var copy = Copy.reconstitute(1L, 1L, "PAT-1", CopyStatus.BORROWED, true, 0L);
+
+        assertThatThrownBy(() -> copy.checkIn(null)).isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("condição");
+        assertThat(copy.getStatus()).isEqualTo(CopyStatus.BORROWED);
+    }
+
+    @ParameterizedTest
+    @EnumSource(CopyReturnCondition.class)
+    void aCopyAlreadyDamagedOrLostKeepsItsStatusWhateverTheCondition(CopyReturnCondition condition) {
+        var copy = Copy.reconstitute(1L, 1L, "PAT-1", CopyStatus.LOST, true, 0L);
+
+        copy.checkIn(condition);
+
+        assertThat(copy.getStatus()).isEqualTo(CopyStatus.LOST);
+    }
+
+    @Test
+    void theManualChangeShouldStillRefuseABorrowedCopy() {
+        var copy = Copy.reconstitute(1L, 1L, "PAT-1", CopyStatus.BORROWED, true, 0L);
+
+        assertThatThrownBy(() -> copy.changeStatus(CopyStatus.DAMAGED)).isInstanceOf(BusinessRuleException.class);
+        assertThatThrownBy(() -> copy.changeStatus(CopyStatus.LOST)).isInstanceOf(BusinessRuleException.class);
+    }
+
+    @Test
     void shouldNotCheckInCopyThatIsNotBorrowed() {
         var copy = Copy.create(1L, "PAT-1");
 

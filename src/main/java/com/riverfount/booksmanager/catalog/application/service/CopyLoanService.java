@@ -9,6 +9,7 @@ import com.riverfount.booksmanager.catalog.application.port.in.FindCopySummaries
 import com.riverfount.booksmanager.catalog.application.port.out.BookRepository;
 import com.riverfount.booksmanager.catalog.application.port.out.CopyRepository;
 import com.riverfount.booksmanager.catalog.domain.Copy;
+import com.riverfount.booksmanager.catalog.domain.CopyReturnCondition;
 import com.riverfount.booksmanager.catalog.domain.CopyStatus;
 import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
 import java.util.Map;
@@ -20,9 +21,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * What the catalog offers the loan module (RN03, RNF17): to see whether a copy can be
- * borrowed, to mark it borrowed and to mark it available again. It is a class of its own,
- * apart from {@link CopyService}, because it serves another module and the catalog never
- * depends on the loan, so the dependency points one way only. Each call is a transaction;
+ * borrowed, to mark it borrowed and to record its return: available again, or damaged or lost
+ * (RF15). It is a class of its own, apart from {@link CopyService}, because it serves another
+ * module and the catalog never depends on the loan, so the dependency points one way only. Each call is a transaction;
  * the {@code @Version} of the copy makes two simultaneous changes not both pass, and the
  * loan use case, in the same transaction, undoes everything if the other half fails.
  */
@@ -67,9 +68,14 @@ class CopyLoanService
 
     @Override
     public void checkIn(Long copyId) {
+        checkIn(copyId, CopyReturnCondition.GOOD);
+    }
+
+    @Override
+    public void checkIn(Long copyId, CopyReturnCondition condition) {
         var copy = load(copyId);
         var before = copy.getStatus();
-        copy.checkIn();
+        copy.checkIn(condition);
         if (copy.getStatus() != before) {
             copyRepository.save(copy);
         }
