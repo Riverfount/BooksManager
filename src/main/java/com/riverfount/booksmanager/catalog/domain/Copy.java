@@ -47,18 +47,36 @@ public class Copy {
     }
 
     /**
-     * The copy came back from a loan: a borrowed copy becomes available. A damaged or lost
-     * copy stays as it is, since coming back does not repair it; it only returns to
-     * available by the manual change (RF04). Any other status is a mistake and is refused.
+     * The copy came back from a loan in good condition: a borrowed copy becomes available. A
+     * damaged or lost copy stays as it is, since coming back does not repair it; it only returns
+     * to available by the manual change (RF04). Any other status is a mistake and is refused.
      */
     public void checkIn() {
+        checkIn(CopyReturnCondition.GOOD);
+    }
+
+    /**
+     * The copy came back from a loan in the given condition (RF15): in good condition it becomes
+     * available, damaged it becomes DAMAGED and lost it becomes LOST, so it never goes back on
+     * the shelf by itself. This is the only way a borrowed copy turns damaged or lost; the manual
+     * change refuses it (RN10). A copy already damaged or lost keeps its status, and any other
+     * status that is not BORROWED is a mistake and is refused.
+     */
+    public void checkIn(CopyReturnCondition condition) {
+        if (condition == null) {
+            throw new BusinessRuleException("a condição do exemplar na devolução é obrigatória");
+        }
         if (status == CopyStatus.DAMAGED || status == CopyStatus.LOST) {
             return;
         }
         if (status != CopyStatus.BORROWED) {
             throw new BusinessRuleException("o exemplar só pode ser devolvido se estiver emprestado");
         }
-        this.status = CopyStatus.AVAILABLE;
+        this.status = switch (condition) {
+            case GOOD -> CopyStatus.AVAILABLE;
+            case DAMAGED -> CopyStatus.DAMAGED;
+            case LOST -> CopyStatus.LOST;
+        };
     }
 
     public void markAsDamaged() {
