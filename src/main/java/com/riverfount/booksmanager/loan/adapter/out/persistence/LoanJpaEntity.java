@@ -10,7 +10,7 @@ import jakarta.persistence.Version;
 import java.time.LocalDate;
 
 /**
- * Loan JPA entity, mapped to the table created by migration V7__create_loan.sql.
+ * Loan JPA entity, mapped to the table created by migration V7__create_loan.sql (and V9 for the return condition).
  * Separate from the domain; the conversion is done by LoanPersistenceAdapter. The
  * copy and the reader are plain ids, as in the domain. The {@code @Version} is the
  * optimistic lock of the row; the domain does not carry it, because the adapter
@@ -39,6 +39,9 @@ class LoanJpaEntity {
     @Column(name = "return_date")
     private LocalDate returnDate;
 
+    @Column(name = "return_condition")
+    private String returnCondition;
+
     @Column(nullable = false)
     private int renewals;
 
@@ -57,6 +60,7 @@ class LoanJpaEntity {
         this.pickupDate = pickupDate;
         this.dueDate = dueDate;
         this.returnDate = returnDate;
+        this.returnCondition = conditionOf(returnDate);
         this.renewals = renewals;
     }
 
@@ -64,7 +68,16 @@ class LoanJpaEntity {
     void update(LocalDate dueDate, LocalDate returnDate, int renewals) {
         this.dueDate = dueDate;
         this.returnDate = returnDate;
+        this.returnCondition = conditionOf(returnDate);
         this.renewals = renewals;
+    }
+
+    /**
+     * The database requires a condition with every return (V9). The domain only knows the date
+     * until it carries the condition (RF15), so a return is recorded as GOOD meanwhile.
+     */
+    private static String conditionOf(LocalDate returnDate) {
+        return returnDate == null ? null : "GOOD";
     }
 
     Long getId() {

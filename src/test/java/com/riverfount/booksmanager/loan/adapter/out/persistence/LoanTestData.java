@@ -34,8 +34,8 @@ final class LoanTestData {
 
     long newReturnedLoan(long copyId, long readerId, LocalDate pickup) {
         return jdbcTemplate.queryForObject("""
-                insert into loan (copy_id, reader_id, pickup_date, due_date, return_date)
-                values (?, ?, ?, ?, ?) returning id
+                insert into loan (copy_id, reader_id, pickup_date, due_date, return_date, return_condition)
+                values (?, ?, ?, ?, ?, 'GOOD') returning id
                 """, Long.class, copyId, readerId, pickup, pickup.plusDays(14), pickup.plusDays(20));
     }
 }

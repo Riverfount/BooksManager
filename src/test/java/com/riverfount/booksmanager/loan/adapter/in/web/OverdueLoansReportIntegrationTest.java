@@ -76,9 +76,10 @@ class OverdueLoansReportIntegrationTest {
                 Long.class, bookId, "OR-" + ++sequence);
         var due = TODAY.minusDays(lateByDays);
         return jdbcTemplate.queryForObject("""
-                insert into loan (copy_id, reader_id, pickup_date, due_date, return_date)
-                values (?, ?, ?, ?, ?) returning id
-                """, Long.class, copyId, readerId, due.minusDays(14), due, returned ? due.minusDays(1) : null);
+                insert into loan (copy_id, reader_id, pickup_date, due_date, return_date, return_condition)
+                values (?, ?, ?, ?, ?, case when ?::date is null then null else 'GOOD' end) returning id
+                """, Long.class, copyId, readerId, due.minusDays(14), due, returned ? due.minusDays(1) : null,
+                returned ? due.minusDays(1) : null);
     }
 
     private ResultActions report(String query) throws Exception {

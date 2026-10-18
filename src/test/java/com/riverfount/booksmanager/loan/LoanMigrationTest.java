@@ -68,7 +68,7 @@ class LoanMigrationTest {
     @Test
     void shouldHaveTheColumnsOfTheLoan() {
         assertThat(columnsOf("loan")).containsExactlyInAnyOrder("id", "copy_id", "reader_id", "pickup_date",
-                "due_date", "return_date", "renewals", "version");
+                "due_date", "return_date", "renewals", "version", "return_condition");
     }
 
     @Test
@@ -168,12 +168,12 @@ class LoanMigrationTest {
     }
 
     @Test
-    void shouldRequireTheDatesButNotTheReturn() {
+    void shouldRequireTheDatesButNotTheReturnNorItsCondition() {
         var nullable = jdbcTemplate.queryForList(
                 "select column_name from information_schema.columns where table_name = 'loan' "
                         + "and is_nullable = 'YES'", String.class);
 
-        assertThat(nullable).containsExactly("return_date");
+        assertThat(nullable).containsExactlyInAnyOrder("return_date", "return_condition");
     }
 
     // the fine: one per loan (RN05)
@@ -312,6 +312,46 @@ class LoanMigrationTest {
         assertThat(indexed).as("index on %s", tableAndColumn).isPositive();
     }
 
+    // the condition of the return (RF15)
+
+    @Test
+    void shouldHaveTheReturnConditionMigrationRegisteredSuccessfully() {
+        var success = jdbcTemplate.queryForObject(
+                "select success from flyway_schema_history where script = 'V9__add_return_condition_to_loan.sql'",
+                Boolean.class);
+
+        assertThat(success).isTrue();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GOOD", "DAMAGED", "LOST"})
+    void shouldAcceptEachConditionOnAReturnedLoan(String condition) {
+        assertThatCode(() -> insertLoanWithCondition("2026-11-10", condition)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void shouldAcceptAnActiveLoanWithoutCondition() {
+        assertThatCode(() -> insertLoanWithCondition(null, null)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void shouldRefuseAConditionOutsideTheKnownOnes() {
+        assertThatThrownBy(() -> insertLoanWithCondition("2026-11-10", "STOLEN"))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void shouldRefuseAConditionWithoutReturnDate() {
+        assertThatThrownBy(() -> insertLoanWithCondition(null, "GOOD"))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void shouldRefuseAReturnDateWithoutCondition() {
+        assertThatThrownBy(() -> insertLoanWithCondition("2026-11-10", null))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
     private long insertAndGetId(String sql) {
         return jdbcTemplate.queryForObject(sql + " returning id", Long.class);
     }
@@ -323,9 +363,17 @@ class LoanMigrationTest {
 
     private long insertLoan(long copy, String pickup, String due, String returned) {
         return jdbcTemplate.queryForObject("""
-                insert into loan (copy_id, reader_id, pickup_date, due_date, return_date)
-                values (?, ?, ?::date, ?::date, ?::date) returning id
-                """, Long.class, copy, readerId, pickup, due, returned);
+                insert into loan (copy_id, reader_id, pickup_date, due_date, return_date, return_condition)
+                values (?, ?, ?::date, ?::date, ?::date, case when ?::date is null then null else 'GOOD' end)
+                returning id
+                """, Long.class, copy, readerId, pickup, due, returned, returned);
+    }
+
+    private void insertLoanWithCondition(String returned, String condition) {
+        jdbcTemplate.update("""
+                insert into loan (copy_id, reader_id, pickup_date, due_date, return_date, return_condition)
+                values (?, ?, date '2026-11-01', date '2026-11-15', ?::date, ?)
+                """, copyId, readerId, returned, condition);
     }
 
     private void insertFine(long loanId, String amount, String status, String waiverReason) {

@@ -145,7 +145,7 @@ class RenewLoanIntegrationTest {
     @Test
     void shouldRefuseAClosedLoan() throws Exception {
         var loanId = activeLoan(5);
-        jdbcTemplate.update("update loan set return_date = ? where id = ?", TODAY, loanId);
+        jdbcTemplate.update("update loan set return_date = ?, return_condition = 'GOOD' where id = ?", TODAY, loanId);
 
         renew(loanId).andExpect(status().isUnprocessableContent());
 

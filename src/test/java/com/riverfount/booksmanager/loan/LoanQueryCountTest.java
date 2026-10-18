@@ -90,8 +90,8 @@ class LoanQueryCountTest {
                     "insert into copy (book_id, asset_code, status) values (?, ?, 'AVAILABLE') returning id",
                     Long.class, bookId, "LQC-" + number);
             var loanId = jdbcTemplate.queryForObject("""
-                    insert into loan (copy_id, reader_id, pickup_date, due_date, return_date)
-                    values (?, ?, ?, ?, ?) returning id
+                    insert into loan (copy_id, reader_id, pickup_date, due_date, return_date, return_condition)
+                    values (?, ?, ?, ?, ?, 'GOOD') returning id
                     """, Long.class, copyId, readerId, PICKUP, PICKUP.plusDays(14), PICKUP.plusDays(20));
             jdbcTemplate.update("insert into fine (loan_id, reader_id, amount, status) values (?, ?, 6.00, 'PENDING')",
                     loanId, readerId);

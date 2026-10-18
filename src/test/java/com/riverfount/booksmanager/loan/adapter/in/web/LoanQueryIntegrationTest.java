@@ -73,8 +73,8 @@ class LoanQueryIntegrationTest {
                 """, Long.class);
         // the same copy, first returned 6 days late (with its penalty), then borrowed again and still active
         returnedLoanId = jdbcTemplate.queryForObject("""
-                insert into loan (copy_id, reader_id, pickup_date, due_date, return_date)
-                values (?, ?, ?, ?, ?) returning id
+                insert into loan (copy_id, reader_id, pickup_date, due_date, return_date, return_condition)
+                values (?, ?, ?, ?, ?, 'GOOD') returning id
                 """, Long.class, copyId, readerId, PICKUP, PICKUP.plusDays(14), PICKUP.plusDays(20));
         jdbcTemplate.update("insert into fine (loan_id, reader_id, amount, status) values (?, ?, 6.00, 'PENDING')",
                 returnedLoanId, readerId);
