@@ -56,6 +56,7 @@ classDiagram
         LocalDate dueDate
         LocalDate returnDate
         Integer renewals
+        ReturnCondition returnCondition
     }
     class Fine {
         Long id
@@ -76,7 +77,11 @@ classDiagram
     }
     class Reservation {
         Long id
+        Long readerId
+        Long bookId
+        Long copyId
         LocalDate reservationDate
+        LocalDate pickupDeadline
         ReservationStatus status
     }
     class User {
@@ -111,6 +116,7 @@ classDiagram
     Reader "1" --> "*" Suspension : receives
     Reader "1" --> "*" Reservation : makes
     Book "1" --> "*" Reservation : receives
+    Copy "1" --> "0..1" Reservation : holds (when RESERVED)
 ```
 
 ## Enumerações
@@ -119,6 +125,7 @@ classDiagram
 | --- | --- |
 | `CopyStatus` | AVAILABLE, BORROWED, RESERVED, DAMAGED, LOST |
 | `FineStatus` | PENDING, PAID, WAIVED |
+| `ReturnCondition` | GOOD (padrão), DAMAGED, LOST |
 | `ReservationStatus` | ACTIVE, FULFILLED, CANCELLED, EXPIRED |
 | `Role` | ADMIN, OPERATOR |
 | `PenaltyPolicy` | FINE, SUSPENSION, BOTH, NONE |
@@ -136,7 +143,8 @@ classDiagram
 | `Loan` | `loan` | Implementado (Fase 3): domínio (issue #141), migração e persistência (issues #145 e #146) e os endpoints de registro (`POST /api/v1/loans`, issue #149), devolução (`/{id}/return`, issue #150), renovação (`/{id}/renew`, issue #151), consulta e listagem com o histórico (issue #152) e o relatório de atrasos (`/api/v1/reports/overdue-loans`, issue #157). |
 | `Fine` | `loan` | Implementada (Fase 3): domínio, com o enum `FineStatus` (issue #142), migração e persistência (issues #145 e #146) e os endpoints de pagamento e abono (issue #153) e de listagem (`GET /api/v1/fines`, issue #154). |
 | `Suspension` | `loan` | Implementada (Fase 3): domínio (issue #143), migração e persistência (issues #145 e #146) e os endpoints de listagem (issue #154) e de encerramento antecipado (`POST /api/v1/suspensions/{id}/end`, issue #155). A suspensão é um registro do `loan`, não um campo do `Reader` (decisão da issue #135). |
-| `Reservation` | `loan` | Planejada — fase 4 do plano de desenvolvimento. |
+| `Reservation` | `loan` | Planejada — Fase 4 (decisões de 17/10/2026 em `docs/projeto.md`). Guarda o leitor, o livro e, quando segura um exemplar, o exemplar e o prazo de retirada; o status é `ACTIVE` (na fila ou segurando um exemplar), `FULFILLED`, `CANCELLED` ou `EXPIRED`. |
+| `ReturnCondition` | `loan` | Planejada — Fase 4 (RF15): condição do exemplar na devolução, guardada no `Loan`. |
 
 ## Referências
 
