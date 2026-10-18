@@ -89,8 +89,10 @@ class LoanController {
 
     @PostMapping("/{id}/return")
     @Operation(summary = "Registrar devolução",
-            description = "Devolve o exemplar (HU08): encerra o empréstimo com a data de hoje, deixa o exemplar "
-                    + "disponível de novo (um exemplar danificado ou extraviado continua como está) e, se a "
+            description = "Devolve o exemplar (HU08): encerra o empréstimo com a data de hoje, registra a condição "
+                    + "do exemplar (corpo opcional; sem corpo vale GOOD) e, em boas condições, deixa o exemplar "
+                    + "disponível de novo; DAMAGED ou LOST (RF15) só registram a ocorrência, sem cobrança, e o "
+                    + "exemplar fica danificado ou extraviado, nunca disponível. Se a "
                     + "devolução for depois da data prevista, aplica a penalidade da política vigente na "
                     + "configuração: multa, suspensão, as duas ou nada. A penalidade é calculada agora e guardada; "
                     + "mudar a política depois não recalcula devoluções já registradas. Tudo ou nada: se qualquer "
@@ -99,7 +101,7 @@ class LoanController {
             @ApiResponse(responseCode = "200",
                     description = "Devolução registrada: o empréstimo encerrado, os dias de atraso e, se houve, a "
                             + "multa e a suspensão geradas"),
-            @ApiResponse(responseCode = "400", description = "Identificador inválido",
+            @ApiResponse(responseCode = "400", description = "Identificador inválido ou condição desconhecida",
                     content = @Content(mediaType = "application/problem+json",
                             schema = @Schema(implementation = ProblemDetail.class))),
             @ApiResponse(responseCode = "404", description = "Empréstimo não encontrado",
@@ -115,8 +117,10 @@ class LoanController {
                     content = @Content(mediaType = "application/problem+json",
                             schema = @Schema(implementation = ProblemDetail.class)))
     })
-    ReturnLoanResponse returnLoan(@PathVariable Long id) {
-        return ReturnLoanResponse.from(returnLoanUseCase.returnLoan(new ReturnLoanCommand(id)));
+    ReturnLoanResponse returnLoan(@PathVariable Long id,
+            @RequestBody(required = false) ReturnLoanRequest request) {
+        var condition = request == null ? null : request.condition();
+        return ReturnLoanResponse.from(returnLoanUseCase.returnLoan(new ReturnLoanCommand(id, condition)));
     }
 
     @PostMapping("/{id}/renew")

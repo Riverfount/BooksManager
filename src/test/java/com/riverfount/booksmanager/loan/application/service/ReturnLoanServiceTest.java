@@ -2,6 +2,7 @@ package com.riverfount.booksmanager.loan.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.doThrow;
@@ -9,12 +10,14 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 
 import com.riverfount.booksmanager.catalog.application.port.in.CheckInCopyUseCase;
+import com.riverfount.booksmanager.catalog.domain.CopyReturnCondition;
 import com.riverfount.booksmanager.loan.application.port.in.ReturnLoanCommand;
 import com.riverfount.booksmanager.loan.application.port.out.FineFilter;
 import com.riverfount.booksmanager.loan.application.port.out.SuspensionFilter;
 import com.riverfount.booksmanager.loan.domain.FineStatus;
 import com.riverfount.booksmanager.loan.domain.Loan;
 import com.riverfount.booksmanager.loan.domain.PenaltyPolicy;
+import com.riverfount.booksmanager.loan.domain.ReturnCondition;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
@@ -25,6 +28,8 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 /**
  * Returning a loan (RF12, RF20, HU08): the service only orchestrates; the lateness, the
@@ -102,7 +107,65 @@ class ReturnLoanServiceTest {
     void shouldMarkTheCopyAsAvailableAgain() {
         service.returnLoan(returning(openLoan(5)));
 
-        then(checkInCopy).should().checkIn(COPY);
+        then(checkInCopy).should().checkIn(COPY, CopyReturnCondition.GOOD);
+    }
+
+    // the condition of the copy (RF15)
+
+    @ParameterizedTest
+    @EnumSource(ReturnCondition.class)
+    void shouldKeepTheConditionInTheLoanAndTellTheCatalogInItsOwnType(ReturnCondition condition) {
+        var id = openLoan(5);
+
+        var result = service.returnLoan(new ReturnLoanCommand(id, condition));
+
+        assertThat(result.loan().getReturnCondition()).isEqualTo(condition);
+        assertThat(loanRepository.findById(id).orElseThrow().getReturnCondition()).isEqualTo(condition);
+        then(checkInCopy).should().checkIn(COPY, CopyReturnCondition.valueOf(condition.name()));
+    }
+
+    @Test
+    void aReturnWithoutConditionShouldCountAsGood() {
+        var result = service.returnLoan(new ReturnLoanCommand(openLoan(5), null));
+
+        assertThat(result.loan().getReturnCondition()).isEqualTo(ReturnCondition.GOOD);
+        then(checkInCopy).should().checkIn(COPY, CopyReturnCondition.GOOD);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ReturnCondition.class, names = {"DAMAGED", "LOST"})
+    void aLateReturnShouldBePenalizedAlsoWhenTheCopyIsDamagedOrLost(ReturnCondition condition) {
+        policyIs(PenaltyPolicy.BOTH);
+
+        var result = service.returnLoan(new ReturnLoanCommand(lateLoan(), condition));
+
+        assertThat(result.daysLate()).isEqualTo(6);
+        assertThat(result.fine()).isNotNull();
+        assertThat(result.suspension()).isNotNull();
+        assertThat(fines()).isEqualTo(1);
+        assertThat(suspensions()).isEqualTo(1);
+    }
+
+    @Test
+    void aDamagedReturnOnTimeShouldApplyNoPenalty() {
+        policyIs(PenaltyPolicy.BOTH);
+
+        var result = service.returnLoan(new ReturnLoanCommand(openLoan(5), ReturnCondition.DAMAGED));
+
+        assertThat(result.fine()).isNull();
+        assertThat(result.suspension()).isNull();
+    }
+
+    @Test
+    void ifTheCatalogRefusesTheConditionNothingShouldBeSaved() {
+        var id = openLoan(5);
+        doThrow(new BusinessRuleException("o exemplar só pode ser devolvido se estiver emprestado"))
+                .when(checkInCopy).checkIn(COPY, CopyReturnCondition.LOST);
+
+        assertThatThrownBy(() -> service.returnLoan(new ReturnLoanCommand(id, ReturnCondition.LOST)))
+                .isInstanceOf(BusinessRuleException.class);
+
+        assertThat(loanRepository.findById(id).orElseThrow().isActive()).isTrue();
     }
 
     @Test
@@ -258,7 +321,7 @@ class ReturnLoanServiceTest {
 
         assertThatThrownBy(() -> service.returnLoan(returning(id))).isInstanceOf(BusinessRuleException.class);
 
-        then(checkInCopy).should(org.mockito.Mockito.times(1)).checkIn(COPY);
+        then(checkInCopy).should(org.mockito.Mockito.times(1)).checkIn(COPY, CopyReturnCondition.GOOD);
     }
 
     @Test
@@ -266,7 +329,7 @@ class ReturnLoanServiceTest {
         assertThatThrownBy(() -> service.returnLoan(returning(999L)))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("999");
-        then(checkInCopy).should(never()).checkIn(anyLong());
+        then(checkInCopy).should(never()).checkIn(anyLong(), any());
     }
 
     @Test
@@ -274,7 +337,7 @@ class ReturnLoanServiceTest {
         policyIs(PenaltyPolicy.BOTH);
         var id = lateLoan();
         doThrow(new BusinessRuleException("o exemplar só pode ser devolvido se estiver emprestado"))
-                .when(checkInCopy).checkIn(COPY);
+                .when(checkInCopy).checkIn(COPY, CopyReturnCondition.GOOD);
 
         assertThatThrownBy(() -> service.returnLoan(returning(id))).isInstanceOf(BusinessRuleException.class);
 

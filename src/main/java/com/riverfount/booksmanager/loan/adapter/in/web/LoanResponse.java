@@ -3,6 +3,7 @@ package com.riverfount.booksmanager.loan.adapter.in.web;
 import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 
 import com.riverfount.booksmanager.loan.domain.Loan;
+import com.riverfount.booksmanager.loan.domain.ReturnCondition;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDate;
 
@@ -20,6 +21,9 @@ record LoanResponse(
         LocalDate dueDate,
         @Schema(description = "Data da devolução; nula enquanto o exemplar não volta", example = "2026-11-20")
         LocalDate returnDate,
+        @Schema(description = "Condição em que o exemplar voltou (GOOD, DAMAGED ou LOST); nula enquanto o "
+                + "exemplar não volta", example = "GOOD")
+        ReturnCondition returnCondition,
         @Schema(requiredMode = REQUIRED, description = "Quantas vezes o empréstimo foi renovado", example = "0")
         int renewals,
         @Schema(requiredMode = REQUIRED, description = "Se o empréstimo está ativo (ainda não devolvido)",
@@ -28,6 +32,7 @@ record LoanResponse(
 
     static LoanResponse from(Loan loan) {
         return new LoanResponse(loan.getId(), loan.getCopyId(), loan.getReaderId(), loan.getPickupDate(),
-                loan.getDueDate(), loan.getReturnDate(), loan.getRenewals(), loan.isActive());
+                loan.getDueDate(), loan.getReturnDate(), loan.getReturnCondition(), loan.getRenewals(),
+                loan.isActive());
     }
 }
