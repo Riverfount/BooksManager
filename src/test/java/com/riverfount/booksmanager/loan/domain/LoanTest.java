@@ -7,6 +7,7 @@ import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /** The loan and its rules (RF11, RF12, RF13, RN06, RN07, RN09); the date always comes by parameter. */
@@ -270,6 +271,96 @@ class LoanTest {
         assertThatThrownBy(() -> loan.returnCopy(null)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> loan.daysLate(null)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> loan.isOverdue(null)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    // the condition of the copy on return (RF15)
+
+    @ParameterizedTest
+    @EnumSource(ReturnCondition.class)
+    void shouldKeepTheConditionTheCopyCameBackIn(ReturnCondition condition) {
+        var loan = loan();
+
+        loan.returnCopy(DUE, condition);
+
+        assertThat(loan.getReturnCondition()).isEqualTo(condition);
+        assertThat(loan.isReturned()).isTrue();
+        assertThat(loan.getReturnDate()).isEqualTo(DUE);
+    }
+
+    @Test
+    void shouldReturnAsGoodWhenNoConditionIsGiven() {
+        var loan = loan();
+
+        loan.returnCopy(DUE);
+
+        assertThat(loan.getReturnCondition()).isEqualTo(ReturnCondition.GOOD);
+    }
+
+    @Test
+    void anActiveLoanHasNoCondition() {
+        assertThat(loan().getReturnCondition()).isNull();
+    }
+
+    @Test
+    void shouldRefuseAReturnWithoutCondition() {
+        var loan = loan();
+
+        assertThatThrownBy(() -> loan.returnCopy(DUE, null)).isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("condição");
+        assertThat(loan.isActive()).isTrue();
+        assertThat(loan.getReturnCondition()).isNull();
+    }
+
+    @ParameterizedTest
+    @EnumSource(ReturnCondition.class)
+    void theDaysLateDoNotDependOnTheCondition(ReturnCondition condition) {
+        var loan = loan();
+
+        var daysLate = loan.returnCopy(DUE.plusDays(3), condition);
+
+        assertThat(daysLate).isEqualTo(3);
+        assertThat(loan.daysLate(DUE.plusDays(50))).isEqualTo(3);
+    }
+
+    @Test
+    void shouldKeepTheFirstConditionWhenTheSecondReturnIsRefused() {
+        var loan = loan();
+        loan.returnCopy(DUE, ReturnCondition.DAMAGED);
+
+        assertThatThrownBy(() -> loan.returnCopy(DUE.plusDays(1), ReturnCondition.GOOD))
+                .isInstanceOf(BusinessRuleException.class).hasMessageContaining("encerrado");
+        assertThat(loan.getReturnCondition()).isEqualTo(ReturnCondition.DAMAGED);
+    }
+
+    @Test
+    void shouldKeepTheLoanActiveWhenTheReturnIsBeforeThePickup() {
+        var loan = loan();
+
+        assertThatThrownBy(() -> loan.returnCopy(PICKUP.minusDays(1), ReturnCondition.LOST))
+                .isInstanceOf(BusinessRuleException.class);
+        assertThat(loan.getReturnCondition()).isNull();
+    }
+
+    @Test
+    void shouldReconstituteTheConditionOfAReturnedLoan() {
+        var loan = Loan.reconstitute(5L, 10L, 20L, PICKUP, DUE, DUE, 0, ReturnCondition.LOST);
+
+        assertThat(loan.getReturnCondition()).isEqualTo(ReturnCondition.LOST);
+    }
+
+    @Test
+    void shouldReconstituteALoanReturnedWithoutConditionAsGood() {
+        var loan = Loan.reconstitute(5L, 10L, 20L, PICKUP, DUE, DUE, 0);
+
+        assertThat(loan.getReturnCondition()).isEqualTo(ReturnCondition.GOOD);
+    }
+
+    @Test
+    void shouldRefuseAReturnedLoanWithoutConditionAndAnActiveOneWithCondition() {
+        assertThatThrownBy(() -> Loan.reconstitute(5L, 10L, 20L, PICKUP, DUE, DUE, 0, null))
+                .isInstanceOf(BusinessRuleException.class).hasMessageContaining("condição");
+        assertThatThrownBy(() -> Loan.reconstitute(5L, 10L, 20L, PICKUP, DUE, null, 0, ReturnCondition.GOOD))
+                .isInstanceOf(BusinessRuleException.class).hasMessageContaining("condição");
     }
 
     // reconstitution

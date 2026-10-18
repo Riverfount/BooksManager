@@ -1,7 +1,10 @@
 package com.riverfount.booksmanager.loan.adapter.out.persistence;
 
+import com.riverfount.booksmanager.loan.domain.ReturnCondition;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -39,8 +42,9 @@ class LoanJpaEntity {
     @Column(name = "return_date")
     private LocalDate returnDate;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "return_condition")
-    private String returnCondition;
+    private ReturnCondition returnCondition;
 
     @Column(nullable = false)
     private int renewals;
@@ -54,30 +58,22 @@ class LoanJpaEntity {
     }
 
     LoanJpaEntity(Long copyId, Long readerId, LocalDate pickupDate, LocalDate dueDate, LocalDate returnDate,
-            int renewals) {
+            ReturnCondition returnCondition, int renewals) {
         this.copyId = copyId;
         this.readerId = readerId;
         this.pickupDate = pickupDate;
         this.dueDate = dueDate;
         this.returnDate = returnDate;
-        this.returnCondition = conditionOf(returnDate);
+        this.returnCondition = returnCondition;
         this.renewals = renewals;
     }
 
     /** Copies what a loan can change after it exists: the due date, the return and the renewals. */
-    void update(LocalDate dueDate, LocalDate returnDate, int renewals) {
+    void update(LocalDate dueDate, LocalDate returnDate, ReturnCondition returnCondition, int renewals) {
         this.dueDate = dueDate;
         this.returnDate = returnDate;
-        this.returnCondition = conditionOf(returnDate);
+        this.returnCondition = returnCondition;
         this.renewals = renewals;
-    }
-
-    /**
-     * The database requires a condition with every return (V9). The domain only knows the date
-     * until it carries the condition (RF15), so a return is recorded as GOOD meanwhile.
-     */
-    private static String conditionOf(LocalDate returnDate) {
-        return returnDate == null ? null : "GOOD";
     }
 
     Long getId() {
@@ -102,6 +98,10 @@ class LoanJpaEntity {
 
     LocalDate getReturnDate() {
         return returnDate;
+    }
+
+    ReturnCondition getReturnCondition() {
+        return returnCondition;
     }
 
     int getRenewals() {

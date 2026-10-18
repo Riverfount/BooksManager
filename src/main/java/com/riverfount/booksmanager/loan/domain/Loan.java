@@ -25,16 +25,18 @@ public class Loan {
     private final LocalDate pickupDate;
     private LocalDate dueDate;
     private LocalDate returnDate;
+    private ReturnCondition returnCondition;
     private int renewals;
 
     private Loan(Long id, Long copyId, Long readerId, LocalDate pickupDate, LocalDate dueDate, LocalDate returnDate,
-            int renewals) {
+            ReturnCondition returnCondition, int renewals) {
         this.id = id;
         this.copyId = copyId;
         this.readerId = readerId;
         this.pickupDate = pickupDate;
         this.dueDate = dueDate;
         this.returnDate = returnDate;
+        this.returnCondition = returnCondition;
         this.renewals = renewals;
     }
 
@@ -47,11 +49,18 @@ public class Loan {
         if (loanPeriodDays < 1) {
             throw new IllegalArgumentException("the loan period must be at least one day");
         }
-        return new Loan(null, copyId, readerId, pickupDate, pickupDate.plusDays(loanPeriodDays), null, 0);
+        return new Loan(null, copyId, readerId, pickupDate, pickupDate.plusDays(loanPeriodDays), null, null, 0);
+    }
+
+    /** A persisted loan from before the return condition existed: a returned one came back GOOD. */
+    public static Loan reconstitute(Long id, Long copyId, Long readerId, LocalDate pickupDate, LocalDate dueDate,
+            LocalDate returnDate, int renewals) {
+        return reconstitute(id, copyId, readerId, pickupDate, dueDate, returnDate, renewals,
+                returnDate != null ? ReturnCondition.GOOD : null);
     }
 
     public static Loan reconstitute(Long id, Long copyId, Long readerId, LocalDate pickupDate, LocalDate dueDate,
-            LocalDate returnDate, int renewals) {
+            LocalDate returnDate, int renewals, ReturnCondition returnCondition) {
         validateParties(copyId, readerId);
         if (pickupDate == null || dueDate == null) {
             throw new BusinessRuleException("as datas de retirada e de devolução prevista são obrigatórias");
@@ -65,7 +74,10 @@ public class Loan {
         if (renewals < 0) {
             throw new BusinessRuleException("o número de renovações não pode ser negativo");
         }
-        return new Loan(id, copyId, readerId, pickupDate, dueDate, returnDate, renewals);
+        if ((returnDate == null) != (returnCondition == null)) {
+            throw new BusinessRuleException("o empréstimo devolvido tem condição de devolução e o ativo não tem");
+        }
+        return new Loan(id, copyId, readerId, pickupDate, dueDate, returnDate, returnCondition, renewals);
     }
 
     /**
@@ -101,12 +113,27 @@ public class Loan {
      * @return the days the copy came back late, zero when it was on time or early
      */
     public long returnCopy(LocalDate today) {
+        return returnCopy(today, ReturnCondition.GOOD);
+    }
+
+    /**
+     * Closes the loan with the copy back in the given condition (RF15). The condition is only
+     * recorded: the days late, and so the penalty, do not depend on it. A missing condition is
+     * refused, and nothing changes when the return is refused.
+     *
+     * @return the days the copy came back late, zero when it was on time or early
+     */
+    public long returnCopy(LocalDate today, ReturnCondition condition) {
         requireDate(today);
         requireActive();
+        if (condition == null) {
+            throw new BusinessRuleException("a condição do exemplar na devolução é obrigatória");
+        }
         if (today.isBefore(pickupDate)) {
             throw new BusinessRuleException("a devolução não pode ser anterior à retirada");
         }
         this.returnDate = today;
+        this.returnCondition = condition;
         return daysLate(today);
     }
 
@@ -180,6 +207,11 @@ public class Loan {
 
     public LocalDate getReturnDate() {
         return returnDate;
+    }
+
+    /** The condition the copy came back in, or null while the loan is active. */
+    public ReturnCondition getReturnCondition() {
+        return returnCondition;
     }
 
     public int getRenewals() {
