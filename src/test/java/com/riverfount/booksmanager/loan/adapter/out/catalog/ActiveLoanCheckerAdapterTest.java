@@ -54,9 +54,9 @@ class ActiveLoanCheckerAdapterTest {
 
     private void loan(long copyId, LocalDate returnedOn) {
         jdbcTemplate.update("""
-                insert into loan (copy_id, reader_id, pickup_date, due_date, return_date)
-                values (?, ?, date '2026-01-01', date '2026-01-15', ?)
-                """, copyId, readerId, returnedOn);
+                insert into loan (copy_id, reader_id, pickup_date, due_date, return_date, return_condition)
+                values (?, ?, date '2026-01-01', date '2026-01-15', ?, case when ?::date is null then null else 'GOOD' end)
+                """, copyId, readerId, returnedOn, returnedOn);
     }
 
     @Test

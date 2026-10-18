@@ -74,8 +74,8 @@ class FineIntegrationTest {
                 "insert into copy (book_id, asset_code, status) values (?, 'FN-2', 'AVAILABLE') returning id",
                 Long.class, bookId);
         var pastLoanId = jdbcTemplate.queryForObject("""
-                insert into loan (copy_id, reader_id, pickup_date, due_date, return_date)
-                values (?, ?, date '2026-01-01', date '2026-01-15', date '2026-01-21') returning id
+                insert into loan (copy_id, reader_id, pickup_date, due_date, return_date, return_condition)
+                values (?, ?, date '2026-01-01', date '2026-01-15', date '2026-01-21', 'GOOD') returning id
                 """, Long.class, pastCopyId, readerId);
         fineId = jdbcTemplate.queryForObject(
                 "insert into fine (loan_id, reader_id, amount, status) values (?, ?, 6.00, 'PENDING') returning id",

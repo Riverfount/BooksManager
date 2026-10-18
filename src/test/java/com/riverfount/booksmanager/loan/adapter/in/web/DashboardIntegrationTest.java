@@ -115,9 +115,9 @@ class DashboardIntegrationTest {
 
     private long loan(long copyId, long readerId, LocalDate pickup, LocalDate due, LocalDate returnedOn) {
         return jdbcTemplate.queryForObject("""
-                insert into loan (copy_id, reader_id, pickup_date, due_date, return_date)
-                values (?, ?, ?, ?, ?) returning id
-                """, Long.class, copyId, readerId, pickup, due, returnedOn);
+                insert into loan (copy_id, reader_id, pickup_date, due_date, return_date, return_condition)
+                values (?, ?, ?, ?, ?, case when ?::date is null then null else 'GOOD' end) returning id
+                """, Long.class, copyId, readerId, pickup, due, returnedOn, returnedOn);
     }
 
     private void suspension(long readerId, long loanId, LocalDate start, LocalDate end) {
