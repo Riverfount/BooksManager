@@ -34,7 +34,7 @@ Prioridade pelo método MoSCoW: **M** (deve, essencial na v1.0), **S** (deveria,
 | RF12 | Registrar a devolução e aplicar a penalidade por atraso conforme a política configurada pela biblioteca. | M |
 | RF13 | Renovar um empréstimo, respeitando o limite de renovações. | M |
 | RF14 | Consultar os empréstimos ativos e o histórico por leitor e por exemplar. | M |
-| RF15 | Registrar perda ou dano do exemplar na devolução. | S |
+| RF15 | Registrar perda ou dano do exemplar na devolução (condição `GOOD`, `DAMAGED` ou `LOST`, guardada no empréstimo), apenas registrando a ocorrência, sem cobrança. O exemplar danificado ou extraviado não volta a disponível nem entra na fila de reservas. | S |
 
 ### Reservas
 
@@ -73,20 +73,22 @@ As regras ficam na camada de domínio, ou em políticas parametrizáveis, e nunc
 | --- | --- |
 | RN01 | O ISBN deve ser único por livro e válido (dígito verificador de ISBN-10 ou ISBN-13). |
 | RN02 | O código de patrimônio deve ser único por exemplar. |
-| RN03 | Só é permitido emprestar exemplares com status DISPONÍVEL. |
+| RN03 | Só é permitido emprestar exemplares com status DISPONÍVEL. Exceção: o exemplar RESERVADO pode ser retirado pelo leitor dono da reserva, dentro do prazo de retirada (inclusive o último dia); para qualquer outro leitor o empréstimo é recusado ("exemplar reservado para outro leitor"). |
 | RN04 | Um leitor pode ter no máximo 3 empréstimos ativos ao mesmo tempo (valor configurável). |
 | RN05 | Leitor com multa pendente, suspensão em vigor ou empréstimo em atraso não pode fazer novos empréstimos. A multa pendente bloqueia até ser paga ou abonada, mesmo depois de a suspensão terminar; o empréstimo em atraso é o ativo com data prevista anterior a hoje. |
 | RN06 | O prazo padrão de empréstimo é de 14 dias (valor configurável). |
-| RN07 | Cada empréstimo pode ser renovado no máximo 2 vezes (valor configurável), e não pode ser renovado se estiver em atraso ou se houver reserva pendente para o livro. |
+| RN07 | Cada empréstimo pode ser renovado no máximo 2 vezes (valor configurável), e não pode ser renovado se estiver em atraso ou se houver reserva pendente para o livro. Só bloqueia a renovação quem **espera na fila** do livro; a reserva que já segura um exemplar não bloqueia. |
 | RN08 | A penalidade por atraso segue a política configurada pela biblioteca: MULTA (dias de atraso × valor diário, com teto), SUSPENSÃO (dias de suspensão = dias de atraso × fator configurável, com teto), AMBAS ou NENHUMA. **Valores iniciais decididos em 10/10/2026**: MULTA = R$ 1,00 por dia de atraso, com teto de R$ 10,00; SUSPENSÃO = 1 dia por dia de atraso, com teto de 1 ano (365 dias). O acúmulo é **por dia de atraso, até o teto**; o atraso conta em dias corridos, sem carência. A penalidade é calculada na devolução, com a política vigente naquele momento. |
 | RN09 | Empréstimo já encerrado não pode ser renovado nem devolvido novamente. |
 | RN10 | Exemplar com empréstimo ativo não pode ser excluído nem inativado. |
-| RN11 | Leitor inativo, bloqueado ou suspenso não pode fazer empréstimos nem reservas. |
-| RN12 | O leitor não pode reservar livro que já tem emprestado ou que tenha exemplar disponível. |
+| RN11 | Leitor inativo, bloqueado ou suspenso não pode fazer empréstimos nem reservas. Para reservar, vale o mesmo que para emprestar (RN05): também não reserva quem tem multa pendente ou empréstimo em atraso. Ficam de fora só a disponibilidade do exemplar e o limite de empréstimos. |
+| RN12 | O leitor não pode reservar livro que já tem emprestado ou que tenha exemplar disponível, nem reservar o mesmo livro duas vezes. O total de reservas ativas do leitor é limitado pelo mesmo valor do limite de empréstimos da configuração (RN04), contado à parte dos empréstimos. |
 | RN13 | A reserva tem prazo de retirada de 3 dias (configurável) a contar da data em que o exemplar fica disponível para o leitor. |
 | RN14 | Livros, autores, categorias e leitores com histórico de empréstimos são inativados, nunca excluídos fisicamente. |
 | RN15 | A suspensão começa na devolução em atraso e termina automaticamente na data calculada. O operador pode encerrá-la antes, com justificativa registrada. |
 | RN16 | A política de penalidade e seus valores são definidos pela biblioteca, em configuração, e nunca fixados no código. A alteração vale apenas para atrasos futuros. |
+
+> As decisões da Fase 4 (reservas, expiração, retirada do exemplar reservado, perda ou dano na devolução e implantação mínima), tomadas em 17/10/2026, estão em `docs/projeto.md`, seção "Decisões tomadas", e ajustam RF15, RN03, RN07, RN11 e RN12 acima.
 
 > O modelo de acúmulo de RN08 foi confirmado em 17/10/2026 ("por dia de atraso, até o teto": 3 dias de atraso = R$ 3,00; 15 dias = R$ 10,00, já no teto). As demais decisões de modelagem da Fase 3 estão em `docs/projeto.md`, seção "Decisões tomadas".
 

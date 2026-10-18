@@ -1,6 +1,6 @@
 # Books Manager: Histórias de Usuário
 
-> Histórias de usuário dos requisitos funcionais essenciais (prioridade M). Formato: **Como** *[papel]*, **quero** *[ação]*, **para** *[benefício]*. IDs entre parênteses referem `docs/requisitos.md`.
+> Histórias de usuário dos requisitos funcionais essenciais (prioridade M) e, a partir da Fase 4, dos itens S (reservas, perda ou dano na devolução e relatórios adicionais). Formato: **Como** *[papel]*, **quero** *[ação]*, **para** *[benefício]*. IDs entre parênteses referem `docs/requisitos.md`.
 >
 > Os IDs das histórias são estáveis e não seguem a ordem de leitura: histórias novas recebem o próximo número livre e entram na seção do seu módulo, sem renumerar as existentes (que já são citadas em issues e commits).
 
@@ -119,6 +119,11 @@
 - Critério de aceite: cada empréstimo mostra as datas de retirada, prevista e efetiva de devolução, e o resultado da penalidade, quando houver (RF14, RN08).
 - Critério de aceite: a listagem é paginada, com no máximo 100 itens por página (RNF14).
 
+**HU31 —** Como operador, quero registrar na devolução que o exemplar voltou danificado ou não voltou, para que ele não seja emprestado de novo enquanto não for conferido.
+- Critério de aceite: a devolução aceita, de forma opcional, a condição do exemplar: `GOOD` (padrão quando não informada), `DAMAGED` ou `LOST`; a condição fica guardada no empréstimo (RF15).
+- Critério de aceite: com a condição `DAMAGED` ou `LOST`, o exemplar passa a danificado ou extraviado, nunca volta a disponível e não entra na fila de reservas (RF15, RF18).
+- Critério de aceite: só se registra a ocorrência, sem cobrança; a multa por atraso, se houver, segue as regras de sempre e é independente da condição (RF15, RN08).
+
 ## Multas
 
 **HU10 —** Como operador, quero registrar o pagamento ou o abono de uma multa, para manter o controle financeiro do leitor em dia.
@@ -128,6 +133,28 @@
 **HU11 —** Como operador, quero consultar as multas pendentes e as suspensões em vigor de um leitor, para decidir se ele pode fazer um novo empréstimo.
 - Critério de aceite: a consulta mostra o valor pendente e a data de término da suspensão, quando houver (RF22).
 
+## Reservas
+
+**HU32 —** Como operador, quero reservar um livro sem exemplar disponível para um leitor, para que ele entre na fila de espera.
+- Critério de aceite: só reserva quem poderia emprestar: leitor ativo, não bloqueado, sem suspensão em vigor, sem multa pendente e sem empréstimo em atraso; a disponibilidade do exemplar e o limite de empréstimos não entram nessa conta (RF16, RN05, RN11).
+- Critério de aceite: o leitor não reserva um livro que já tem emprestado nem um que tenha exemplar disponível (RN12).
+- Critério de aceite: o leitor não reserva o mesmo livro duas vezes; o total de reservas ativas dele é limitado pelo mesmo valor do limite de empréstimos da configuração e contado à parte dos empréstimos (RF16, RN04).
+- Critério de aceite: a fila de cada livro respeita a ordem das reservas (RF16).
+
+**HU33 —** Como operador, quero cancelar uma reserva, para liberar a vez do leitor ou o exemplar que estava guardado para ele.
+- Critério de aceite: o cancelamento é único (`POST /api/v1/reservations/{id}/cancel`), feito por administrador ou operador, sem justificativa; o leitor pede ao operador (RF17).
+- Critério de aceite: cancelar a reserva que segura um exemplar passa o exemplar ao próximo da fila ou o devolve a disponível (RF17, RF18).
+
+**HU34 —** Como operador, quero que o exemplar devolvido seja reservado ao primeiro da fila de espera, e que ele possa retirá-lo no prazo, para que a fila seja respeitada.
+- Critério de aceite: ao devolver um exemplar em boas condições com fila de espera, ele fica reservado ao primeiro da fila e a reserva passa a ter o prazo de retirada da configuração, contado da data em que o exemplar ficou disponível para o leitor (RF18, RN13).
+- Critério de aceite: o `POST /api/v1/loans` aceita o exemplar reservado quando o leitor é o dono da reserva e ainda está no prazo (o último dia conta); o exemplar passa a emprestado e a reserva a atendida na mesma operação (RN03).
+- Critério de aceite: outro leitor que tente retirar o exemplar reservado é recusado com a mensagem "exemplar reservado para outro leitor" (RN03).
+- Critério de aceite: a renovação de um empréstimo só é recusada pela reserva quando há alguém esperando na fila do livro; a reserva que já segura um exemplar não bloqueia (RN07).
+
+**HU35 —** Como operador, quero que a reserva não retirada no prazo expire sozinha e passe a vez ao próximo, para que o exemplar não fique parado.
+- Critério de aceite: uma rotina agendada, às 03:00 no fuso `America/Sao_Paulo` e também na subida da aplicação, expira as reservas cujo prazo de retirada terminou (RF19, RN13).
+- Critério de aceite: ao expirar, o exemplar passa ao próximo da fila ou volta a disponível; rodar a rotina de novo não muda nada (RF19).
+
 ## Relatórios e administração
 
 **HU12 —** Como operador, quero ver o relatório de empréstimos em atraso, ordenado do maior para o menor atraso, para priorizar a cobrança.
@@ -136,6 +163,13 @@
 **HU13 —** Como administrador, quero configurar a política de penalidade por atraso, para que a biblioteca escolha entre multa, suspensão, ambas ou nenhuma sem alterar o sistema.
 - Critério de aceite: a política e seus valores (valor diário, dias de suspensão por dia de atraso e tetos) são editáveis pela tela de configuração, apenas pelo administrador (RF26).
 - Critério de aceite: a mudança vale só para atrasos futuros; devoluções já registradas não são recalculadas (RN16).
+
+**HU36 —** Como administrador ou operador, quero ver os livros mais emprestados em um período, para decidir o que comprar e o que destacar no acervo.
+- Critério de aceite: o relatório recebe o período e lista os livros ordenados do mais para o menos emprestado, com a quantidade de empréstimos (RF24).
+- Critério de aceite: a listagem é paginada, com no máximo 100 itens por página (RNF14).
+
+**HU37 —** Como administrador ou operador, quero ver a situação do acervo, para saber quantos exemplares há e em que estado estão.
+- Critério de aceite: o relatório mostra o total de exemplares e quantos estão disponíveis, emprestados e danificados (RF25).
 
 ## Referências
 
