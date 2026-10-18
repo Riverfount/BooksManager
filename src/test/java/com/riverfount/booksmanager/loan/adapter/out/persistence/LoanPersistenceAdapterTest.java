@@ -6,12 +6,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.riverfount.booksmanager.TestcontainersConfiguration;
 import com.riverfount.booksmanager.loan.application.port.out.LoanFilter;
 import com.riverfount.booksmanager.loan.domain.Loan;
+import com.riverfount.booksmanager.loan.domain.ReturnCondition;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import jakarta.persistence.EntityManager;
 import java.time.LocalDate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
@@ -134,6 +137,40 @@ class LoanPersistenceAdapterTest {
 
         assertThat(found.getReturnDate()).isEqualTo(PICKUP.plusDays(10));
         assertThat(found.isReturned()).isTrue();
+    }
+
+    @ParameterizedTest
+    @EnumSource(ReturnCondition.class)
+    void shouldSaveAndReadBackTheConditionOfTheReturn(ReturnCondition condition) {
+        var loan = saveLoan(copyId, readerId);
+        loan.returnCopy(PICKUP.plusDays(10), condition);
+        adapter.save(loan);
+        clearPersistenceContext();
+
+        var found = adapter.findById(loan.getId()).orElseThrow();
+
+        assertThat(found.getReturnCondition()).isEqualTo(condition);
+        assertThat(found.getReturnDate()).isEqualTo(PICKUP.plusDays(10));
+    }
+
+    @Test
+    void anActiveLoanIsReadBackWithoutCondition() {
+        var loan = saveLoan(copyId, readerId);
+        clearPersistenceContext();
+
+        assertThat(adapter.findById(loan.getId()).orElseThrow().getReturnCondition()).isNull();
+    }
+
+    @Test
+    void shouldCreateTheLoanAlreadyReturnedWithItsCondition() {
+        var returned = Loan.reconstitute(null, copyId, readerId, PICKUP, PICKUP.plusDays(14), PICKUP.plusDays(3), 0,
+                ReturnCondition.LOST);
+
+        var saved = adapter.save(returned);
+        clearPersistenceContext();
+
+        assertThat(adapter.findById(saved.getId()).orElseThrow().getReturnCondition())
+                .isEqualTo(ReturnCondition.LOST);
     }
 
     @Test

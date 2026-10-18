@@ -58,7 +58,7 @@ class LoanPersistenceAdapter implements LoanRepository {
 
     private static LoanJpaEntity create(Loan loan) {
         return new LoanJpaEntity(loan.getCopyId(), loan.getReaderId(), loan.getPickupDate(), loan.getDueDate(),
-                loan.getReturnDate(), loan.getRenewals());
+                loan.getReturnDate(), loan.getReturnCondition(), loan.getRenewals());
     }
 
     /**
@@ -68,12 +68,12 @@ class LoanPersistenceAdapter implements LoanRepository {
     private LoanJpaEntity update(Loan loan) {
         var entity = jpaRepository.findById(loan.getId()).orElseThrow(
                 () -> new IllegalStateException("the loan " + loan.getId() + " does not exist"));
-        entity.update(loan.getDueDate(), loan.getReturnDate(), loan.getRenewals());
+        entity.update(loan.getDueDate(), loan.getReturnDate(), loan.getReturnCondition(), loan.getRenewals());
         return entity;
     }
 
     private Loan toDomain(LoanJpaEntity entity) {
         return Loan.reconstitute(entity.getId(), entity.getCopyId(), entity.getReaderId(), entity.getPickupDate(),
-                entity.getDueDate(), entity.getReturnDate(), entity.getRenewals());
+                entity.getDueDate(), entity.getReturnDate(), entity.getRenewals(), entity.getReturnCondition());
     }
 }

@@ -32,7 +32,7 @@ class InMemoryLoanRepository implements LoanRepository {
     /** Like the JPA adapter, the repository never hands out the stored instance. */
     private static Loan copyWithId(Loan loan, Long id) {
         return Loan.reconstitute(id, loan.getCopyId(), loan.getReaderId(), loan.getPickupDate(),
-                loan.getDueDate(), loan.getReturnDate(), loan.getRenewals());
+                loan.getDueDate(), loan.getReturnDate(), loan.getRenewals(), loan.getReturnCondition());
     }
 
     @Override
