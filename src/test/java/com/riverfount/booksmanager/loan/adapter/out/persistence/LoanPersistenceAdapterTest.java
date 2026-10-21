@@ -110,7 +110,7 @@ class LoanPersistenceAdapterTest {
     @Test
     void shouldSaveARenewal() {
         var loan = saveLoan(copyId, readerId);
-        loan.renew(PICKUP.plusDays(3), 2, 14);
+        loan.renew(PICKUP.plusDays(3), 2, 14, false);
         adapter.save(loan);
         clearPersistenceContext();
 
@@ -180,7 +180,7 @@ class LoanPersistenceAdapterTest {
     @Test
     void shouldCountTheVersionOfEachChange() {
         var loan = saveLoan(copyId, readerId);
-        loan.renew(PICKUP.plusDays(3), 2, 14);
+        loan.renew(PICKUP.plusDays(3), 2, 14, false);
         adapter.save(loan);
 
         var version = jdbcTemplate.queryForObject("select version from loan where id = ?", Long.class, loan.getId());

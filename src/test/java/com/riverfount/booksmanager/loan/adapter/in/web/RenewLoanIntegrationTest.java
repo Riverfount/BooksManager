@@ -74,6 +74,7 @@ class RenewLoanIntegrationTest {
 
     @AfterEach
     void cleanUp() {
+        jdbcTemplate.update("delete from reservation where reader_id in (select id from reader where document like 'RNW-DOC-%')");
         jdbcTemplate.update("delete from loan where reader_id in (select id from reader where document like 'RNW-DOC-%')");
         jdbcTemplate.update("delete from copy where asset_code like 'RNW-%'");
         jdbcTemplate.update("delete from reader where document like 'RNW-DOC-%'");
@@ -150,6 +151,39 @@ class RenewLoanIntegrationTest {
         renew(loanId).andExpect(status().isUnprocessableContent());
 
         assertThat(renewalsOf(loanId)).isZero();
+    }
+
+    private long otherReader() {
+        return jdbcTemplate.queryForObject("""
+                insert into reader (name, document, email, birth_date)
+                values ('Other', 'RNW-DOC-2', 'o@example.com', date '1990-01-01') returning id
+                """, Long.class);
+    }
+
+    @Test
+    void shouldRefuseWhenAnotherReaderWaitsInTheQueueForTheBook() throws Exception {
+        var loanId = activeLoan(5);
+        jdbcTemplate.update("insert into reservation (book_id, reader_id, reservation_date, status) values (?, ?, ?, 'ACTIVE')",
+                bookId, otherReader(), TODAY);
+
+        renew(loanId).andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.detail").value(containsString("reserva esperando na fila")));
+
+        assertThat(renewalsOf(loanId)).isZero();
+    }
+
+    @Test
+    void aReservationThatAlreadyHoldsACopyShouldNotBlockTheRenewal() throws Exception {
+        var loanId = activeLoan(5);
+        var heldCopy = jdbcTemplate.queryForObject(
+                "insert into copy (book_id, asset_code, status) values (?, 'RNW-HELD', 'RESERVED') returning id",
+                Long.class, bookId);
+        jdbcTemplate.update("""
+                insert into reservation (book_id, reader_id, reservation_date, status, copy_id, pickup_deadline)
+                values (?, ?, ?, 'ACTIVE', ?, ?)
+                """, bookId, otherReader(), TODAY, heldCopy, TODAY.plusDays(3));
+
+        renew(loanId).andExpect(status().isOk()).andExpect(jsonPath("$.renewals").value(1));
     }
 
     @Test
