@@ -75,6 +75,13 @@ class InMemoryReservationRepository implements ReservationRepository {
     }
 
     @Override
+    public Optional<Reservation> findActiveByCopyId(Long copyId) {
+        return reservations.values().stream()
+                .filter(reservation -> reservation.isActive() && copyId.equals(reservation.getCopyId()))
+                .findFirst().map(reservation -> copyWithId(reservation, reservation.getId()));
+    }
+
+    @Override
     public Optional<Reservation> findFirstWaiting(Long bookId) {
         return waitingOf(bookId).stream().findFirst();
     }

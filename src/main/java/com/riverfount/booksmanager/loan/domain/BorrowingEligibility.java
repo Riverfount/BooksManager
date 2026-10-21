@@ -11,7 +11,8 @@ import java.util.List;
  *
  * <p>A loan is refused for:
  * <ul>
- *   <li>a copy that is not available (RN03);</li>
+ *   <li>a copy that is not available (RN03), or that is kept for a reservation the reader does not own, or
+ *       whose pickup deadline has passed (RN13);</li>
  *   <li>a reader who is inactive or blocked (RN11);</li>
  *   <li>a reader who already has as many open loans as the limit (RN04);</li>
  *   <li>a reader with a pending fine, a suspension in force or a late loan (RN05).</li>
@@ -44,8 +45,18 @@ public final class BorrowingEligibility {
             throw new IllegalArgumentException("the loan limit must be at least one");
         }
         var reasons = new ArrayList<String>();
-        if (!situation.copyAvailable()) {
-            reasons.add("o exemplar não está disponível para empréstimo");
+        switch (situation.copyHold()) {
+            case NONE -> {
+                if (!situation.copyAvailable()) {
+                    reasons.add("o exemplar não está disponível para empréstimo");
+                }
+            }
+            case FOR_THIS_READER -> {
+                // the owner of the reservation takes the copy kept for them: the exception of RN03
+            }
+            case FOR_THIS_READER_PAST_DEADLINE ->
+                    reasons.add("o prazo de retirada da reserva deste exemplar já terminou");
+            case FOR_ANOTHER_READER -> reasons.add("exemplar reservado para outro leitor");
         }
         if (!situation.readerActive()) {
             reasons.add("o leitor está inativo");

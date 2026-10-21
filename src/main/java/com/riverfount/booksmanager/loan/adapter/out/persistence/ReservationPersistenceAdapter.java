@@ -60,6 +60,11 @@ class ReservationPersistenceAdapter implements ReservationRepository {
     }
 
     @Override
+    public Optional<Reservation> findActiveByCopyId(Long copyId) {
+        return jpaRepository.findByCopyIdAndStatus(copyId, ReservationStatus.ACTIVE).map(this::toDomain);
+    }
+
+    @Override
     public Optional<Reservation> findFirstWaiting(Long bookId) {
         return jpaRepository.findFirstByBookIdAndStatusAndCopyIdIsNullOrderByIdAsc(bookId, ReservationStatus.ACTIVE)
                 .map(this::toDomain);

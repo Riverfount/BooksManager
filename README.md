@@ -119,7 +119,7 @@ Todos aceitam os perfis `ADMIN` e `OPERATOR` (a configuração da biblioteca é 
 
 | Operação | Requisição | Resposta |
 |---|---|---|
-| Registrar empréstimo | `POST /api/v1/loans` com `copyId` e `readerId` | 201 com `Location`; 422 com todos os motivos da recusa |
+| Registrar empréstimo | `POST /api/v1/loans` com `copyId` e `readerId` | 201 com `Location`; 422 com todos os motivos da recusa. O exemplar `RESERVED` só sai para o dono da reserva, até o último dia do prazo de retirada (a reserva passa a `FULFILLED`); outro leitor recebe "exemplar reservado para outro leitor" (RN03) |
 | Reservar livro | `POST /api/v1/reservations` com `bookId` e `readerId` | 201 com `Location` e `queuePosition` (lugar na fila); 404 se livro ou leitor não existe; 422 com todos os motivos da recusa (RN05, RN11, RN12) |
 | Consultar reserva | `GET /api/v1/reservations/{id}` | 200 com o nome do leitor, o título do livro, a situação, o lugar na fila (se espera exemplar) e o exemplar e o prazo de retirada (se segura um), inclusive para reserva encerrada; 404 se não existe |
 | Listar reservas | `GET /api/v1/reservations?readerId=&bookId=&status=` | 200 paginada (`size` até 100, senão 400); `status` é `ACTIVE`, `FULFILLED`, `CANCELLED` ou `EXPIRED`; com `bookId` e `status=ACTIVE` é a fila do livro |
