@@ -70,7 +70,7 @@ class RegisterLoanServiceTest {
     }
 
     private void copyIs(boolean lendable) {
-        given(copyAvailability.findAvailability(COPY)).willReturn(Optional.of(new CopyAvailability(COPY, lendable)));
+        given(copyAvailability.findAvailability(COPY)).willReturn(Optional.of(new CopyAvailability(COPY, lendable, false)));
     }
 
     private void readerIs(boolean active, boolean blocked) {

@@ -232,4 +232,172 @@ class CopyLoanServiceTest {
 
         assertThat(service.findSummaries(java.util.Set.of(copy))).containsOnlyKeys(copy);
     }
+
+    // the copy is also told to be reserved (RF18)
+
+    @Test
+    void aReservedCopyShouldBeReportedAsReservedAndNotLendable() {
+        var id = saveCopy(CopyStatus.RESERVED, true);
+
+        var availability = service.findAvailability(id).orElseThrow();
+
+        assertThat(availability.reserved()).isTrue();
+        assertThat(availability.lendable()).isFalse();
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = CopyStatus.class, names = {"AVAILABLE", "BORROWED", "DAMAGED", "LOST"})
+    void aCopyThatIsNotReservedShouldNotBeReportedAsReserved(CopyStatus status) {
+        var id = saveCopy(status, true);
+
+        assertThat(service.findAvailability(id).orElseThrow().reserved()).isFalse();
+    }
+
+    // reserve, release and pick up (RF16, RF17, RF18, RN03)
+
+    @Test
+    void shouldReserveAnAvailableActiveCopy() {
+        var id = saveCopy(CopyStatus.AVAILABLE, true);
+
+        service.reserve(id);
+
+        assertThat(statusOf(id)).isEqualTo(CopyStatus.RESERVED);
+        assertThat(service.findAvailability(id).orElseThrow().lendable()).isFalse();
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = CopyStatus.class, names = {"BORROWED", "RESERVED", "DAMAGED", "LOST"})
+    void shouldNotReserveACopyThatIsNotAvailable(CopyStatus status) {
+        var id = saveCopy(status, true);
+
+        assertThatThrownBy(() -> service.reserve(id)).isInstanceOf(BusinessRuleException.class);
+        assertThat(statusOf(id)).isEqualTo(status);
+    }
+
+    @Test
+    void shouldNotReserveAnInactiveCopy() {
+        var id = saveCopy(CopyStatus.AVAILABLE, false);
+
+        assertThatThrownBy(() -> service.reserve(id)).isInstanceOf(BusinessRuleException.class);
+    }
+
+    @Test
+    void shouldNotReserveACopyThatDoesNotExist() {
+        assertThatThrownBy(() -> service.reserve(999L)).isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void shouldReleaseAReservedCopy() {
+        var id = saveCopy(CopyStatus.RESERVED, true);
+
+        service.releaseReservation(id);
+
+        assertThat(statusOf(id)).isEqualTo(CopyStatus.AVAILABLE);
+        assertThat(service.findAvailability(id).orElseThrow().lendable()).isTrue();
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = CopyStatus.class, names = {"AVAILABLE", "BORROWED", "DAMAGED", "LOST"})
+    void shouldNotReleaseACopyThatIsNotReserved(CopyStatus status) {
+        var id = saveCopy(status, true);
+
+        assertThatThrownBy(() -> service.releaseReservation(id)).isInstanceOf(BusinessRuleException.class);
+        assertThat(statusOf(id)).isEqualTo(status);
+    }
+
+    @Test
+    void shouldNotReleaseACopyThatDoesNotExist() {
+        assertThatThrownBy(() -> service.releaseReservation(999L)).isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void shouldCheckOutAReservedCopy() {
+        var id = saveCopy(CopyStatus.RESERVED, true);
+
+        service.checkOutReserved(id);
+
+        assertThat(statusOf(id)).isEqualTo(CopyStatus.BORROWED);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = CopyStatus.class, names = {"AVAILABLE", "BORROWED", "DAMAGED", "LOST"})
+    void shouldNotCheckOutAsReservedACopyThatIsNotReserved(CopyStatus status) {
+        var id = saveCopy(status, true);
+
+        assertThatThrownBy(() -> service.checkOutReserved(id)).isInstanceOf(BusinessRuleException.class);
+        assertThat(statusOf(id)).isEqualTo(status);
+    }
+
+    @Test
+    void shouldNotCheckOutAsReservedACopyThatDoesNotExist() {
+        assertThatThrownBy(() -> service.checkOutReserved(999L)).isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void theOrdinaryCheckOutStillRefusesAReservedCopy() {
+        var id = saveCopy(CopyStatus.RESERVED, true);
+
+        assertThatThrownBy(() -> service.checkOut(id)).isInstanceOf(BusinessRuleException.class);
+        assertThat(statusOf(id)).isEqualTo(CopyStatus.RESERVED);
+    }
+
+    @Test
+    void aCopyGoesThroughTheWholeCycleOfAReservation() {
+        var id = saveCopy(CopyStatus.AVAILABLE, true);
+
+        service.reserve(id);
+        service.releaseReservation(id);
+        service.reserve(id);
+        service.checkOutReserved(id);
+        service.checkIn(id);
+
+        assertThat(statusOf(id)).isEqualTo(CopyStatus.AVAILABLE);
+    }
+
+    // does the book have a copy to lend? (RN12)
+
+    @Test
+    void aBookWithAnAvailableActiveCopyShouldHaveAvailability() {
+        var book = saveBook("9788533302273", "Dom Casmurro");
+        saveCopyOf(book, "PAT-1");
+
+        assertThat(service.findBookAvailability(book)).hasValueSatisfying(availability -> {
+            assertThat(availability.bookId()).isEqualTo(book);
+            assertThat(availability.hasAvailableCopy()).isTrue();
+        });
+    }
+
+    @Test
+    void aBookWhoseCopiesAreNotAvailableShouldHaveNoAvailability() {
+        var book = saveBook("9788533302273", "Dom Casmurro");
+        for (var status : new CopyStatus[] {CopyStatus.BORROWED, CopyStatus.RESERVED, CopyStatus.DAMAGED,
+                CopyStatus.LOST}) {
+            copyRepository.save(Copy.reconstitute(null, book, "PAT-" + status, status, true, 0L));
+        }
+        copyRepository.save(Copy.reconstitute(null, book, "PAT-OFF", CopyStatus.AVAILABLE, false, 0L));
+
+        assertThat(service.findBookAvailability(book).orElseThrow().hasAvailableCopy()).isFalse();
+    }
+
+    @Test
+    void aBookWithNoCopiesShouldHaveNoAvailability() {
+        var book = saveBook("9788533302273", "Dom Casmurro");
+
+        assertThat(service.findBookAvailability(book).orElseThrow().hasAvailableCopy()).isFalse();
+    }
+
+    @Test
+    void shouldAnswerNothingForABookThatDoesNotExist() {
+        assertThat(service.findBookAvailability(999L)).isEmpty();
+    }
+
+    @Test
+    void reservingTheLastAvailableCopyMakesTheBookUnavailable() {
+        var book = saveBook("9788533302273", "Dom Casmurro");
+        var copy = saveCopyOf(book, "PAT-1");
+
+        service.reserve(copy);
+
+        assertThat(service.findBookAvailability(book).orElseThrow().hasAvailableCopy()).isFalse();
+    }
 }

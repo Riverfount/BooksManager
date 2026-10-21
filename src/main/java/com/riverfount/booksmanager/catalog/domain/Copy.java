@@ -47,6 +47,44 @@ public class Copy {
     }
 
     /**
+     * The copy is kept for a reader in the queue of its book (RF16, RF18): only an available and
+     * active copy can be reserved (RN03).
+     */
+    public void reserve() {
+        if (status != CopyStatus.AVAILABLE || !active) {
+            throw new BusinessRuleException("o exemplar só pode ser reservado se estiver disponível e ativo");
+        }
+        this.status = CopyStatus.RESERVED;
+    }
+
+    /**
+     * The reservation that held the copy ended without a pickup (cancelled or expired, RF17, RF19):
+     * the copy goes back to available. Only a reserved copy can be released.
+     */
+    public void releaseReservation() {
+        requireReserved();
+        this.status = CopyStatus.AVAILABLE;
+    }
+
+    /**
+     * The reader picked up the copy kept for them (RF17): a reserved copy becomes borrowed. It must
+     * still be active, like any copy that goes out on a loan.
+     */
+    public void checkOutReserved() {
+        requireReserved();
+        if (!active) {
+            throw new BusinessRuleException("o exemplar inativo não pode ser emprestado");
+        }
+        this.status = CopyStatus.BORROWED;
+    }
+
+    private void requireReserved() {
+        if (status != CopyStatus.RESERVED) {
+            throw new BusinessRuleException("o exemplar não está reservado");
+        }
+    }
+
+    /**
      * The copy came back from a loan in good condition: a borrowed copy becomes available. A
      * damaged or lost copy stays as it is, since coming back does not repair it; it only returns
      * to available by the manual change (RF04). Any other status is a mistake and is refused.
