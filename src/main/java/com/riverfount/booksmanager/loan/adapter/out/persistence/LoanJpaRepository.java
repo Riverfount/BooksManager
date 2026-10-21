@@ -1,6 +1,7 @@
 package com.riverfount.booksmanager.loan.adapter.out.persistence;
 
 import java.time.LocalDate;
+import java.util.Set;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -41,4 +42,7 @@ interface LoanJpaRepository extends JpaRepository<LoanJpaEntity, Long> {
             """)
     long countMatching(@Param("readerId") Long readerId, @Param("copyId") Long copyId,
             @Param("active") Boolean active, @Param("overdueDay") LocalDate overdueDay);
+
+    @Query("select l.copyId from LoanJpaEntity l where l.readerId = :readerId and l.returnDate is null")
+    Set<Long> findActiveCopyIdsByReaderId(@Param("readerId") Long readerId);
 }

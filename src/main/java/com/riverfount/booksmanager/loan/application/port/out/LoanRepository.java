@@ -4,6 +4,7 @@ import com.riverfount.booksmanager.loan.domain.Loan;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.PageResult;
 import java.util.Optional;
+import java.util.Set;
 
 /** Outbound port for loans (RF11, RF14), in the domain's language. */
 public interface LoanRepository {
@@ -20,6 +21,12 @@ public interface LoanRepository {
 
     /** Listing, always paginated (RNF14). */
     PageResult<Loan> findAll(LoanFilter filter, PageQuery page);
+
+    /**
+     * The copies the reader holds on loan right now (loans not yet returned), in one query. A reader has
+     * at most as many as the loan limit of the configuration, so the answer is small and not paginated.
+     */
+    Set<Long> findActiveCopyIdsByReader(Long readerId);
 
     /** How many loans the filter keeps, in one aggregated query: the same total {@link #findAll} gives. */
     long count(LoanFilter filter);

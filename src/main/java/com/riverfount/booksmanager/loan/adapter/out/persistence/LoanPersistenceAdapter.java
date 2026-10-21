@@ -9,6 +9,7 @@ import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.PageResult;
 import java.util.Optional;
+import java.util.Set;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
@@ -54,6 +55,11 @@ class LoanPersistenceAdapter implements LoanRepository {
     public long count(LoanFilter filter) {
         return jpaRepository.countMatching(filter.readerId(), filter.copyId(), filter.active(),
                 filter.overdueOn());
+    }
+
+    @Override
+    public Set<Long> findActiveCopyIdsByReader(Long readerId) {
+        return jpaRepository.findActiveCopyIdsByReaderId(readerId);
     }
 
     private static LoanJpaEntity create(Loan loan) {

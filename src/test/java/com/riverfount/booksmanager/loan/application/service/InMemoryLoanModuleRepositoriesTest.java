@@ -49,6 +49,19 @@ class InMemoryLoanModuleRepositoriesTest {
     }
 
     @Test
+    void shouldFindTheCopiesOfTheActiveLoansOfAReaderOnly() {
+        loans.save(Loan.create(1L, 10L, DAY, 14));
+        loans.save(Loan.create(2L, 10L, DAY, 14));
+        var returned = loans.save(Loan.create(3L, 10L, DAY, 14));
+        returned.returnCopy(DAY.plusDays(2));
+        loans.save(returned);
+        loans.save(Loan.create(4L, 11L, DAY, 14));
+
+        assertThat(loans.findActiveCopyIdsByReader(10L)).containsExactlyInAnyOrder(1L, 2L);
+        assertThat(loans.findActiveCopyIdsByReader(-1L)).isEmpty();
+    }
+
+    @Test
     void shouldRefuseASecondActiveLoanOfTheSameCopy() {
         loans.save(Loan.create(1L, 10L, DAY, 14));
 

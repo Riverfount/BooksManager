@@ -321,4 +321,20 @@ class LoanPersistenceAdapterTest {
         assertThat(page.totalItems()).isEqualTo(3);
         assertThat(page.size()).isEqualTo(2);
     }
+
+    @Test
+    void shouldFindTheCopiesOfTheActiveLoansOfAReaderOnly() {
+        var otherCopy = data.newCopy();
+        var returnedCopy = data.newCopy();
+        saveLoan(copyId, readerId);
+        saveLoan(otherCopy, readerId);
+        var returned = saveLoan(returnedCopy, readerId);
+        returned.returnCopy(PICKUP.plusDays(2));
+        adapter.save(returned);
+        saveLoan(data.newCopy(), data.newReader());
+        clearPersistenceContext();
+
+        assertThat(adapter.findActiveCopyIdsByReader(readerId)).containsExactlyInAnyOrder(copyId, otherCopy);
+        assertThat(adapter.findActiveCopyIdsByReader(-1L)).isEmpty();
+    }
 }
