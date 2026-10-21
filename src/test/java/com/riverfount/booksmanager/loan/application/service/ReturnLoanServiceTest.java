@@ -4,12 +4,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 
 import com.riverfount.booksmanager.catalog.application.port.in.CheckInCopyUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.CopyAvailability;
+import com.riverfount.booksmanager.catalog.application.port.in.CopySummary;
+import com.riverfount.booksmanager.catalog.application.port.in.FindCopyAvailabilityUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.FindCopySummariesUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.ReserveCopyUseCase;
 import com.riverfount.booksmanager.catalog.domain.CopyReturnCondition;
 import com.riverfount.booksmanager.loan.application.port.in.ReturnLoanCommand;
 import com.riverfount.booksmanager.loan.application.port.out.FineFilter;
@@ -17,6 +23,7 @@ import com.riverfount.booksmanager.loan.application.port.out.SuspensionFilter;
 import com.riverfount.booksmanager.loan.domain.FineStatus;
 import com.riverfount.booksmanager.loan.domain.Loan;
 import com.riverfount.booksmanager.loan.domain.PenaltyPolicy;
+import com.riverfount.booksmanager.loan.domain.Reservation;
 import com.riverfount.booksmanager.loan.domain.ReturnCondition;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
@@ -26,6 +33,9 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -50,6 +60,10 @@ class ReturnLoanServiceTest {
     private InMemoryFineRepository fineRepository;
     private InMemorySuspensionRepository suspensionRepository;
     private CheckInCopyUseCase checkInCopy;
+    private InMemoryReservationRepository reservationRepository;
+    private FindCopyAvailabilityUseCase copyAvailability;
+    private FindCopySummariesUseCase copySummaries;
+    private ReserveCopyUseCase reserveCopy;
     private ReturnLoanService service;
 
     @BeforeEach
@@ -59,8 +73,14 @@ class ReturnLoanServiceTest {
         fineRepository = new InMemoryFineRepository();
         suspensionRepository = new InMemorySuspensionRepository();
         checkInCopy = mock(CheckInCopyUseCase.class);
+        reservationRepository = new InMemoryReservationRepository();
+        copyAvailability = mock(FindCopyAvailabilityUseCase.class);
+        copySummaries = mock(FindCopySummariesUseCase.class);
+        reserveCopy = mock(ReserveCopyUseCase.class);
+        var reservationQueue = new ReservationQueue(reservationRepository, copyAvailability, copySummaries,
+                reserveCopy);
         service = new ReturnLoanService(configurationRepository, loanRepository, fineRepository,
-                suspensionRepository, checkInCopy, CLOCK);
+                suspensionRepository, checkInCopy, reservationQueue, CLOCK);
     }
 
     private void policyIs(PenaltyPolicy policy) {
@@ -108,6 +128,82 @@ class ReturnLoanServiceTest {
         service.returnLoan(returning(openLoan(5)));
 
         then(checkInCopy).should().checkIn(COPY, CopyReturnCondition.GOOD);
+    }
+
+    // the queue of reservations (RF18, RN13)
+
+    private static final long BOOK = 30L;
+
+    private void copyIsBackOnTheShelfOfBook(long book) {
+        given(copyAvailability.findAvailability(COPY)).willReturn(Optional.of(new CopyAvailability(COPY, true, false)));
+        given(copySummaries.findSummaries(Set.of(COPY)))
+                .willReturn(Map.of(COPY, new CopySummary(COPY, "PAT-7", book, "T")));
+    }
+
+    private Reservation waitingFor(long book, long reader) {
+        return reservationRepository.save(Reservation.create(book, reader, TODAY.minusDays(1)));
+    }
+
+    @Test
+    void shouldGiveTheReturnedCopyToTheFirstOfTheQueueWithTheConfiguredDeadline() {
+        copyIsBackOnTheShelfOfBook(BOOK);
+        var first = waitingFor(BOOK, 21L);
+        var second = waitingFor(BOOK, 22L);
+
+        var result = service.returnLoan(returning(openLoan(5)));
+
+        assertThat(result.reservation().getId()).isEqualTo(first.getId());
+        assertThat(result.reservation().getCopyId()).isEqualTo(COPY);
+        assertThat(result.reservation().getPickupDeadline()).isEqualTo(TODAY.plusDays(3));
+        then(reserveCopy).should().reserve(COPY);
+        assertThat(reservationRepository.queuePosition(second.getId())).contains(1L);
+    }
+
+    @Test
+    void shouldUseThePickupDaysOfTheConfigurationAtTheMoment() {
+        copyIsBackOnTheShelfOfBook(BOOK);
+        waitingFor(BOOK, 21L);
+        var configuration = configurationRepository.getForUpdate();
+        configuration.update(null, null, null, null, null, null, null, null, 5);
+        configurationRepository.save(configuration);
+
+        var result = service.returnLoan(returning(openLoan(5)));
+
+        assertThat(result.reservation().getPickupDeadline()).isEqualTo(TODAY.plusDays(5));
+    }
+
+    @Test
+    void shouldLeaveTheCopyAvailableWhenNobodyWaitsForTheBook() {
+        copyIsBackOnTheShelfOfBook(BOOK);
+        waitingFor(31L, 21L);
+
+        var result = service.returnLoan(returning(openLoan(5)));
+
+        assertThat(result.reservation()).isNull();
+        then(reserveCopy).should(never()).reserve(anyLong());
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ReturnCondition.class, names = {"DAMAGED", "LOST"})
+    void aDamagedOrLostCopyShouldNeverEnterTheQueue(ReturnCondition condition) {
+        copyIsBackOnTheShelfOfBook(BOOK);
+        var waiting = waitingFor(BOOK, 21L);
+
+        var result = service.returnLoan(new ReturnLoanCommand(openLoan(5), condition));
+
+        assertThat(result.reservation()).isNull();
+        then(reserveCopy).should(never()).reserve(anyLong());
+        assertThat(reservationRepository.findById(waiting.getId()).orElseThrow().isWaiting()).isTrue();
+    }
+
+    @Test
+    void shouldFailTheWholeReturnWhenTheCopyCannotBeKeptForTheQueue() {
+        copyIsBackOnTheShelfOfBook(BOOK);
+        waitingFor(BOOK, 21L);
+        doThrow(new BusinessRuleException("o exemplar não está disponível")).when(reserveCopy).reserve(COPY);
+
+        assertThatThrownBy(() -> service.returnLoan(returning(openLoan(5))))
+                .isInstanceOf(BusinessRuleException.class);
     }
 
     // the condition of the copy (RF15)
@@ -173,7 +269,8 @@ class ReturnLoanServiceTest {
         // 01:00 UTC of the 11th is still the 10th in São Paulo
         var lateNight = Clock.fixed(Instant.parse("2026-11-11T01:00:00Z"), ZONE);
         var lateService = new ReturnLoanService(configurationRepository, loanRepository, fineRepository,
-                suspensionRepository, checkInCopy, lateNight);
+                suspensionRepository, checkInCopy,
+                new ReservationQueue(reservationRepository, copyAvailability, copySummaries, reserveCopy), lateNight);
 
         assertThat(lateService.returnLoan(returning(openLoan(5))).loan().getReturnDate()).isEqualTo(TODAY);
     }

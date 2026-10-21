@@ -31,6 +31,8 @@ import com.riverfount.booksmanager.loan.application.port.in.ReturnLoanResult;
 import com.riverfount.booksmanager.loan.application.port.in.ReturnLoanUseCase;
 import com.riverfount.booksmanager.loan.domain.Fine;
 import com.riverfount.booksmanager.loan.domain.FineStatus;
+import com.riverfount.booksmanager.loan.domain.Reservation;
+import com.riverfount.booksmanager.loan.domain.ReservationStatus;
 import com.riverfount.booksmanager.loan.domain.Suspension;
 import java.math.BigDecimal;
 import com.riverfount.booksmanager.loan.domain.Loan;
@@ -222,7 +224,7 @@ class LoanControllerTest {
     void shouldReturnTheLoanAndAnswer200WithTheResultOnTime() throws Exception {
         var onTime = Loan.reconstitute(42L, 7L, 20L, LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 15),
                 LocalDate.of(2026, 11, 15), 0);
-        given(returnLoanUseCase.returnLoan(any())).willReturn(new ReturnLoanResult(onTime, 0, null, null));
+        given(returnLoanUseCase.returnLoan(any())).willReturn(new ReturnLoanResult(onTime, 0, null, null, null));
 
         giveBack()
                 .andExpect(status().isOk())
@@ -252,7 +254,7 @@ class LoanControllerTest {
     @WithOperator
     void shouldPassTheConditionOfTheBodyAndShowItInTheAnswer(ReturnCondition condition) throws Exception {
         given(returnLoanUseCase.returnLoan(any()))
-                .willReturn(new ReturnLoanResult(returnedAs(condition), 0, null, null));
+                .willReturn(new ReturnLoanResult(returnedAs(condition), 0, null, null, null));
 
         giveBackWith("{\"condition\": \"" + condition + "\"}")
                 .andExpect(status().isOk())
@@ -267,7 +269,7 @@ class LoanControllerTest {
     @WithOperator
     void aBodyWithoutConditionShouldCountAsGood() throws Exception {
         given(returnLoanUseCase.returnLoan(any()))
-                .willReturn(new ReturnLoanResult(returnedAs(ReturnCondition.GOOD), 0, null, null));
+                .willReturn(new ReturnLoanResult(returnedAs(ReturnCondition.GOOD), 0, null, null, null));
 
         giveBackWith("{}").andExpect(status().isOk()).andExpect(jsonPath("$.loan.returnCondition").value("GOOD"));
 
@@ -290,7 +292,7 @@ class LoanControllerTest {
         var fine = Fine.reconstitute(5L, 42L, 20L, new BigDecimal("3"), FineStatus.PENDING, null);
         var suspension = Suspension.reconstitute(6L, 20L, 42L, LocalDate.of(2026, 11, 18),
                 LocalDate.of(2026, 11, 21), null, null);
-        given(returnLoanUseCase.returnLoan(any())).willReturn(new ReturnLoanResult(returned(), 3, fine, suspension));
+        given(returnLoanUseCase.returnLoan(any())).willReturn(new ReturnLoanResult(returned(), 3, fine, suspension, null));
 
         giveBack()
                 .andExpect(status().isOk())
@@ -301,6 +303,31 @@ class LoanControllerTest {
                 .andExpect(jsonPath("$.suspension.id").value(6))
                 .andExpect(jsonPath("$.suspension.startDate").value("2026-11-18"))
                 .andExpect(jsonPath("$.suspension.endDate").value("2026-11-21"));
+    }
+
+    @Test
+    @WithOperator
+    void shouldShowTheReservationThatGotTheReturnedCopy() throws Exception {
+        var served = Reservation.reconstitute(50L, 30L, 21L, LocalDate.of(2026, 11, 10), ReservationStatus.ACTIVE,
+                7L, LocalDate.of(2026, 11, 20));
+        given(returnLoanUseCase.returnLoan(any()))
+                .willReturn(new ReturnLoanResult(returned(), 0, null, null, served));
+
+        giveBack()
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.reservation.id").value(50))
+                .andExpect(jsonPath("$.reservation.readerId").value(21))
+                .andExpect(jsonPath("$.reservation.copyId").value(7))
+                .andExpect(jsonPath("$.reservation.pickupDeadline").value("2026-11-20"));
+    }
+
+    @Test
+    @WithOperator
+    void shouldShowNoReservationWhenTheCopyStayedAvailable() throws Exception {
+        given(returnLoanUseCase.returnLoan(any()))
+                .willReturn(new ReturnLoanResult(returned(), 0, null, null, null));
+
+        giveBack().andExpect(status().isOk()).andExpect(jsonPath("$.reservation").doesNotExist());
     }
 
     @Test

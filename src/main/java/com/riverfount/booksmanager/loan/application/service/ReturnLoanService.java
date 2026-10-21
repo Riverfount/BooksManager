@@ -24,7 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
  * ({@code Loan.returnCopy}) and calculate the penalty with the policy of the moment
  * ({@code PenaltyPolicy.calculate}, RN08, RN16; it does not depend on the condition of the copy, RF15),
  * records the return of the copy through the catalog's public port (available again, or damaged or lost) and persists the loan and the fine and/or suspension. It is one
- * transaction (RNF16): if any step fails, nothing stays. A return already registered is never
+ * transaction (RNF16), the hand-over of a copy returned in good condition to the first of the queue (RF18) included: if any step fails, nothing stays. A return already registered is never
  * recalculated, because the penalty is stored when the loan is returned.
  */
 @Service
@@ -36,16 +36,18 @@ class ReturnLoanService implements ReturnLoanUseCase {
     private final FineRepository fineRepository;
     private final SuspensionRepository suspensionRepository;
     private final CheckInCopyUseCase checkInCopy;
+    private final ReservationQueue reservationQueue;
     private final Clock clock;
 
     ReturnLoanService(LibraryConfigurationRepository configurationRepository, LoanRepository loanRepository,
             FineRepository fineRepository, SuspensionRepository suspensionRepository,
-            CheckInCopyUseCase checkInCopy, Clock clock) {
+            CheckInCopyUseCase checkInCopy, ReservationQueue reservationQueue, Clock clock) {
         this.configurationRepository = configurationRepository;
         this.loanRepository = loanRepository;
         this.fineRepository = fineRepository;
         this.suspensionRepository = suspensionRepository;
         this.checkInCopy = checkInCopy;
+        this.reservationQueue = reservationQueue;
         this.clock = clock;
     }
 
@@ -68,7 +70,12 @@ class ReturnLoanService implements ReturnLoanUseCase {
                 ? suspensionRepository.save(
                         Suspension.create(loan.getReaderId(), loan.getId(), today, penalty.suspensionDays()))
                 : null;
-        return new ReturnLoanResult(savedLoan, daysLate, fine, suspension);
+        // a copy that came back damaged or lost never goes to the queue (RF15, RF18)
+        var served = loan.getReturnCondition() == ReturnCondition.GOOD
+                ? reservationQueue.passTheTurn(loan.getCopyId(), today, configuration.getReservationPickupDays())
+                        .orElse(null)
+                : null;
+        return new ReturnLoanResult(savedLoan, daysLate, fine, suspension, served);
     }
 
     /** The loan and the catalog each have their own type for the condition; this is where they meet. */
