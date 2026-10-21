@@ -3,7 +3,7 @@ package com.riverfount.booksmanager.user.adapter.out.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.riverfount.booksmanager.TestcontainersConfiguration;
+import com.riverfount.booksmanager.PersistenceTest;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.user.application.port.out.UserFilter;
@@ -11,10 +11,6 @@ import com.riverfount.booksmanager.user.domain.Role;
 import com.riverfount.booksmanager.user.domain.User;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
-import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
-import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase.Replace;
-import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -23,9 +19,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * (Testcontainers): the mapping between the domain and the JPA entity, the
  * unique login (RF08, RF09) and the listing filters.
  */
-@Import({TestcontainersConfiguration.class, UserPersistenceAdapter.class})
-@DataJpaTest
-@AutoConfigureTestDatabase(replace = Replace.NONE)
+@PersistenceTest
 class UserPersistenceAdapterTest {
 
     private static final String HASH = "$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5BzqhZ8H9V5xQe4Fq0sDq6Z0yR3Wm";

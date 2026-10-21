@@ -380,11 +380,13 @@ Diagrama de classes (Mermaid), com as enumerações e o estado de implementaçã
 | Domínio | Unitário puro, sem mocks | JUnit 5 |
 | Aplicação | Unitário com portas simuladas ou implementações em memória | JUnit 5 e Mockito |
 | Adaptador web | Teste de fatia da camada web | `@WebMvcTest` e MockMvc |
-| Adaptador de persistência | Integração com banco real | `@DataJpaTest` e Testcontainers (PostgreSQL) |
+| Adaptador de persistência | Integração com banco real | `@PersistenceTest` (um `@DataJpaTest` único para todos os adaptadores) e Testcontainers (PostgreSQL) |
 | Arquitetura | Regras de dependência entre pacotes | ArchUnit |
 | Interface (front-end) | Testes de componentes e de interface | A definir (por exemplo, Vitest e React Testing Library) |
 
 Os testes com Testcontainers exigem o Docker em execução.
+
+**Velocidade da suíte (issue #235).** O tempo da suíte é quase todo subida de contexto Spring e de PostgreSQL, não execução de teste; por isso há regras para não multiplicar contextos. (1) Há **um único contêiner PostgreSQL** (`postgres:17`, a versão do `compose.yaml`) para a execução inteira, um singleton estático no `TestcontainersConfiguration` compartilhado por todos os contextos; teste que grava de verdade limpa seus dados em `@AfterEach`, e o que precisa de esquema próprio (como o `LoanReturnConditionBackfillTest`) cria um dentro desse banco. (2) Todo teste de adaptador de persistência usa a meta-anotação `@PersistenceTest`, que reúne `@DataJpaTest`, o banco real e **todos** os adaptadores `*PersistenceAdapter`, de modo que compartilham um só contexto; o teste só injeta o adaptador que exercita. (3) Os testes `@SpringBootTest` usam a mesma combinação (`@Import(TestcontainersConfiguration.class)`, `@AutoConfigureMockMvc(print = MockMvcPrint.NONE)`) e as estatísticas do Hibernate ficam ligadas para todos em `src/test/resources/config/application.properties`; uma anotação ou propriedade diferente cria um contexto novo (cerca de 1 a 2 s cada). Resultado medido: de 94 s para 63 s (`./mvnw test`), de 42 contextos e 25 contêineres para 26 contextos e 1 contêiner.
 
 ## Como executar
 

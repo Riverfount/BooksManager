@@ -2,16 +2,12 @@ package com.riverfount.booksmanager.catalog.adapter.out.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.riverfount.booksmanager.TestcontainersConfiguration;
+import com.riverfount.booksmanager.PersistenceTest;
 import com.riverfount.booksmanager.catalog.domain.Author;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
-import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
-import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase.Replace;
-import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
@@ -19,9 +15,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * (Testcontainers). The context starting up already proves that
  * AuthorJpaEntity matches the table created by V1 (ddl-auto=validate).
  */
-@Import({TestcontainersConfiguration.class, AuthorPersistenceAdapter.class})
-@DataJpaTest
-@AutoConfigureTestDatabase(replace = Replace.NONE)
+@PersistenceTest
 class AuthorPersistenceAdapterTest {
 
     @Autowired

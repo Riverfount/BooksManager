@@ -3,7 +3,7 @@ package com.riverfount.booksmanager.loan.adapter.out.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.riverfount.booksmanager.TestcontainersConfiguration;
+import com.riverfount.booksmanager.PersistenceTest;
 import com.riverfount.booksmanager.loan.application.port.out.LoanFilter;
 import com.riverfount.booksmanager.loan.domain.Loan;
 import com.riverfount.booksmanager.loan.domain.ReturnCondition;
@@ -16,10 +16,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
-import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
-import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase.Replace;
-import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
@@ -27,9 +23,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * explicit mapping between the domain and the JPA entity, the single active loan per
  * copy (RN03, RNF17) turned into a business rule, and the paginated listing (RNF14).
  */
-@Import({TestcontainersConfiguration.class, LoanPersistenceAdapter.class})
-@DataJpaTest
-@AutoConfigureTestDatabase(replace = Replace.NONE)
+@PersistenceTest
 class LoanPersistenceAdapterTest {
 
     private static final LocalDate PICKUP = LocalDate.of(2026, 11, 1);

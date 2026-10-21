@@ -3,16 +3,12 @@ package com.riverfount.booksmanager.loan.adapter.out.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.riverfount.booksmanager.TestcontainersConfiguration;
+import com.riverfount.booksmanager.PersistenceTest;
 import com.riverfount.booksmanager.loan.domain.LibraryConfiguration;
 import com.riverfount.booksmanager.loan.domain.PenaltyPolicy;
 import java.math.BigDecimal;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
-import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
-import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase.Replace;
-import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
@@ -21,9 +17,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * values (RN08, decided on 10/10/2026), and a saved configuration is read back
  * with every field intact (RF26, RN16).
  */
-@Import({TestcontainersConfiguration.class, LibraryConfigurationPersistenceAdapter.class})
-@DataJpaTest
-@AutoConfigureTestDatabase(replace = Replace.NONE)
+@PersistenceTest
 class LibraryConfigurationPersistenceAdapterTest {
 
     @Autowired
