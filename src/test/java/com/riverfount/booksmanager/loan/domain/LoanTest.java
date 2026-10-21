@@ -165,7 +165,7 @@ class LoanTest {
     void shouldRenewExtendingTheDueDateByThePeriodFromTheCurrentDueDate() {
         var loan = loan();
 
-        loan.renew(PICKUP.plusDays(3), RENEWAL_LIMIT, PERIOD);
+        loan.renew(PICKUP.plusDays(3), RENEWAL_LIMIT, PERIOD, false);
 
         assertThat(loan.getRenewals()).isEqualTo(1);
         assertThat(loan.getDueDate()).as("never shorter than the time the reader already had")
@@ -178,7 +178,7 @@ class LoanTest {
     void shouldRenewOnTheDueDateItself() {
         var loan = loan();
 
-        loan.renew(DUE, RENEWAL_LIMIT, PERIOD);
+        loan.renew(DUE, RENEWAL_LIMIT, PERIOD, false);
 
         assertThat(loan.getRenewals()).isEqualTo(1);
         assertThat(loan.getDueDate()).isEqualTo(DUE.plusDays(PERIOD));
@@ -188,7 +188,7 @@ class LoanTest {
     void theExtensionFollowsThePeriodGiven() {
         var loan = loan();
 
-        loan.renew(PICKUP, RENEWAL_LIMIT, 7);
+        loan.renew(PICKUP, RENEWAL_LIMIT, 7, false);
 
         assertThat(loan.getDueDate()).isEqualTo(DUE.plusDays(7));
     }
@@ -196,12 +196,12 @@ class LoanTest {
     @Test
     void shouldRenewUpToTheLimitAndRefuseTheNext() {
         var loan = loan();
-        loan.renew(PICKUP.plusDays(1), RENEWAL_LIMIT, PERIOD);
-        loan.renew(PICKUP.plusDays(2), RENEWAL_LIMIT, PERIOD);
+        loan.renew(PICKUP.plusDays(1), RENEWAL_LIMIT, PERIOD, false);
+        loan.renew(PICKUP.plusDays(2), RENEWAL_LIMIT, PERIOD, false);
 
         assertThat(loan.getRenewals()).isEqualTo(2);
         assertThat(loan.getDueDate()).isEqualTo(DUE.plusDays(2L * PERIOD));
-        assertThatThrownBy(() -> loan.renew(PICKUP.plusDays(3), RENEWAL_LIMIT, PERIOD))
+        assertThatThrownBy(() -> loan.renew(PICKUP.plusDays(3), RENEWAL_LIMIT, PERIOD, false))
                 .isInstanceOf(BusinessRuleException.class)
                 .hasMessageContaining("limite de renovações");
         assertThat(loan.getRenewals()).isEqualTo(2);
@@ -212,10 +212,10 @@ class LoanTest {
     void theLimitComesFromTheConfigurationSoZeroMeansNoRenewals() {
         var loan = loan();
 
-        assertThatThrownBy(() -> loan.renew(PICKUP, 0, PERIOD))
+        assertThatThrownBy(() -> loan.renew(PICKUP, 0, PERIOD, false))
                 .isInstanceOf(BusinessRuleException.class)
                 .hasMessageContaining("limite de renovações");
-        loan.renew(PICKUP, 1, PERIOD); // a bigger limit allows it
+        loan.renew(PICKUP, 1, PERIOD, false); // a bigger limit allows it
         assertThat(loan.getRenewals()).isEqualTo(1);
     }
 
@@ -223,7 +223,7 @@ class LoanTest {
     void shouldRefuseToRenewALateLoanChangingNothing() {
         var loan = loan();
 
-        assertThatThrownBy(() -> loan.renew(DUE.plusDays(1), RENEWAL_LIMIT, PERIOD))
+        assertThatThrownBy(() -> loan.renew(DUE.plusDays(1), RENEWAL_LIMIT, PERIOD, false))
                 .isInstanceOf(BusinessRuleException.class)
                 .hasMessageContaining("atraso");
         assertThat(loan.getRenewals()).isZero();
@@ -233,10 +233,30 @@ class LoanTest {
     @Test
     void aRenewalMovesTheDueDateSoTheLoanIsNotLateAnymoreAgainstTheNewOne() {
         var loan = loan();
-        loan.renew(DUE, RENEWAL_LIMIT, PERIOD);
+        loan.renew(DUE, RENEWAL_LIMIT, PERIOD, false);
 
         assertThat(loan.isOverdue(DUE.plusDays(1))).isFalse();
         assertThat(loan.isOverdue(DUE.plusDays(PERIOD + 1))).isTrue();
+    }
+
+    @Test
+    void shouldRefuseToRenewWhenAReservationWaitsInTheQueueChangingNothing() {
+        var loan = loan();
+
+        assertThatThrownBy(() -> loan.renew(PICKUP.plusDays(3), RENEWAL_LIMIT, PERIOD, true))
+                .isInstanceOf(BusinessRuleException.class).hasMessageContaining("reserva esperando na fila");
+
+        assertThat(loan.getDueDate()).isEqualTo(DUE);
+        assertThat(loan.getRenewals()).isZero();
+    }
+
+    @Test
+    void shouldRenewNormallyWhenNoReservationWaitsInTheQueue() {
+        var loan = loan();
+
+        loan.renew(PICKUP.plusDays(3), RENEWAL_LIMIT, PERIOD, false);
+
+        assertThat(loan.getRenewals()).isEqualTo(1);
     }
 
     @Test
@@ -244,7 +264,7 @@ class LoanTest {
         var loan = loan();
         loan.returnCopy(DUE);
 
-        assertThatThrownBy(() -> loan.renew(DUE, RENEWAL_LIMIT, PERIOD))
+        assertThatThrownBy(() -> loan.renew(DUE, RENEWAL_LIMIT, PERIOD, false))
                 .isInstanceOf(BusinessRuleException.class)
                 .hasMessageContaining("encerrado");
         assertThat(loan.getRenewals()).isZero();
@@ -254,10 +274,10 @@ class LoanTest {
     @Test
     void aReturnedLoanIsReportedAsReturnedEvenWhenItIsAlsoPastTheLimit() {
         var loan = loan();
-        loan.renew(PICKUP, 1, PERIOD);
+        loan.renew(PICKUP, 1, PERIOD, false);
         loan.returnCopy(PICKUP.plusDays(2));
 
-        assertThatThrownBy(() -> loan.renew(PICKUP.plusDays(3), 1, PERIOD))
+        assertThatThrownBy(() -> loan.renew(PICKUP.plusDays(3), 1, PERIOD, false))
                 .hasMessageContaining("encerrado");
     }
 
@@ -265,9 +285,9 @@ class LoanTest {
     void shouldRefuseABadRenewalArgument() {
         var loan = loan();
 
-        assertThatThrownBy(() -> loan.renew(null, RENEWAL_LIMIT, PERIOD)).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> loan.renew(PICKUP, -1, PERIOD)).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> loan.renew(PICKUP, RENEWAL_LIMIT, 0)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> loan.renew(null, RENEWAL_LIMIT, PERIOD, false)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> loan.renew(PICKUP, -1, PERIOD, false)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> loan.renew(PICKUP, RENEWAL_LIMIT, 0, false)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> loan.returnCopy(null)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> loan.daysLate(null)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> loan.isOverdue(null)).isInstanceOf(IllegalArgumentException.class);
