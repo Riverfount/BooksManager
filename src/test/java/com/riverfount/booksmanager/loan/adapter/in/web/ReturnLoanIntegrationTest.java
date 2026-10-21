@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Map;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -78,6 +79,7 @@ class ReturnLoanIntegrationTest {
 
     @AfterEach
     void cleanUp() {
+        jdbcTemplate.update("delete from reservation where reader_id in (select id from reader where document like 'RTN-DOC-%')");
         jdbcTemplate.update("delete from suspension where reader_id in (select id from reader where document like 'RTN-DOC-%')");
         jdbcTemplate.update("delete from fine where reader_id in (select id from reader where document like 'RTN-DOC-%')");
         jdbcTemplate.update("delete from loan where reader_id in (select id from reader where document like 'RTN-DOC-%')");
@@ -109,6 +111,26 @@ class ReturnLoanIntegrationTest {
 
     private long activeLoan(int daysAgo) {
         return activeLoan(daysAgo, "BORROWED");
+    }
+
+    private long newReader(String document) {
+        return jdbcTemplate.queryForObject("""
+                insert into reader (name, document, email, birth_date)
+                values ('Reader', ?, 'r@example.com', date '1990-01-01') returning id
+                """, Long.class, document);
+    }
+
+    /** A reservation of the book waiting in the queue, made on the given date. */
+    private long waitingReservation(long reader, LocalDate reservationDate) {
+        return jdbcTemplate.queryForObject("""
+                insert into reservation (book_id, reader_id, reservation_date, status) values (?, ?, ?, 'ACTIVE')
+                returning id
+                """, Long.class, bookId, reader, reservationDate);
+    }
+
+    private Map<String, Object> reservationRow(long id) {
+        return jdbcTemplate.queryForMap(
+                "select status, copy_id, pickup_deadline from reservation where id = ?", id);
     }
 
     private String token() {
@@ -369,5 +391,78 @@ class ReturnLoanIntegrationTest {
         assertThat(count("fine")).as("a single fine").isEqualTo(1);
         assertThat(count("suspension")).as("a single suspension").isEqualTo(1);
         assertThat(copyStatusOf(loanId)).isEqualTo("AVAILABLE");
+    }
+
+    // the queue of reservations (RF18, RN13)
+
+    @Test
+    void returningWithAQueueShouldKeepTheCopyForTheFirstReaderWithThePickupDeadline() throws Exception {
+        var first = waitingReservation(newReader("RTN-DOC-2"), TODAY.minusDays(2));
+        var second = waitingReservation(newReader("RTN-DOC-3"), TODAY.minusDays(1));
+        var loanId = activeLoan(5);
+
+        giveBack(loanId)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.reservation.id").value(first))
+                .andExpect(jsonPath("$.reservation.pickupDeadline").value(TODAY.plusDays(3).toString()));
+
+        assertThat(copyStatusOf(loanId)).isEqualTo("RESERVED");
+        var row = reservationRow(first);
+        assertThat(row.get("copy_id")).isEqualTo(jdbcTemplate.queryForObject(
+                "select copy_id from loan where id = ?", Long.class, loanId));
+        assertThat(row.get("pickup_deadline").toString()).isEqualTo(TODAY.plusDays(3).toString());
+        assertThat(reservationRow(second).get("copy_id")).isNull();
+    }
+
+    @Test
+    void twoReturnsOfTheSameBookShouldGoToDifferentReadersOfTheQueue() throws Exception {
+        var first = waitingReservation(newReader("RTN-DOC-2"), TODAY.minusDays(2));
+        var second = waitingReservation(newReader("RTN-DOC-3"), TODAY.minusDays(1));
+        var firstLoan = activeLoan(5);
+        var secondLoan = activeLoan(6);
+
+        giveBack(firstLoan).andExpect(jsonPath("$.reservation.id").value(first));
+        giveBack(secondLoan).andExpect(jsonPath("$.reservation.id").value(second));
+
+        assertThat(reservationRow(first).get("copy_id")).isNotEqualTo(reservationRow(second).get("copy_id"));
+        assertThat(copyStatusOf(firstLoan)).isEqualTo("RESERVED");
+        assertThat(copyStatusOf(secondLoan)).isEqualTo("RESERVED");
+    }
+
+    @Test
+    void returningWithoutAQueueShouldLeaveTheCopyAvailable() throws Exception {
+        var loanId = activeLoan(5);
+
+        giveBack(loanId).andExpect(status().isOk()).andExpect(jsonPath("$.reservation").doesNotExist());
+
+        assertThat(copyStatusOf(loanId)).isEqualTo("AVAILABLE");
+    }
+
+    @Test
+    void aDamagedCopyShouldNeverGoToTheQueue() throws Exception {
+        var waiting = waitingReservation(newReader("RTN-DOC-2"), TODAY.minusDays(1));
+        var loanId = activeLoan(5);
+
+        giveBackAs(loanId, "{\"condition\": \"DAMAGED\"}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.reservation").doesNotExist());
+
+        assertThat(copyStatusOf(loanId)).isEqualTo("DAMAGED");
+        assertThat(reservationRow(waiting).get("copy_id")).isNull();
+    }
+
+    @Test
+    void aFailureWhileHandingTheCopyOverShouldUndoTheWholeReturn() throws Exception {
+        // a reservation dated in the future cannot receive the copy: the domain refuses, after the copy was
+        // already checked in and kept, so the whole return must roll back
+        var waiting = waitingReservation(newReader("RTN-DOC-2"), TODAY.plusDays(1));
+        var loanId = activeLoan(5);
+
+        giveBack(loanId).andExpect(status().isUnprocessableContent());
+
+        assertThat(copyStatusOf(loanId)).isEqualTo("BORROWED");
+        assertThat(jdbcTemplate.queryForObject("select return_date from loan where id = ?", Object.class, loanId))
+                .isNull();
+        assertThat(reservationRow(waiting).get("copy_id")).isNull();
     }
 }

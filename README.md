@@ -123,7 +123,7 @@ Todos aceitam os perfis `ADMIN` e `OPERATOR` (a configuração da biblioteca é 
 | Reservar livro | `POST /api/v1/reservations` com `bookId` e `readerId` | 201 com `Location` e `queuePosition` (lugar na fila); 404 se livro ou leitor não existe; 422 com todos os motivos da recusa (RN05, RN11, RN12) |
 | Consultar reserva | `GET /api/v1/reservations/{id}` | 200 com o nome do leitor, o título do livro, a situação, o lugar na fila (se espera exemplar) e o exemplar e o prazo de retirada (se segura um), inclusive para reserva encerrada; 404 se não existe |
 | Listar reservas | `GET /api/v1/reservations?readerId=&bookId=&status=` | 200 paginada (`size` até 100, senão 400); `status` é `ACTIVE`, `FULFILLED`, `CANCELLED` ou `EXPIRED`; com `bookId` e `status=ACTIVE` é a fila do livro |
-| Devolver | `POST /api/v1/loans/{id}/return` | 200 com os dias de atraso e a multa e a suspensão geradas; corpo opcional `{"condition": "GOOD\|DAMAGED\|LOST"}` (RF15) |
+| Devolver | `POST /api/v1/loans/{id}/return` | 200 com os dias de atraso, a multa e a suspensão geradas e, quando há fila para o livro, a `reservation` atendida (o exemplar fica guardado para o primeiro da fila, RF18); corpo opcional `{"condition": "GOOD\|DAMAGED\|LOST"}` (RF15) |
 | Renovar | `POST /api/v1/loans/{id}/renew` | 200 com a nova data prevista; 422 se encerrado, em atraso ou no limite |
 | Consultar empréstimo | `GET /api/v1/loans/{id}` | 200, inclusive para empréstimo encerrado |
 | Listar empréstimos | `GET /api/v1/loans?readerId=&copyId=&status=&overdue=` | 200 com o nome do leitor, o código do exemplar e o título do livro; `status` é `ACTIVE` ou `RETURNED` (o histórico); `overdue=true` traz só os atrasados e traz `daysLate` (400 com `status=RETURNED`) |

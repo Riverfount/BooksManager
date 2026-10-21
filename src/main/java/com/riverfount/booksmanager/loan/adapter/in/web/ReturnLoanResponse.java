@@ -14,11 +14,15 @@ record ReturnLoanResponse(
         @Schema(description = "Multa gerada; nula quando a política vigente não aplicou multa")
         FineSummary fine,
         @Schema(description = "Suspensão gerada; nula quando a política vigente não aplicou suspensão")
-        SuspensionSummary suspension) {
+        SuspensionSummary suspension,
+        @Schema(description = "Reserva atendida pelo exemplar devolvido (RF18): o exemplar fica guardado para o "
+                + "primeiro da fila do livro; nula quando ninguém espera, ou o exemplar voltou danificado ou perdido")
+        ReservationSummary reservation) {
 
     static ReturnLoanResponse from(ReturnLoanResult result) {
         return new ReturnLoanResponse(LoanResponse.from(result.loan()), result.daysLate(),
                 result.fine() == null ? null : FineSummary.from(result.fine()),
-                result.suspension() == null ? null : SuspensionSummary.from(result.suspension()));
+                result.suspension() == null ? null : SuspensionSummary.from(result.suspension()),
+                result.reservation() == null ? null : ReservationSummary.from(result.reservation()));
     }
 }
