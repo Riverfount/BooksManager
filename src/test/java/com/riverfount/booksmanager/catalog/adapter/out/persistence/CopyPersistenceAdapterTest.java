@@ -3,7 +3,7 @@ package com.riverfount.booksmanager.catalog.adapter.out.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.riverfount.booksmanager.TestcontainersConfiguration;
+import com.riverfount.booksmanager.PersistenceTest;
 import com.riverfount.booksmanager.catalog.domain.Copy;
 import com.riverfount.booksmanager.catalog.domain.CopyStatus;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
@@ -12,10 +12,6 @@ import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
-import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
-import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase.Replace;
-import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -25,9 +21,7 @@ import org.springframework.orm.ObjectOptimisticLockingFailureException;
  * (Testcontainers), including the actual optimistic lock (RNF17), via
  * {@code @Version} on the JPA entity.
  */
-@Import({TestcontainersConfiguration.class, CopyPersistenceAdapter.class})
-@DataJpaTest
-@AutoConfigureTestDatabase(replace = Replace.NONE)
+@PersistenceTest
 class CopyPersistenceAdapterTest {
 
     @Autowired

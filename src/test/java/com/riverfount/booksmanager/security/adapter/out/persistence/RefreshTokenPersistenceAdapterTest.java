@@ -3,7 +3,7 @@ package com.riverfount.booksmanager.security.adapter.out.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.riverfount.booksmanager.TestcontainersConfiguration;
+import com.riverfount.booksmanager.PersistenceTest;
 import com.riverfount.booksmanager.security.domain.RefreshToken;
 import com.riverfount.booksmanager.security.domain.TokenHash;
 import java.time.Duration;
@@ -11,10 +11,6 @@ import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
-import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
-import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase.Replace;
-import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -22,9 +18,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * Tests the RefreshToken persistence adapter against a real PostgreSQL
  * (Testcontainers): the mapping between the domain and the JPA entity (RF08).
  */
-@Import({TestcontainersConfiguration.class, RefreshTokenPersistenceAdapter.class})
-@DataJpaTest
-@AutoConfigureTestDatabase(replace = Replace.NONE)
+@PersistenceTest
 class RefreshTokenPersistenceAdapterTest {
 
     private static final Instant NOW = Instant.parse("2026-10-15T12:00:00Z");

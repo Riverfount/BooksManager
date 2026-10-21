@@ -3,17 +3,13 @@ package com.riverfount.booksmanager.loan.adapter.out.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.riverfount.booksmanager.TestcontainersConfiguration;
+import com.riverfount.booksmanager.PersistenceTest;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import jakarta.persistence.EntityManager;
 import java.time.LocalDate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
-import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
-import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase.Replace;
-import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import com.riverfount.booksmanager.loan.application.port.out.SuspensionFilter;
@@ -24,9 +20,7 @@ import com.riverfount.booksmanager.loan.domain.Suspension;
  * the explicit mapping, the early end with its justification (RN15), the "in force on a
  * day" filter agreeing with the domain, and the paginated listing (RNF14).
  */
-@Import({TestcontainersConfiguration.class, SuspensionPersistenceAdapter.class})
-@DataJpaTest
-@AutoConfigureTestDatabase(replace = Replace.NONE)
+@PersistenceTest
 class SuspensionPersistenceAdapterTest {
 
     private static final LocalDate START = LocalDate.of(2026, 11, 18);

@@ -3,7 +3,7 @@ package com.riverfount.booksmanager.catalog.adapter.out.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.riverfount.booksmanager.TestcontainersConfiguration;
+import com.riverfount.booksmanager.PersistenceTest;
 import com.riverfount.booksmanager.catalog.application.port.out.BookFilter;
 import com.riverfount.booksmanager.catalog.domain.Book;
 import com.riverfount.booksmanager.catalog.domain.Isbn;
@@ -17,11 +17,7 @@ import org.hibernate.SessionFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
-import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
-import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase.Replace;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
-import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -30,9 +26,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * (Testcontainers), including the N:N author association mapped as a
  * collection of IDs (book_author).
  */
-@Import({TestcontainersConfiguration.class, BookPersistenceAdapter.class})
-@DataJpaTest(properties = "spring.jpa.properties.hibernate.generate_statistics=true")
-@AutoConfigureTestDatabase(replace = Replace.NONE)
+@PersistenceTest
 class BookPersistenceAdapterTest {
 
     private static final Clock FIXED_CLOCK = Clock.fixed(Instant.parse("2026-10-10T00:00:00Z"), ZoneOffset.UTC);

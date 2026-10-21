@@ -3,7 +3,7 @@ package com.riverfount.booksmanager.loan.adapter.out.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.riverfount.booksmanager.TestcontainersConfiguration;
+import com.riverfount.booksmanager.PersistenceTest;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import jakarta.persistence.EntityManager;
@@ -11,10 +11,6 @@ import java.time.LocalDate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
-import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
-import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase.Replace;
-import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import com.riverfount.booksmanager.loan.application.port.out.FineFilter;
@@ -27,9 +23,7 @@ import java.math.BigDecimal;
  * explicit mapping, payment and waiver (RF21), one fine per loan (RN05) turned into a
  * business rule, and the paginated listing (RNF14).
  */
-@Import({TestcontainersConfiguration.class, FinePersistenceAdapter.class})
-@DataJpaTest
-@AutoConfigureTestDatabase(replace = Replace.NONE)
+@PersistenceTest
 class FinePersistenceAdapterTest {
 
     private static final LocalDate PICKUP = LocalDate.of(2026, 11, 1);

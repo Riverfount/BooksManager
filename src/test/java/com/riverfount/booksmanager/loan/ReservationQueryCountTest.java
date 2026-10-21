@@ -13,6 +13,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.MockMvcPrint;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,7 +26,8 @@ import org.springframework.transaction.annotation.Transactional;
  * which take two: the copies and their books), however many reservations the page has, waiting or holding a copy.
  */
 @Import(TestcontainersConfiguration.class)
-@SpringBootTest(properties = "spring.jpa.properties.hibernate.generate_statistics=true")
+@SpringBootTest
+@AutoConfigureMockMvc(print = MockMvcPrint.NONE)
 @Transactional
 class ReservationQueryCountTest {
 
