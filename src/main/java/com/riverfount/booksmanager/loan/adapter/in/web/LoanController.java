@@ -58,7 +58,11 @@ class LoanController {
     @Operation(summary = "Registrar empréstimo",
             description = "Empresta um exemplar a um leitor (HU07). A retirada é hoje e a data prevista de devolução "
                     + "vem do prazo da configuração da biblioteca: nenhuma data é aceita no corpo. O exemplar passa "
-                    + "a emprestado na mesma operação; se qualquer passo falhar, nada é gravado.")
+                    + "a emprestado na mesma operação; se qualquer passo falhar, nada é gravado. Um exemplar guardado "
+                    + "para uma reserva (`RESERVED`) só pode ser retirado pelo leitor dono da reserva, até o último "
+                    + "dia do prazo de retirada (inclusive): então o exemplar passa a emprestado e a reserva a "
+                    + "retirada (`FULFILLED`), na mesma operação. As demais regras (limite, multa, suspensão, atraso, "
+                    + "leitor) continuam valendo para o dono.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Empréstimo registrado"),
             @ApiResponse(responseCode = "400", description = "Requisição inválida (exemplar ou leitor ausente)",
@@ -73,7 +77,8 @@ class LoanController {
                             schema = @Schema(implementation = ProblemDetail.class))),
             @ApiResponse(responseCode = "422",
                     description = "Empréstimo não permitido; a mensagem traz todos os motivos de uma vez: exemplar "
-                            + "indisponível (RN03), limite de empréstimos simultâneos (RN04), multa pendente, "
+                            + "indisponível, reservado para outro leitor ou com o prazo de retirada da reserva "
+                            + "vencido (RN03, RN13), limite de empréstimos simultâneos (RN04), multa pendente, "
                             + "suspensão ou empréstimo em atraso (RN05), leitor inativo ou bloqueado (RN11)",
                     content = @Content(mediaType = "application/problem+json",
                             schema = @Schema(implementation = ProblemDetail.class)))

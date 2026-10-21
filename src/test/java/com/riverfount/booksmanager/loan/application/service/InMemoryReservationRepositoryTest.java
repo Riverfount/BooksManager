@@ -151,4 +151,17 @@ class InMemoryReservationRepositoryTest {
                 .containsOnly(java.util.Map.entry(first.getId(), 1L), java.util.Map.entry(second.getId(), 2L));
         assertThat(reservations.queuePositions(java.util.Set.of())).isEmpty();
     }
+
+    @Test
+    void shouldFindTheActiveReservationThatHoldsACopy() {
+        reserve(BOOK, 1L);
+        var holding = reserveAndHold(BOOK, 2L, 10L, DAY);
+
+        assertThat(reservations.findActiveByCopyId(10L)).map(Reservation::getId).contains(holding.getId());
+        assertThat(reservations.findActiveByCopyId(11L)).isEmpty();
+
+        holding.cancel();
+        reservations.save(holding);
+        assertThat(reservations.findActiveByCopyId(10L)).isEmpty();
+    }
 }

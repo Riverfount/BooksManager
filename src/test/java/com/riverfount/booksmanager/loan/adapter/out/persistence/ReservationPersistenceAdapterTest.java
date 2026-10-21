@@ -287,6 +287,21 @@ class ReservationPersistenceAdapterTest {
         assertThat(adapter.queuePositions(java.util.Set.of())).isEmpty();
     }
 
+    @Test
+    void shouldFindTheActiveReservationThatHoldsACopy() {
+        var copyId = data.newCopy(bookId);
+        var holding = reserveAndHold(bookId, readerId, copyId, DAY, 3);
+        reserve(bookId, data.newReader());
+
+        assertThat(adapter.findActiveByCopyId(copyId)).map(Reservation::getId).contains(holding.getId());
+        assertThat(adapter.findActiveByCopyId(data.newCopy(bookId))).isEmpty();
+        assertThat(adapter.findActiveByCopyId(-1L)).isEmpty();
+
+        holding.cancel();
+        adapter.save(holding);
+        assertThat(adapter.findActiveByCopyId(copyId)).isEmpty();
+    }
+
     // count of active reservations of a reader (RN12)
 
     @Test

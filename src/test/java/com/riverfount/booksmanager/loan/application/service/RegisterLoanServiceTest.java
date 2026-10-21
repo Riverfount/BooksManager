@@ -10,6 +10,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 
 import com.riverfount.booksmanager.catalog.application.port.in.CheckOutCopyUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.CheckOutReservedCopyUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.CopyAvailability;
 import com.riverfount.booksmanager.catalog.application.port.in.FindCopyAvailabilityUseCase;
 import com.riverfount.booksmanager.loan.application.port.in.RegisterLoanCommand;
@@ -18,6 +19,8 @@ import com.riverfount.booksmanager.loan.application.port.out.LoanFilter;
 import com.riverfount.booksmanager.loan.application.port.out.SuspensionFilter;
 import com.riverfount.booksmanager.loan.domain.Fine;
 import com.riverfount.booksmanager.loan.domain.Loan;
+import com.riverfount.booksmanager.loan.domain.Reservation;
+import com.riverfount.booksmanager.loan.domain.ReservationStatus;
 import com.riverfount.booksmanager.loan.domain.Suspension;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
@@ -51,6 +54,8 @@ class RegisterLoanServiceTest {
     private InMemorySuspensionRepository suspensionRepository;
     private FindCopyAvailabilityUseCase copyAvailability;
     private CheckOutCopyUseCase checkOutCopy;
+    private CheckOutReservedCopyUseCase checkOutReservedCopy;
+    private InMemoryReservationRepository reservationRepository;
     private GetReaderBorrowingStateUseCase readerState;
     private RegisterLoanService service;
 
@@ -62,9 +67,12 @@ class RegisterLoanServiceTest {
         suspensionRepository = new InMemorySuspensionRepository();
         copyAvailability = mock(FindCopyAvailabilityUseCase.class);
         checkOutCopy = mock(CheckOutCopyUseCase.class);
+        checkOutReservedCopy = mock(CheckOutReservedCopyUseCase.class);
+        reservationRepository = new InMemoryReservationRepository();
         readerState = mock(GetReaderBorrowingStateUseCase.class);
         service = new RegisterLoanService(configurationRepository, loanRepository, fineRepository,
-                suspensionRepository, copyAvailability, checkOutCopy, readerState, CLOCK);
+                suspensionRepository, copyAvailability, checkOutCopy, checkOutReservedCopy, reservationRepository,
+                readerState, CLOCK);
         copyIs(true);
         readerIs(true, false);
     }
@@ -119,7 +127,8 @@ class RegisterLoanServiceTest {
         // 01:00 UTC of the 11th is still the 10th in São Paulo
         var lateNight = Clock.fixed(Instant.parse("2026-11-11T01:00:00Z"), ZONE);
         var lateService = new RegisterLoanService(configurationRepository, loanRepository, fineRepository,
-                suspensionRepository, copyAvailability, checkOutCopy, readerState, lateNight);
+                suspensionRepository, copyAvailability, checkOutCopy, checkOutReservedCopy, reservationRepository,
+                readerState, lateNight);
 
         assertThat(lateService.register(new RegisterLoanCommand(COPY, READER)).getPickupDate()).isEqualTo(TODAY);
     }
@@ -129,6 +138,102 @@ class RegisterLoanServiceTest {
         register();
 
         then(checkOutCopy).should().checkOut(COPY);
+    }
+
+    // a copy kept for a reservation (RN03, RN13, RF17, RF18)
+
+    private static final long OTHER_READER = 21L;
+    private static final long BOOK = 30L;
+
+    private void copyIsReserved() {
+        given(copyAvailability.findAvailability(COPY)).willReturn(Optional.of(new CopyAvailability(COPY, false, true)));
+    }
+
+    /** The copy is kept for {@code owner} until TODAY + days (inclusive), the way the return leaves it. */
+    private Reservation reservationHoldingTheCopy(long owner, LocalDate assignedOn, int days) {
+        copyIsReserved();
+        var reservation = Reservation.create(BOOK, owner, assignedOn.minusDays(1));
+        reservation.assignCopy(COPY, assignedOn, days);
+        return reservationRepository.save(reservation);
+    }
+
+    @Test
+    void theOwnerShouldTakeTheReservedCopyAndFulfillTheReservation() {
+        var reservation = reservationHoldingTheCopy(READER, TODAY, 3);
+
+        var loan = register();
+
+        assertThat(loan.getCopyId()).isEqualTo(COPY);
+        assertThat(loan.getDueDate()).isEqualTo(TODAY.plusDays(14));
+        then(checkOutReservedCopy).should().checkOutReserved(COPY);
+        then(checkOutCopy).should(never()).checkOut(anyLong());
+        assertThat(reservationRepository.findById(reservation.getId()).orElseThrow().getStatus())
+                .isEqualTo(ReservationStatus.FULFILLED);
+        assertThat(reservationRepository.findActiveByCopyId(COPY)).isEmpty();
+    }
+
+    @Test
+    void theOwnerShouldTakeTheCopyOnTheLastDayOfTheDeadline() {
+        reservationHoldingTheCopy(READER, TODAY.minusDays(3), 3); // deadline: today
+
+        assertThat(register()).isNotNull();
+    }
+
+    @Test
+    void anotherReaderShouldNotTakeAReservedCopy() {
+        var reservation = reservationHoldingTheCopy(OTHER_READER, TODAY, 3);
+
+        assertThatThrownBy(this::register).isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("exemplar reservado para outro leitor");
+
+        then(checkOutReservedCopy).should(never()).checkOutReserved(anyLong());
+        then(checkOutCopy).should(never()).checkOut(anyLong());
+        assertThat(reservationRepository.findById(reservation.getId()).orElseThrow().isHoldingCopy()).isTrue();
+        assertThat(storedLoans()).isZero();
+    }
+
+    @Test
+    void nobodyShouldTakeTheCopyAfterTheDeadlineNotEvenTheOwnerBeforeTheRoutineExpiresIt() {
+        var reservation = reservationHoldingTheCopy(READER, TODAY.minusDays(4), 3); // deadline: yesterday
+
+        assertThatThrownBy(this::register).isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("prazo de retirada da reserva");
+
+        then(checkOutReservedCopy).should(never()).checkOutReserved(anyLong());
+        assertThat(reservationRepository.findById(reservation.getId()).orElseThrow().isActive()).isTrue();
+        assertThat(storedLoans()).isZero();
+    }
+
+    @Test
+    void aReservedCopyWithNoActiveReservationShouldNotBeLentToAnyone() {
+        copyIsReserved();
+
+        assertThatThrownBy(this::register).isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("exemplar reservado para outro leitor");
+    }
+
+    @Test
+    void theOwnerShouldStillBeRefusedByTheOtherRules() {
+        reservationHoldingTheCopy(READER, TODAY, 3);
+        readerIs(true, true);
+
+        assertThatThrownBy(this::register).isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("o leitor está bloqueado")
+                .hasMessageNotContaining("exemplar");
+
+        assertThat(reservationRepository.findActiveByCopyId(COPY)).isPresent();
+    }
+
+    @Test
+    void shouldNotFulfillTheReservationWhenTheCatalogRefusesTheCheckOut() {
+        var reservation = reservationHoldingTheCopy(READER, TODAY, 3);
+        doThrow(new BusinessRuleException("o exemplar não está reservado")).when(checkOutReservedCopy)
+                .checkOutReserved(COPY);
+
+        assertThatThrownBy(this::register).isInstanceOf(BusinessRuleException.class);
+
+        assertThat(reservationRepository.findById(reservation.getId()).orElseThrow().isHoldingCopy()).isTrue();
+        assertThat(storedLoans()).isZero();
     }
 
     // the refusals (RN03, RN04, RN05, RN11)

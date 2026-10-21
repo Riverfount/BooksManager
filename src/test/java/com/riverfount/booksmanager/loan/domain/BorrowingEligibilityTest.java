@@ -24,6 +24,7 @@ class BorrowingEligibilityTest {
 
     private static final class Builder {
         private boolean copyAvailable = true;
+        private CopyHold copyHold = CopyHold.NONE;
         private boolean readerActive = true;
         private boolean readerBlocked = false;
         private int activeLoans = 0;
@@ -33,6 +34,12 @@ class BorrowingEligibilityTest {
 
         Builder copyUnavailable() {
             copyAvailable = false;
+            return this;
+        }
+
+        Builder copyHold(CopyHold hold) {
+            copyHold = hold;
+            copyAvailable = false; // a kept copy is never "available"
             return this;
         }
 
@@ -67,9 +74,15 @@ class BorrowingEligibilityTest {
         }
 
         BorrowingSituation build() {
-            return new BorrowingSituation(copyAvailable, readerActive, readerBlocked, activeLoans, pendingFine,
+            return new BorrowingSituation(copyAvailable, copyHold, readerActive, readerBlocked, activeLoans, pendingFine,
                     suspended, overdue);
         }
+    }
+
+    @Test
+    void shouldRequireTheHoldOnTheCopy() {
+        assertThatThrownBy(() -> new BorrowingSituation(true, null, true, false, 0, false, false, false))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     // allowed
@@ -93,6 +106,46 @@ class BorrowingEligibilityTest {
         assertThatThrownBy(() -> BorrowingEligibility.check(ok().copyUnavailable().build(), LIMIT))
                 .isInstanceOf(BusinessRuleException.class)
                 .hasMessageContaining("exemplar não está disponível");
+    }
+
+    // RN03 + RN13: a copy kept for a reservation goes only to its owner, within the deadline
+
+    @Test
+    void theOwnerOfTheReservationShouldTakeTheCopyKeptForThem() {
+        assertThatCode(() -> BorrowingEligibility.check(ok().copyHold(CopyHold.FOR_THIS_READER).build(), LIMIT))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void shouldRefuseACopyKeptForAnotherReader() {
+        assertThatThrownBy(() -> BorrowingEligibility.check(ok().copyHold(CopyHold.FOR_ANOTHER_READER).build(), LIMIT))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("exemplar reservado para outro leitor")
+                .hasMessageNotContaining("não está disponível");
+    }
+
+    @Test
+    void shouldRefuseTheOwnerAfterThePickupDeadline() {
+        assertThatThrownBy(() -> BorrowingEligibility.check(
+                ok().copyHold(CopyHold.FOR_THIS_READER_PAST_DEADLINE).build(), LIMIT))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("prazo de retirada da reserva deste exemplar já terminou");
+    }
+
+    @Test
+    void theOwnerStillHasToMeetTheOtherRules() {
+        var reasons = BorrowingEligibility.refusals(ok().copyHold(CopyHold.FOR_THIS_READER).pendingFine()
+                .suspended().overdueLoan().activeLoans(LIMIT).blockedReader().build(), LIMIT);
+
+        assertThat(reasons).hasSize(5).noneMatch(reason -> reason.contains("exemplar"));
+    }
+
+    @Test
+    void shouldReportTheHoldTogetherWithTheOtherReasons() {
+        var reasons = BorrowingEligibility.refusals(
+                ok().copyHold(CopyHold.FOR_ANOTHER_READER).pendingFine().build(), LIMIT);
+
+        assertThat(reasons).containsExactly("exemplar reservado para outro leitor", "o leitor tem multa pendente");
     }
 
     // RN11: an inactive or blocked reader

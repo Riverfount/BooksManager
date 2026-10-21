@@ -8,6 +8,8 @@ package com.riverfount.booksmanager.loan.domain;
  * this module's repositories), using the date of the day for "in force" and "late".
  *
  * @param copyAvailable the copy exists, is active and has the status available (RN03)
+ * @param copyHold whether the copy is kept for a reservation and for whom (RN03, RF18); a reserved copy is
+ *        never "available", and the one who owns the reservation may take it all the same
  * @param readerActive the reader is active (RN11)
  * @param readerBlocked the reader was blocked by an operator (RN11)
  * @param activeLoans how many loans of the reader are open now (RN04)
@@ -17,6 +19,7 @@ package com.riverfount.booksmanager.loan.domain;
  */
 public record BorrowingSituation(
         boolean copyAvailable,
+        CopyHold copyHold,
         boolean readerActive,
         boolean readerBlocked,
         int activeLoans,
@@ -25,6 +28,9 @@ public record BorrowingSituation(
         boolean hasOverdueLoan) {
 
     public BorrowingSituation {
+        if (copyHold == null) {
+            throw new IllegalArgumentException("the hold on the copy is required");
+        }
         if (activeLoans < 0) {
             throw new IllegalArgumentException("the number of active loans cannot be negative");
         }

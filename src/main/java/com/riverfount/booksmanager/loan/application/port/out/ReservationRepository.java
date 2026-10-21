@@ -29,6 +29,9 @@ public interface ReservationRepository {
     /** Listing, always paginated (RNF14). */
     PageResult<Reservation> findAll(ReservationFilter filter, PageQuery page);
 
+    /** The active reservation that holds the given copy (RN13), empty when none does. */
+    Optional<Reservation> findActiveByCopyId(Long copyId);
+
     /** The reservation at the head of the queue of the book: the oldest one still waiting for a copy. */
     Optional<Reservation> findFirstWaiting(Long bookId);
 

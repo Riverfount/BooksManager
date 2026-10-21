@@ -42,6 +42,8 @@ interface ReservationJpaRepository extends JpaRepository<ReservationJpaEntity, L
             """)
     List<Object[]> queuePositions(@Param("ids") Collection<Long> ids, @Param("active") ReservationStatus active);
 
+    Optional<ReservationJpaEntity> findByCopyIdAndStatus(Long copyId, ReservationStatus status);
+
     long countByReaderIdAndStatus(Long readerId, ReservationStatus status);
 
     List<ReservationJpaEntity> findByStatusAndCopyIdIsNotNullAndPickupDeadlineBeforeOrderByPickupDeadlineAscIdAsc(
