@@ -369,4 +369,91 @@ class CopyTest {
                 .hasMessageContaining("emprestado");
         assertThat(copy.isActive()).isTrue();
     }
+
+    // reservation cycle (RF16, RF18, RN03)
+
+    @Test
+    void anAvailableActiveCopyCanBeReserved() {
+        var copy = Copy.create(1L, "PAT-1");
+
+        copy.reserve();
+
+        assertThat(copy.getStatus()).isEqualTo(CopyStatus.RESERVED);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = CopyStatus.class, names = {"BORROWED", "RESERVED", "DAMAGED", "LOST"})
+    void aCopyThatIsNotAvailableCannotBeReserved(CopyStatus status) {
+        var copy = Copy.reconstitute(1L, 1L, "PAT-1", status, true, 0L);
+
+        assertThatThrownBy(copy::reserve).isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("disponível e ativo");
+        assertThat(copy.getStatus()).isEqualTo(status);
+    }
+
+    @Test
+    void anInactiveCopyCannotBeReserved() {
+        var copy = Copy.reconstitute(1L, 1L, "PAT-1", CopyStatus.AVAILABLE, false, 0L);
+
+        assertThatThrownBy(copy::reserve).isInstanceOf(BusinessRuleException.class);
+        assertThat(copy.getStatus()).isEqualTo(CopyStatus.AVAILABLE);
+    }
+
+    @Test
+    void aReservedCopyCanBeReleasedBackToAvailable() {
+        var copy = Copy.reconstitute(1L, 1L, "PAT-1", CopyStatus.RESERVED, true, 0L);
+
+        copy.releaseReservation();
+
+        assertThat(copy.getStatus()).isEqualTo(CopyStatus.AVAILABLE);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = CopyStatus.class, names = {"AVAILABLE", "BORROWED", "DAMAGED", "LOST"})
+    void onlyAReservedCopyCanBeReleased(CopyStatus status) {
+        var copy = Copy.reconstitute(1L, 1L, "PAT-1", status, true, 0L);
+
+        assertThatThrownBy(copy::releaseReservation).isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("reservado");
+        assertThat(copy.getStatus()).isEqualTo(status);
+    }
+
+    @Test
+    void aReservedCopyCanBePickedUpAndBecomesBorrowed() {
+        var copy = Copy.reconstitute(1L, 1L, "PAT-1", CopyStatus.RESERVED, true, 0L);
+
+        copy.checkOutReserved();
+
+        assertThat(copy.getStatus()).isEqualTo(CopyStatus.BORROWED);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = CopyStatus.class, names = {"AVAILABLE", "BORROWED", "DAMAGED", "LOST"})
+    void onlyAReservedCopyCanBePickedUp(CopyStatus status) {
+        var copy = Copy.reconstitute(1L, 1L, "PAT-1", status, true, 0L);
+
+        assertThatThrownBy(copy::checkOutReserved).isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("reservado");
+        assertThat(copy.getStatus()).isEqualTo(status);
+    }
+
+    @Test
+    void anInactiveReservedCopyCannotBePickedUpButCanBeReleased() {
+        var copy = Copy.reconstitute(1L, 1L, "PAT-1", CopyStatus.RESERVED, false, 0L);
+
+        assertThatThrownBy(copy::checkOutReserved).isInstanceOf(BusinessRuleException.class);
+        assertThat(copy.getStatus()).isEqualTo(CopyStatus.RESERVED);
+
+        copy.releaseReservation();
+
+        assertThat(copy.getStatus()).isEqualTo(CopyStatus.AVAILABLE);
+    }
+
+    @Test
+    void theManualStatusChangeStillRefusesReserved() {
+        var copy = Copy.create(1L, "PAT-1");
+
+        assertThatThrownBy(() -> copy.changeStatus(CopyStatus.RESERVED)).isInstanceOf(BusinessRuleException.class);
+        assertThat(copy.getStatus()).isEqualTo(CopyStatus.AVAILABLE);
+    }
 }

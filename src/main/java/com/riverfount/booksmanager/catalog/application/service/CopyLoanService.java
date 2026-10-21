@@ -1,11 +1,16 @@
 package com.riverfount.booksmanager.catalog.application.service;
 
 import com.riverfount.booksmanager.catalog.application.port.in.CheckInCopyUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.BookAvailability;
 import com.riverfount.booksmanager.catalog.application.port.in.CheckOutCopyUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.CheckOutReservedCopyUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.CopyAvailability;
 import com.riverfount.booksmanager.catalog.application.port.in.CopySummary;
+import com.riverfount.booksmanager.catalog.application.port.in.FindBookAvailabilityUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.FindCopyAvailabilityUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.FindCopySummariesUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.ReleaseCopyReservationUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.ReserveCopyUseCase;
 import com.riverfount.booksmanager.catalog.application.port.out.BookRepository;
 import com.riverfount.booksmanager.catalog.application.port.out.CopyRepository;
 import com.riverfount.booksmanager.catalog.domain.Copy;
@@ -22,15 +27,18 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * What the catalog offers the loan module (RN03, RNF17): to see whether a copy can be
  * borrowed, to mark it borrowed and to record its return: available again, or damaged or lost
- * (RF15). It is a class of its own, apart from {@link CopyService}, because it serves another
+ * (RF15). Also the cycle of a reservation (RF16, RF17, RF18): to keep a copy for a reader, to
+ * give it back to the shelf or to hand it over as a loan, and to tell whether a book has a copy
+ * to lend (RN12). It is a class of its own, apart from {@link CopyService}, because it serves another
  * module and the catalog never depends on the loan, so the dependency points one way only. Each call is a transaction;
  * the {@code @Version} of the copy makes two simultaneous changes not both pass, and the
  * loan use case, in the same transaction, undoes everything if the other half fails.
  */
 @Service
 @Transactional
-class CopyLoanService
-        implements FindCopyAvailabilityUseCase, CheckOutCopyUseCase, CheckInCopyUseCase, FindCopySummariesUseCase {
+class CopyLoanService implements FindCopyAvailabilityUseCase, CheckOutCopyUseCase, CheckInCopyUseCase,
+        FindCopySummariesUseCase, ReserveCopyUseCase, ReleaseCopyReservationUseCase, CheckOutReservedCopyUseCase,
+        FindBookAvailabilityUseCase {
 
     private final CopyRepository copyRepository;
     private final BookRepository bookRepository;
@@ -44,8 +52,17 @@ class CopyLoanService
     @Transactional(readOnly = true)
     public Optional<CopyAvailability> findAvailability(Long copyId) {
         return copyRepository.findById(copyId)
-                .map(copy -> new CopyAvailability(copy.getId(), copy.isActive()
-                        && copy.getStatus() == CopyStatus.AVAILABLE));
+                .map(copy -> new CopyAvailability(copy.getId(),
+                        copy.isActive() && copy.getStatus() == CopyStatus.AVAILABLE,
+                        copy.getStatus() == CopyStatus.RESERVED));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<BookAvailability> findBookAvailability(Long bookId) {
+        return bookRepository.findById(bookId)
+                .map(book -> new BookAvailability(bookId,
+                        copyRepository.countAvailableByBookIds(Set.of(bookId)).getOrDefault(bookId, 0L) > 0));
     }
 
     @Override
@@ -79,6 +96,27 @@ class CopyLoanService
         if (copy.getStatus() != before) {
             copyRepository.save(copy);
         }
+    }
+
+    @Override
+    public void reserve(Long copyId) {
+        var copy = load(copyId);
+        copy.reserve();
+        copyRepository.save(copy);
+    }
+
+    @Override
+    public void releaseReservation(Long copyId) {
+        var copy = load(copyId);
+        copy.releaseReservation();
+        copyRepository.save(copy);
+    }
+
+    @Override
+    public void checkOutReserved(Long copyId) {
+        var copy = load(copyId);
+        copy.checkOutReserved();
+        copyRepository.save(copy);
     }
 
     private Copy load(Long copyId) {
