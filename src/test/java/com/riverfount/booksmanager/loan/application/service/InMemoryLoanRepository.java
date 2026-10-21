@@ -11,6 +11,8 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * In-memory implementation of LoanRepository, used only in the application services'
@@ -50,6 +52,12 @@ class InMemoryLoanRepository implements LoanRepository {
     @Override
     public Optional<Loan> findById(Long id) {
         return Optional.ofNullable(loans.get(id)).map(loan -> copyWithId(loan, id));
+    }
+
+    @Override
+    public Set<Long> findActiveCopyIdsByReader(Long readerId) {
+        return loans.values().stream().filter(loan -> loan.isActive() && loan.getReaderId().equals(readerId))
+                .map(Loan::getCopyId).collect(Collectors.toSet());
     }
 
     @Override

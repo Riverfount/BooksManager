@@ -120,6 +120,7 @@ Todos aceitam os perfis `ADMIN` e `OPERATOR` (a configuração da biblioteca é 
 | Operação | Requisição | Resposta |
 |---|---|---|
 | Registrar empréstimo | `POST /api/v1/loans` com `copyId` e `readerId` | 201 com `Location`; 422 com todos os motivos da recusa |
+| Reservar livro | `POST /api/v1/reservations` com `bookId` e `readerId` | 201 com `Location` e `queuePosition` (lugar na fila); 404 se livro ou leitor não existe; 422 com todos os motivos da recusa (RN05, RN11, RN12) |
 | Devolver | `POST /api/v1/loans/{id}/return` | 200 com os dias de atraso e a multa e a suspensão geradas; corpo opcional `{"condition": "GOOD\|DAMAGED\|LOST"}` (RF15) |
 | Renovar | `POST /api/v1/loans/{id}/renew` | 200 com a nova data prevista; 422 se encerrado, em atraso ou no limite |
 | Consultar empréstimo | `GET /api/v1/loans/{id}` | 200, inclusive para empréstimo encerrado |
