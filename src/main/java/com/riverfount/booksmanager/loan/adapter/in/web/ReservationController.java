@@ -1,5 +1,7 @@
 package com.riverfount.booksmanager.loan.adapter.in.web;
 
+import com.riverfount.booksmanager.loan.application.port.in.CancelReservationCommand;
+import com.riverfount.booksmanager.loan.application.port.in.CancelReservationUseCase;
 import com.riverfount.booksmanager.loan.application.port.in.GetReservationUseCase;
 import com.riverfount.booksmanager.loan.application.port.in.ListReservationsQuery;
 import com.riverfount.booksmanager.loan.application.port.in.ListReservationsUseCase;
@@ -38,12 +40,14 @@ class ReservationController {
     private final ReserveBookUseCase reserveBookUseCase;
     private final GetReservationUseCase getReservationUseCase;
     private final ListReservationsUseCase listReservationsUseCase;
+    private final CancelReservationUseCase cancelReservationUseCase;
 
     ReservationController(ReserveBookUseCase reserveBookUseCase, GetReservationUseCase getReservationUseCase,
-            ListReservationsUseCase listReservationsUseCase) {
+            ListReservationsUseCase listReservationsUseCase, CancelReservationUseCase cancelReservationUseCase) {
         this.reserveBookUseCase = reserveBookUseCase;
         this.getReservationUseCase = getReservationUseCase;
         this.listReservationsUseCase = listReservationsUseCase;
+        this.cancelReservationUseCase = cancelReservationUseCase;
     }
 
     @PostMapping
@@ -137,5 +141,35 @@ class ReservationController {
         return getReservationUseCase.findById(id)
                 .map(ReservationDetailsResponse::from)
                 .orElseThrow(() -> new ResourceNotFoundException("reserva não encontrada: " + id));
+    }
+
+    @PostMapping("/{id}/cancel")
+    @Operation(summary = "Cancelar reserva",
+            description = "Cancela a reserva (RF17), sem corpo e sem justificativa; o leitor não acessa o sistema, "
+                    + "então o cancelamento é feito pelo operador ou pelo administrador, em nome dele. Vale para a "
+                    + "reserva que espera na fila e para a que guarda um exemplar. Se guardava um exemplar, ele "
+                    + "passa ao próximo da fila (a resposta traz a reserva atendida) ou volta a disponível, se "
+                    + "ninguém espera (RF18). Tudo ou nada: se qualquer passo falhar, nada é gravado.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200",
+                    description = "Reserva cancelada e, se havia, a reserva que recebeu o exemplar liberado"),
+            @ApiResponse(responseCode = "400", description = "Identificador inválido",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "404", description = "Reserva não encontrada",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "409",
+                    description = "Outra requisição alterou a mesma reserva ou o mesmo exemplar ao mesmo tempo; "
+                            + "tente novamente",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "422",
+                    description = "Reserva já encerrada: retirada, expirada ou cancelada",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    CancelReservationResponse cancel(@PathVariable Long id) {
+        return CancelReservationResponse.from(cancelReservationUseCase.cancel(new CancelReservationCommand(id)));
     }
 }

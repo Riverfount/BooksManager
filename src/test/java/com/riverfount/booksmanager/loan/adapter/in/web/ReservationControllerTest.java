@@ -17,6 +17,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.riverfount.booksmanager.WithAdmin;
 import com.riverfount.booksmanager.WithOperator;
 import com.riverfount.booksmanager.catalog.application.port.in.CopySummary;
+import com.riverfount.booksmanager.loan.application.port.in.CancelReservationCommand;
+import com.riverfount.booksmanager.loan.application.port.in.CancelReservationResult;
+import com.riverfount.booksmanager.loan.application.port.in.CancelReservationUseCase;
 import com.riverfount.booksmanager.loan.application.port.in.GetReservationUseCase;
 import com.riverfount.booksmanager.loan.application.port.in.ListReservationsQuery;
 import com.riverfount.booksmanager.loan.application.port.in.ListReservationsUseCase;
@@ -62,6 +65,9 @@ class ReservationControllerTest {
 
     @MockitoBean
     private ListReservationsUseCase listReservationsUseCase;
+
+    @MockitoBean
+    private CancelReservationUseCase cancelReservationUseCase;
 
     private static ReserveBookResult reserved() {
         var reservation = Reservation.reconstitute(42L, 30L, 20L, LocalDate.of(2026, 11, 10),
@@ -292,5 +298,82 @@ class ReservationControllerTest {
     @WithOperator
     void shouldReturn400ForAFieldTheListingCannotSortBy() throws Exception {
         mockMvc.perform(get(URL).param("sort", "readerName")).andExpect(status().isBadRequest());
+    }
+
+    // cancelling (RF17)
+
+    private ResultActions cancel(String id) throws Exception {
+        return mockMvc.perform(post(URL + "/" + id + "/cancel").with(csrf()));
+    }
+
+    private static Reservation cancelled() {
+        return Reservation.reconstitute(42L, 30L, 20L, LocalDate.of(2026, 11, 10), ReservationStatus.CANCELLED,
+                null, null);
+    }
+
+    @Test
+    @WithOperator
+    void shouldCancelAReservationWithNoBody() throws Exception {
+        given(cancelReservationUseCase.cancel(any())).willReturn(new CancelReservationResult(cancelled(), null));
+
+        cancel("42")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.reservation.id").value(42))
+                .andExpect(jsonPath("$.reservation.status").value("CANCELLED"))
+                .andExpect(jsonPath("$.reservation.queuePosition").doesNotExist())
+                .andExpect(jsonPath("$.served").doesNotExist());
+
+        var captor = ArgumentCaptor.forClass(CancelReservationCommand.class);
+        then(cancelReservationUseCase).should().cancel(captor.capture());
+        assertThat(captor.getValue()).isEqualTo(new CancelReservationCommand(42L));
+    }
+
+    @Test
+    @WithAdmin
+    void anAdministratorShouldAlsoCancelAndSeeTheReservationThatGotTheFreedCopy() throws Exception {
+        var served = Reservation.reconstitute(43L, 30L, 21L, LocalDate.of(2026, 11, 11), ReservationStatus.ACTIVE,
+                7L, LocalDate.of(2026, 11, 13));
+        given(cancelReservationUseCase.cancel(any())).willReturn(new CancelReservationResult(cancelled(), served));
+
+        cancel("42")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.served.id").value(43))
+                .andExpect(jsonPath("$.served.readerId").value(21))
+                .andExpect(jsonPath("$.served.copyId").value(7))
+                .andExpect(jsonPath("$.served.pickupDeadline").value("2026-11-13"));
+    }
+
+    @Test
+    @WithOperator
+    void cancellingAnUnknownReservationShouldAnswer404() throws Exception {
+        given(cancelReservationUseCase.cancel(any())).willThrow(new ResourceNotFoundException("reserva não encontrada: 42"));
+
+        cancel("42").andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+    }
+
+    @Test
+    @WithOperator
+    void cancellingAClosedReservationShouldAnswer422() throws Exception {
+        given(cancelReservationUseCase.cancel(any())).willThrow(new BusinessRuleException("a reserva já foi encerrada"));
+
+        cancel("42").andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.detail").value("a reserva já foi encerrada"));
+    }
+
+    @Test
+    @WithOperator
+    void aConcurrentChangeShouldAnswer409() throws Exception {
+        given(cancelReservationUseCase.cancel(any())).willThrow(new OptimisticLockingFailureException("stale"));
+
+        cancel("42").andExpect(status().isConflict());
+    }
+
+    @Test
+    @WithOperator
+    void anIdThatIsNotANumberShouldAnswer400() throws Exception {
+        cancel("abc").andExpect(status().isBadRequest());
+
+        then(cancelReservationUseCase).should(never()).cancel(any());
     }
 }
