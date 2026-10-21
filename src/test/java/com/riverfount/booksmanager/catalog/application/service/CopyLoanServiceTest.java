@@ -220,6 +220,17 @@ class CopyLoanServiceTest {
     }
 
     @Test
+    void shouldFindTheTitlesOfSeveralBooksAndSkipTheUnknownOnes() {
+        var domCasmurro = saveBook("9788533302273", "Dom Casmurro");
+        var quincas = saveBook("9788533302280", "Quincas Borba");
+
+        assertThat(service.findTitles(java.util.Set.of(domCasmurro, quincas, 999L)))
+                .containsOnly(java.util.Map.entry(domCasmurro, "Dom Casmurro"),
+                        java.util.Map.entry(quincas, "Quincas Borba"));
+        assertThat(service.findTitles(java.util.Set.of())).isEmpty();
+    }
+
+    @Test
     void shouldGiveNoSummariesForNoCopies() {
         assertThat(service.findSummaries(java.util.Set.of())).isEmpty();
     }

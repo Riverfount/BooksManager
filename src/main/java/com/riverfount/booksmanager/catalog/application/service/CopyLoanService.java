@@ -7,6 +7,7 @@ import com.riverfount.booksmanager.catalog.application.port.in.CheckOutReservedC
 import com.riverfount.booksmanager.catalog.application.port.in.CopyAvailability;
 import com.riverfount.booksmanager.catalog.application.port.in.CopySummary;
 import com.riverfount.booksmanager.catalog.application.port.in.FindBookAvailabilityUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.FindBookTitlesUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.FindCopyAvailabilityUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.FindCopySummariesUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ReleaseCopyReservationUseCase;
@@ -38,7 +39,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 class CopyLoanService implements FindCopyAvailabilityUseCase, CheckOutCopyUseCase, CheckInCopyUseCase,
         FindCopySummariesUseCase, ReserveCopyUseCase, ReleaseCopyReservationUseCase, CheckOutReservedCopyUseCase,
-        FindBookAvailabilityUseCase {
+        FindBookAvailabilityUseCase, FindBookTitlesUseCase {
 
     private final CopyRepository copyRepository;
     private final BookRepository bookRepository;
@@ -63,6 +64,12 @@ class CopyLoanService implements FindCopyAvailabilityUseCase, CheckOutCopyUseCas
         return bookRepository.findById(bookId)
                 .map(book -> new BookAvailability(bookId,
                         copyRepository.countAvailableByBookIds(Set.of(bookId)).getOrDefault(bookId, 0L) > 0));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<Long, String> findTitles(Set<Long> bookIds) {
+        return bookRepository.findTitlesByIds(bookIds);
     }
 
     @Override

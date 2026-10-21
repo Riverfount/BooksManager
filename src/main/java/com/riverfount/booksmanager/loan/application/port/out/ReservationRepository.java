@@ -5,7 +5,9 @@ import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.PageResult;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Outbound port for reservations (RF16, RF17, RF19), in the domain's language. The queue of a book is
@@ -35,6 +37,12 @@ public interface ReservationRepository {
      * waiting (it holds a copy, is closed or does not exist).
      */
     Optional<Long> queuePosition(Long reservationId);
+
+    /**
+     * The queue place of each given reservation, in one query; a reservation that is not waiting (it holds
+     * a copy, is closed or does not exist) is absent from the map.
+     */
+    Map<Long, Long> queuePositions(Set<Long> reservationIds);
 
     /** How many active reservations the reader has, waiting or holding a copy (RN12). */
     long countActiveByReader(Long readerId);
