@@ -10,8 +10,11 @@ import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.PageResult;
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
@@ -68,6 +71,18 @@ class ReservationPersistenceAdapter implements ReservationRepository {
                 .filter(entity -> entity.getStatus() == ReservationStatus.ACTIVE && entity.getCopyId() == null)
                 .map(entity -> jpaRepository.countByBookIdAndStatusAndCopyIdIsNullAndIdLessThanEqual(
                         entity.getBookId(), ReservationStatus.ACTIVE, entity.getId()));
+    }
+
+    @Override
+    public Map<Long, Long> queuePositions(Set<Long> reservationIds) {
+        var positions = new HashMap<Long, Long>();
+        if (reservationIds.isEmpty()) {
+            return positions;
+        }
+        for (var row : jpaRepository.queuePositions(reservationIds, ReservationStatus.ACTIVE)) {
+            positions.put((Long) row[0], (Long) row[1]);
+        }
+        return positions;
     }
 
     @Override

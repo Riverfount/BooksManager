@@ -272,6 +272,27 @@ class ReservationPersistenceAdapterTest {
         assertThat(adapter.queuePosition(-1L)).isEmpty();
     }
 
+    @Test
+    void shouldGiveTheQueuePositionsOfSeveralBooksInOneQuery() {
+        var otherBook = data.newBook();
+        var first = reserve(bookId, readerId);
+        var second = reserve(bookId, data.newReader());
+        var otherFirst = reserve(otherBook, data.newReader());
+        var holding = reserveAndHold(bookId, data.newReader(), data.newCopy(bookId), DAY, 3);
+        var cancelled = reserve(otherBook, data.newReader());
+        cancelled.cancel();
+        adapter.save(cancelled);
+        var otherSecond = reserve(otherBook, data.newReader());
+
+        var ids = java.util.Set.of(first.getId(), second.getId(), otherFirst.getId(), otherSecond.getId(),
+                holding.getId(), cancelled.getId(), -1L);
+
+        assertThat(adapter.queuePositions(ids)).containsOnly(
+                java.util.Map.entry(first.getId(), 1L), java.util.Map.entry(second.getId(), 2L),
+                java.util.Map.entry(otherFirst.getId(), 1L), java.util.Map.entry(otherSecond.getId(), 2L));
+        assertThat(adapter.queuePositions(java.util.Set.of())).isEmpty();
+    }
+
     // count of active reservations of a reader (RN12)
 
     @Test

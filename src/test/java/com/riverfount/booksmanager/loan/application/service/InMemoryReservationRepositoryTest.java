@@ -140,4 +140,15 @@ class InMemoryReservationRepositoryTest {
         assertThat(reservations.findAll(ReservationFilter.none(), PageQuery.of(0, 2, "pickupDeadline"))
                 .totalItems()).isEqualTo(3);
     }
+
+    @Test
+    void shouldGiveTheQueuePositionsOfSeveralReservationsAtOnce() {
+        var first = reserve(BOOK, 1L);
+        var second = reserve(BOOK, 2L);
+        var holding = reserveAndHold(BOOK, 3L, 11L, DAY);
+
+        assertThat(reservations.queuePositions(java.util.Set.of(first.getId(), second.getId(), holding.getId(), 99L)))
+                .containsOnly(java.util.Map.entry(first.getId(), 1L), java.util.Map.entry(second.getId(), 2L));
+        assertThat(reservations.queuePositions(java.util.Set.of())).isEmpty();
+    }
 }

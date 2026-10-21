@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * In-memory implementation of ReservationRepository, used only in the application services'
@@ -91,6 +92,13 @@ class InMemoryReservationRepository implements ReservationRepository {
             }
         }
         return Optional.empty();
+    }
+
+    @Override
+    public Map<Long, Long> queuePositions(Set<Long> reservationIds) {
+        var positions = new HashMap<Long, Long>();
+        reservationIds.forEach(id -> queuePosition(id).ifPresent(position -> positions.put(id, position)));
+        return positions;
     }
 
     @Override

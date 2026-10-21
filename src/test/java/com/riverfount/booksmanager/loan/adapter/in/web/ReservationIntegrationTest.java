@@ -2,6 +2,7 @@ package com.riverfount.booksmanager.loan.adapter.in.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -238,5 +239,73 @@ class ReservationIntegrationTest {
         mockMvc.perform(post(URL).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"bookId\":" + bookId + ",\"readerId\":" + readerId + "}"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    // queries (RF16)
+
+    private long idOf(ResultActions created) throws Exception {
+        var location = created.andReturn().getResponse().getHeader("Location");
+        return Long.parseLong(location.substring(location.lastIndexOf('/') + 1));
+    }
+
+    @Test
+    void shouldFindAReservationByIdWithItsPlaceInTheQueueAndTheNames() throws Exception {
+        reserve("OPERATOR", bookId, readerId);
+        var second = idOf(reserve("OPERATOR", bookId, otherReaderId));
+
+        mockMvc.perform(get(URL + "/" + second).header("Authorization", token("OPERATOR")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(second))
+                .andExpect(jsonPath("$.bookTitle").value("T"))
+                .andExpect(jsonPath("$.readerName").value("Reader"))
+                .andExpect(jsonPath("$.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.queuePosition").value(2));
+    }
+
+    @Test
+    void shouldListTheQueueOfABookInTheOrderOfArrival() throws Exception {
+        var first = idOf(reserve("OPERATOR", bookId, readerId));
+        var second = idOf(reserve("ADMIN", bookId, otherReaderId));
+
+        mockMvc.perform(get(URL).param("bookId", String.valueOf(bookId)).param("status", "ACTIVE")
+                        .param("sort", "id,asc").header("Authorization", token("OPERATOR")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalItems").value(2))
+                .andExpect(jsonPath("$.items[0].id").value(first))
+                .andExpect(jsonPath("$.items[0].queuePosition").value(1))
+                .andExpect(jsonPath("$.items[1].id").value(second))
+                .andExpect(jsonPath("$.items[1].queuePosition").value(2));
+    }
+
+    @Test
+    void aClosedReservationShouldStillBeFoundAndHaveNoPlaceInTheQueue() throws Exception {
+        var id = idOf(reserve("OPERATOR", bookId, readerId));
+        jdbcTemplate.update("update reservation set status = 'CANCELLED' where id = ?", id);
+
+        mockMvc.perform(get(URL + "/" + id).header("Authorization", token("OPERATOR")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELLED"))
+                .andExpect(jsonPath("$.queuePosition").doesNotExist());
+        mockMvc.perform(get(URL).param("readerId", String.valueOf(readerId)).param("status", "ACTIVE")
+                        .header("Authorization", token("OPERATOR")))
+                .andExpect(jsonPath("$.totalItems").value(0));
+    }
+
+    @Test
+    void aSizeAbove100ShouldAnswer400() throws Exception {
+        mockMvc.perform(get(URL).param("size", "101").header("Authorization", token("OPERATOR")))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void anUnknownReservationShouldAnswer404() throws Exception {
+        mockMvc.perform(get(URL + "/-1").header("Authorization", token("OPERATOR")))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void queriesWithoutATokenShouldAnswer401() throws Exception {
+        mockMvc.perform(get(URL)).andExpect(status().isUnauthorized());
+        mockMvc.perform(get(URL + "/1")).andExpect(status().isUnauthorized());
     }
 }
