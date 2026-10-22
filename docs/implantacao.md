@@ -49,6 +49,8 @@ Os arquivos: `compose.prod.yaml` (a pilha), `deploy/nginx/nginx.conf.template` (
 
    `POSTGRES_DB`, `POSTGRES_USER` e `IMAGE_TAG` têm valores que servem como estão.
 
+   **E-mail (opcional, RF28):** por padrão nada é enviado. Para ligar os avisos, preencha `APP_MAIL_ENABLED=true`, `APP_MAIL_HOST` (o SMTP do seu provedor) e `APP_MAIL_FROM` (o remetente); `APP_MAIL_PORT` (587), `APP_MAIL_STARTTLS` (`true`), `APP_MAIL_USERNAME` e `APP_MAIL_PASSWORD` (só se o servidor pedir). A porta 465 (TLS direto) não é suportada: use 587 com STARTTLS. Um servidor de e-mail fora do ar não derruba nada: o envio é feito depois do commit, com tempos curtos, e a falha só vai para o log (RNF19). O health check não olha o e-mail.
+
 3. **Providencie o certificado** (seção 4). O Nginx **não sobe** sem ele.
 
 4. **Suba a pilha** (a primeira vez constrói a imagem, o que leva alguns minutos):
