@@ -13,8 +13,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.riverfount.booksmanager.WithAdmin;
 import com.riverfount.booksmanager.WithOperator;
 import com.riverfount.booksmanager.catalog.application.port.in.CopySummary;
+import com.riverfount.booksmanager.loan.application.port.in.ListMostBorrowedBooksQuery;
+import com.riverfount.booksmanager.loan.application.port.in.ListMostBorrowedBooksUseCase;
 import com.riverfount.booksmanager.loan.application.port.in.ListOverdueLoansQuery;
 import com.riverfount.booksmanager.loan.application.port.in.ListOverdueLoansUseCase;
+import com.riverfount.booksmanager.loan.application.port.in.MostBorrowedBook;
 import com.riverfount.booksmanager.loan.application.port.in.OverdueLoan;
 import com.riverfount.booksmanager.loan.domain.Loan;
 import com.riverfount.booksmanager.security.configuration.MethodSecurityConfiguration;
@@ -42,6 +45,9 @@ class ReportControllerTest {
 
     @MockitoBean
     private ListOverdueLoansUseCase listOverdueLoansUseCase;
+
+    @MockitoBean
+    private ListMostBorrowedBooksUseCase listMostBorrowedBooksUseCase;
 
     private static OverdueLoan late(long id, long daysLate) {
         var loan = Loan.reconstitute(id, 7L, 20L, LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 15), null, 0);
@@ -151,5 +157,80 @@ class ReportControllerTest {
         mockMvc.perform(get(URL)).andExpect(status().isUnauthorized());
 
         then(listOverdueLoansUseCase).should(never()).list(any());
+    }
+
+    // most borrowed books (RF24)
+
+    private static final String BOOKS_URL = "/api/v1/reports/most-borrowed-books";
+
+    @Test
+    @WithOperator
+    void shouldListTheMostBorrowedBooksWithTheirTotals() throws Exception {
+        given(listMostBorrowedBooksUseCase.list(any())).willReturn(new PageResult<>(
+                List.of(new MostBorrowedBook(3L, "Dom Casmurro", 12L), new MostBorrowedBook(4L, "Iracema", 7L)),
+                0, 20, 2));
+
+        mockMvc.perform(get(BOOKS_URL).param("from", "2026-01-01").param("to", "2026-12-31"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(2))
+                .andExpect(jsonPath("$.items[0].bookId").value(3))
+                .andExpect(jsonPath("$.items[0].title").value("Dom Casmurro"))
+                .andExpect(jsonPath("$.items[0].totalLoans").value(12))
+                .andExpect(jsonPath("$.items[1].totalLoans").value(7))
+                .andExpect(jsonPath("$.totalItems").value(2));
+    }
+
+    @Test
+    @WithAdmin
+    void anAdministratorShouldAlsoReadItAndTheDatesAndThePageShouldReachTheUseCase() throws Exception {
+        given(listMostBorrowedBooksUseCase.list(any())).willReturn(new PageResult<>(List.of(), 2, 5, 0));
+
+        mockMvc.perform(get(BOOKS_URL).param("from", "2026-01-01").param("to", "2026-03-31")
+                        .param("page", "2").param("size", "5").param("sort", "title,asc"))
+                .andExpect(status().isOk());
+
+        var captor = ArgumentCaptor.forClass(ListMostBorrowedBooksQuery.class);
+        then(listMostBorrowedBooksUseCase).should().list(captor.capture());
+        var query = captor.getValue();
+        assertThat(query.from()).isEqualTo(LocalDate.of(2026, 1, 1));
+        assertThat(query.to()).isEqualTo(LocalDate.of(2026, 3, 31));
+        assertThat(query.page().page()).isEqualTo(2);
+        assertThat(query.page().size()).isEqualTo(5);
+        assertThat(query.page().sortBy()).as("the order is fixed: a sort from the client is ignored")
+                .isEqualTo("totalLoans");
+    }
+
+    @Test
+    @WithOperator
+    void aMissingOrInvertedOrTooLongPeriodShouldAnswer400() throws Exception {
+        mockMvc.perform(get(BOOKS_URL)).andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+        mockMvc.perform(get(BOOKS_URL).param("from", "2026-01-01")).andExpect(status().isBadRequest());
+        mockMvc.perform(get(BOOKS_URL).param("to", "2026-01-01")).andExpect(status().isBadRequest());
+        mockMvc.perform(get(BOOKS_URL).param("from", "2026-02-01").param("to", "2026-01-01"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get(BOOKS_URL).param("from", "2026-01-01").param("to", "2027-06-01"))
+                .andExpect(status().isBadRequest());
+
+        then(listMostBorrowedBooksUseCase).should(never()).list(any());
+    }
+
+    @Test
+    @WithOperator
+    void aMalformedDateShouldAnswer400() throws Exception {
+        mockMvc.perform(get(BOOKS_URL).param("from", "01/01/2026").param("to", "2026-12-31"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get(BOOKS_URL).param("from", "2026-02-30").param("to", "2026-12-31"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithOperator
+    void theMostBorrowedBooksPageSizeAbove100ShouldAnswer400() throws Exception {
+        mockMvc.perform(get(BOOKS_URL).param("from", "2026-01-01").param("to", "2026-12-31").param("size", "101"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+
+        then(listMostBorrowedBooksUseCase).should(never()).list(any());
     }
 }

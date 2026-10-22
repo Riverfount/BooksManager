@@ -1,5 +1,6 @@
 package com.riverfount.booksmanager.loan.adapter.out.persistence;
 
+import com.riverfount.booksmanager.loan.application.port.out.CopyLoanCount;
 import com.riverfount.booksmanager.loan.application.port.out.LoanFilter;
 import com.riverfount.booksmanager.loan.application.port.out.LoanRepository;
 import com.riverfount.booksmanager.loan.domain.Loan;
@@ -8,6 +9,8 @@ import com.riverfount.booksmanager.shared.adapter.out.persistence.SpringDataPage
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.PageResult;
+import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -49,6 +52,12 @@ class LoanPersistenceAdapter implements LoanRepository {
         var result = jpaRepository.search(filter.readerId(), filter.copyId(), filter.active(),
                 filter.overdueOn(), SpringDataPages.toPageable(page));
         return SpringDataPages.toPageResult(result, this::toDomain);
+    }
+
+    @Override
+    public List<CopyLoanCount> countLoansByCopy(LocalDate from, LocalDate to) {
+        return jpaRepository.countByCopyBetween(from, to).stream()
+                .map(row -> new CopyLoanCount((Long) row[0], (Long) row[1])).toList();
     }
 
     @Override

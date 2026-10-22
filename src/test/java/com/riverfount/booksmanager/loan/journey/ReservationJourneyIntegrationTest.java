@@ -407,7 +407,7 @@ class ReservationJourneyIntegrationTest {
     }
 
     @Test
-    void theExpirationAndAPickUpAfterTheDeadlineAtTheSameTimeShouldNeverBothWin() throws Exception {
+    void theExpirationAndAPickUpAfterTheDeadlineAtTheSameTimeShouldNeverFulfillTheReservation() throws Exception {
         for (var round = 0; round < RACE_ROUNDS; round++) {
             var book = newBook();
             var copy = newCopy(book);
@@ -420,12 +420,40 @@ class ReservationJourneyIntegrationTest {
             var results = together(List.<Callable<Integer>>of(
                     () -> statusOf(lend(copy, owner)), () -> expireReservations.expireOverdue()));
 
-            assertThat(results.get(0)).as("round %d: the date refuses the owner after the deadline", round).isEqualTo(422);
-            assertThat(results.get(1)).isEqualTo(1);
+            // the reservation is expired and never fulfilled: the date refuses the pick-up of the kept copy
+            assertThat(results.get(1)).as("round %d: the routine expires the reservation once", round).isEqualTo(1);
             assertThat(reservation(reservationId).get("status")).isEqualTo("EXPIRED");
-            assertThat(copyStatus(copy)).isEqualTo("AVAILABLE");
+            // who gets there first decides the rest, and both outcomes are coherent
+            if (results.get(0) == 422) {
+                // the pick-up still saw the copy kept for the reservation, past its deadline: refused
+                assertThat(copyStatus(copy)).as("round %d", round).isEqualTo("AVAILABLE");
+            } else {
+                // the routine freed the copy first: it is a copy on the shelf and the former owner borrows it
+                // like any reader, as an ordinary loan
+                assertThat(results.get(0)).as("round %d", round).isEqualTo(201);
+                assertThat(copyStatus(copy)).isEqualTo("BORROWED");
+            }
             assertNothingIsIncoherent();
         }
+    }
+
+    @Test
+    void afterTheExpirationTheFormerOwnerShouldBorrowTheFreedCopyLikeAnyReader() throws Exception {
+        var book = newBook();
+        var copy = newCopy(book);
+        var owner = newReader();
+        var loan = idOf(lend(copy, newReader()).andExpect(status().isCreated()));
+        var reservationId = idOf(reserve(book, owner).andExpect(status().isCreated()));
+        giveBack(loan).andExpect(status().isOk());
+        letTheDeadlineEnd(reservationId);
+
+        assertThat(expireReservations.expireOverdue()).isEqualTo(1);
+        assertThat(copyStatus(copy)).isEqualTo("AVAILABLE");
+        lend(copy, owner).andExpect(status().isCreated());
+
+        assertThat(reservation(reservationId).get("status")).isEqualTo("EXPIRED");
+        assertThat(copyStatus(copy)).isEqualTo("BORROWED");
+        assertNothingIsIncoherent();
     }
 
     @Test
