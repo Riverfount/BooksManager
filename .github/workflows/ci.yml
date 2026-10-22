@@ -35,6 +35,12 @@ jobs:
       - name: Build and test
         run: ./mvnw --batch-mode --no-transfer-progress verify
 
+      # RNF26: the container image must build. It is only built here, never published, and a build that
+      # breaks fails the job (and so the `verify` check that the main branch requires). The tests already ran
+      # above, so the image build skips them.
+      - name: Build the Docker image
+        run: docker build --tag booksmanager:ci .
+
       # Shows the numbers on the run page, also when the coverage check fails.
       - name: Coverage summary
         if: always()

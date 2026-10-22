@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help run test verify up down clean
+.PHONY: help run test verify image up down clean
 
 help: ## Lista os alvos disponíveis
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-10s\033[0m %s\n", $$1, $$2}'
@@ -13,6 +13,9 @@ test: ## Roda todos os testes
 
 verify: ## Build completo com verificações (testes + ArchUnit)
 	./mvnw verify
+
+image: ## Constrói a imagem de contêiner da API (booksmanager)
+	docker build --tag booksmanager .
 
 up: ## Sobe o PostgreSQL via Docker Compose
 	docker compose up -d
