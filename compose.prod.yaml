@@ -45,6 +45,13 @@ services:
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-}
       APP_ADMIN_LOGIN: ${APP_ADMIN_LOGIN:-}
       APP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD:-}
+      APP_MAIL_ENABLED: ${APP_MAIL_ENABLED:-false}
+      APP_MAIL_HOST: ${APP_MAIL_HOST:-}
+      APP_MAIL_PORT: ${APP_MAIL_PORT:-587}
+      APP_MAIL_USERNAME: ${APP_MAIL_USERNAME:-}
+      APP_MAIL_PASSWORD: ${APP_MAIL_PASSWORD:-}
+      APP_MAIL_FROM: ${APP_MAIL_FROM:-}
+      APP_MAIL_STARTTLS: ${APP_MAIL_STARTTLS:-true}
     # No "ports": the API is reached only by the Nginx, over the private network.
     networks:
       - backend
