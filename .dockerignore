@@ -1,0 +1,28 @@
+# What the image build does not need: it keeps the context small and keeps secrets and local files out of it.
+
+# Version control, CI and editors
+.git
+.github
+.gitignore
+.gitattributes
+.idea
+.vscode
+*.iml
+
+# Local build output (the image builds the jar itself)
+target
+*.jar
+HELP.md
+
+# Secrets and local configuration: the configuration reaches the container only as environment variables
+.env
+.env-sample
+.env.*
+
+# Docs, local tooling and the Compose files of development
+docs
+.claude
+compose.yaml
+Makefile
+Dockerfile
+.dockerignore

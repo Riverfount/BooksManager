@@ -77,9 +77,38 @@ Os comandos mais usados do dia a dia também estão disponíveis como alvos do `
 | `make run` | `./mvnw spring-boot:run` |
 | `make test` | `./mvnw test` |
 | `make verify` | `./mvnw verify` |
+| `make image` | `docker build --tag booksmanager .` |
 | `make up` | `docker compose up -d` |
 | `make down` | `docker compose down` |
 | `make clean` | `./mvnw clean` |
+
+### Executar em contêiner
+A API também vira uma imagem de contêiner (`Dockerfile`, em duas etapas: a construção usa o Temurin 25 JDK e a imagem final só a JRE 25 e o jar). A imagem **não tem segredos**: toda a configuração entra por variáveis de ambiente, e o contêiner roda como o usuário `app` (uid 10001), sem privilégios de administrador. Ela precisa de um PostgreSQL à parte.
+
+```
+make image                # ou: docker build --tag booksmanager .
+
+docker network create biblioteca
+docker run -d --name biblioteca-db --network biblioteca \
+  -e POSTGRES_DB=biblioteca -e POSTGRES_USER=biblioteca -e POSTGRES_PASSWORD=<senha-do-banco> postgres:17
+
+docker run -d --name biblioteca-api --network biblioteca -p 8080:8080 \
+  -e SPRING_DATASOURCE_URL=jdbc:postgresql://biblioteca-db:5432/biblioteca \
+  -e SPRING_DATASOURCE_USERNAME=biblioteca -e SPRING_DATASOURCE_PASSWORD=<senha-do-banco> \
+  -e APP_JWT_SECRET=<segredo com ao menos 32 bytes> \
+  -e APP_CORS_ALLOWED_ORIGINS=http://localhost:5173 \
+  -e APP_ADMIN_LOGIN=admin -e APP_ADMIN_PASSWORD=<senha-do-administrador> \
+  booksmanager
+```
+
+| Variável | Para quê |
+|---|---|
+| `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` e `SPRING_DATASOURCE_PASSWORD` | **Obrigatórias.** Onde está o PostgreSQL. As migrações do Flyway rodam sozinhas na subida. |
+| `APP_JWT_SECRET` | **Obrigatória.** Veja "Configuração e segredos". |
+| `APP_CORS_ALLOWED_ORIGINS`, `APP_ADMIN_LOGIN` e `APP_ADMIN_PASSWORD` | Como na seção "Configuração e segredos". |
+| `JAVA_OPTS` | Opcional. Opções da JVM; o padrão é `-XX:MaxRAMPercentage=75` (a JVM usa até 75% da memória do contêiner). |
+
+O Spring Boot Docker Compose (que sobe o PostgreSQL no desenvolvimento) já vem desligado na imagem (`SPRING_DOCKER_COMPOSE_ENABLED=false`). A imagem tem um `HEALTHCHECK` no `/actuator/health`: o contêiner fica `healthy` quando a aplicação e o banco respondem (`docker ps` mostra o estado) e `unhealthy` se o banco cair. O CI constrói a imagem a cada push e pull request, sem publicá-la. A publicação, o perfil de produção e o `compose` de produção com Nginx vêm nas próximas issues da Fase 4.
 
 ### Configuração e segredos
 As variáveis de ambiente da aplicação estão no **.env-sample**. Copie-o para **.env** (que o Git ignora) e preencha: ao rodar localmente, a aplicação lê o **.env** da raiz do projeto sozinha (perfil `local`, o padrão), e uma variável exportada no ambiente tem prioridade sobre o arquivo. Os testes não leem o **.env**. Em produção, defina `SPRING_PROFILES_ACTIVE` com outro perfil (por exemplo, `prod`) e passe as variáveis pelo ambiente.
@@ -167,7 +196,7 @@ Sem nenhum usuário, ninguém consegue entrar para criar os outros. Por isso, na
 A rota pública **http://localhost:8080/actuator/health** informa se a aplicação e o banco estão no ar (200 com `UP`, ou 503 com `DOWN` se a conexão com o banco falhar). É o único endpoint do Actuator exposto.
 
 ### Integração contínua
-O workflow `.github/workflows/ci.yml` roda `./mvnw verify` (testes, Testcontainers e ArchUnit) com JDK 25 a cada push na `main` e a cada pull request. Se o build falhar, os relatórios de teste ficam disponíveis como artefato da execução por 7 dias. Nenhum segredo é necessário.
+O workflow `.github/workflows/ci.yml` roda `./mvnw verify` (testes, Testcontainers e ArchUnit) com JDK 25 e em seguida constrói a imagem de contêiner (sem publicá-la; uma imagem que não constrói reprova o check) a cada push na `main` e a cada pull request. Se o build falhar, os relatórios de teste ficam disponíveis como artefato da execução por 7 dias. Nenhum segredo é necessário.
 
 ### Banco de dados
 O PostgreSQL é executado em um container Docker, definido no arquivo **compose.yaml** na raiz do projeto. As tabelas são criadas e atualizadas por scripts do Flyway, na pasta **src/main/resources/db/migration**; as migrações atuais são: a **V1__create_catalog.sql**, que cria as tabelas do catálogo (`category`, `author`, `book`, `book_author`, `copy`), a **V2__create_reader.sql**, que cria a tabela de leitores (`reader`), a **V3__create_app_user.sql**, que cria a tabela dos usuários do sistema (`app_user`), a **V4__create_refresh_token.sql**, que cria a tabela dos refresh tokens (`refresh_token`), a **V5__add_login_lockout_to_app_user.sql**, que acrescenta o bloqueio temporário de login a `app_user`, a **V6__create_library_configuration.sql**, que cria a configuração da biblioteca (`library_configuration`), a **V7__create_loan.sql**, que cria as tabelas de empréstimos, multas e suspensões (`loan`, `fine`, `suspension`), a **V8__add_display_name_to_app_user.sql**, que acrescenta o nome de exibição a `app_user`, a **V9__add_return_condition_to_loan.sql**, que acrescenta a condição do exemplar na devolução a `loan`, e a **V10__create_reservation.sql**, que cria a tabela das reservas (`reservation`).
