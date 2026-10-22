@@ -4,6 +4,7 @@ import com.riverfount.booksmanager.catalog.domain.Copy;
 import com.riverfount.booksmanager.catalog.domain.CopyStatus;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.PageResult;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -43,4 +44,10 @@ public interface CopyRepository {
      * active copy is absent from the map.
      */
     Map<Long, Long> countActiveByBookIds(Set<Long> bookIds);
+
+    /**
+     * Counts all the copies grouped by status and by active flag (RF25, RN14), in one aggregated query. A
+     * combination with no copy is absent, and the order is not defined.
+     */
+    List<CopyStatusCount> countByStatus();
 }
