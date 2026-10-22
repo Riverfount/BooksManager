@@ -151,6 +151,10 @@
 - Critério de aceite: outro leitor que tente retirar o exemplar reservado é recusado com a mensagem "exemplar reservado para outro leitor" (RN03).
 - Critério de aceite: a renovação de um empréstimo só é recusada pela reserva quando há alguém esperando na fila do livro; a reserva que já segura um exemplar não bloqueia (RN07).
 
+**HU38 —** Como operador, quero consultar as reservas e a fila de espera de um livro, para informar ao leitor em que lugar ele está e até quando pode retirar o exemplar.
+- Critério de aceite: posso consultar uma reserva (também a já encerrada) e listar as reservas por leitor, por livro e por situação, de forma paginada (RF16, RNF14).
+- Critério de aceite: cada reserva mostra a situação, o lugar na fila (quando espera, pela ordem de chegada) e o exemplar e o prazo de retirada (quando segura um) (RF16, RN13).
+
 **HU35 —** Como operador, quero que a reserva não retirada no prazo expire sozinha e passe a vez ao próximo, para que o exemplar não fique parado.
 - Critério de aceite: uma rotina agendada, às 03:00 no fuso `America/Sao_Paulo` e também na subida da aplicação, expira as reservas cujo prazo de retirada terminou (RF19, RN13).
 - Critério de aceite: ao expirar, o exemplar passa ao próximo da fila ou volta a disponível; rodar a rotina de novo não muda nada (RF19).
@@ -165,11 +169,11 @@
 - Critério de aceite: a mudança vale só para atrasos futuros; devoluções já registradas não são recalculadas (RN16).
 
 **HU36 —** Como administrador ou operador, quero ver os livros mais emprestados em um período, para decidir o que comprar e o que destacar no acervo.
-- Critério de aceite: o relatório recebe o período e lista os livros ordenados do mais para o menos emprestado, com a quantidade de empréstimos (RF24).
+- Critério de aceite: o relatório recebe o período (obrigatório, com as duas datas incluídas e no máximo 366 dias) e lista os livros ordenados do mais para o menos emprestado, com a quantidade de empréstimos; a renovação não conta como novo empréstimo (RF24).
 - Critério de aceite: a listagem é paginada, com no máximo 100 itens por página (RNF14).
 
 **HU37 —** Como administrador ou operador, quero ver a situação do acervo, para saber quantos exemplares há e em que estado estão.
-- Critério de aceite: o relatório mostra o total de exemplares e quantos estão disponíveis, emprestados e danificados (RF25).
+- Critério de aceite: o relatório mostra o total de exemplares ativos e quantos há em cada status (disponível, emprestado, reservado, danificado e extraviado; um status sem exemplares aparece com zero), e os exemplares inativos à parte (RF25, RN14).
 
 ## Referências
 
