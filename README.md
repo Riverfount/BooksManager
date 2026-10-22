@@ -136,6 +136,7 @@ Todos aceitam os perfis `ADMIN` e `OPERATOR` (a configuração da biblioteca é 
 | Encerrar suspensão | `POST /api/v1/suspensions/{id}/end` com `{"reason": "..."}` | 200; 400 sem justificativa; sem efeito se já terminou |
 | Relatório de atrasos | `GET /api/v1/reports/overdue-loans` | 200, do maior para o menor atraso |
 | Livros mais emprestados | `GET /api/v1/reports/most-borrowed-books?from=&to=` | 200 paginada, do mais para o menos emprestado, com o livro (id e título) e o total; período obrigatório (AAAA-MM-DD, extremos incluídos, até 366 dias), senão 400 (RF24) |
+| Situação do acervo | `GET /api/v1/reports/collection-status` | 200 com `totalCopies` (exemplares ativos), `activeByStatus` (`AVAILABLE`, `BORROWED`, `RESERVED`, `DAMAGED` e `LOST`, sempre os cinco, com zero quando vazio) e `inactiveCopies` à parte; a soma por status bate com o total (RF25) |
 | Resumo do painel | `GET /api/v1/reports/dashboard` | 200 com `totalCopies`, `activeLoans`, `overdueLoans`, `suspendedReaders` (leitores, não suspensões) e `copiesByCategory` |
 | Configuração da biblioteca | `GET` e `PATCH /api/v1/library-configuration` | 200 (só `ADMIN`) |
 | Prazo e limites de empréstimo | `GET /api/v1/library-configuration/rules` | 200 com `loanPeriodDays`, `loanLimit`, `renewalLimit` e `reservationPickupDays`; `ADMIN` e `OPERATOR`, só leitura |

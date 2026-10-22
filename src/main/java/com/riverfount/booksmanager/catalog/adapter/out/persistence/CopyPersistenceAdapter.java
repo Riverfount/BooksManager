@@ -1,6 +1,7 @@
 package com.riverfount.booksmanager.catalog.adapter.out.persistence;
 
 import com.riverfount.booksmanager.catalog.application.port.out.CopyRepository;
+import com.riverfount.booksmanager.catalog.application.port.out.CopyStatusCount;
 import com.riverfount.booksmanager.catalog.domain.Copy;
 import com.riverfount.booksmanager.catalog.domain.CopyStatus;
 import com.riverfount.booksmanager.shared.adapter.out.persistence.ConstraintViolations;
@@ -9,6 +10,7 @@ import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.PageResult;
 import java.util.Locale;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -95,5 +97,11 @@ class CopyPersistenceAdapter implements CopyRepository {
     private Copy toDomain(CopyJpaEntity entity) {
         return Copy.reconstitute(entity.getId(), entity.getBookId(), entity.getAssetCode(),
                 entity.getStatus(), entity.isActive(), entity.getVersion());
+    }
+
+    @Override
+    public List<CopyStatusCount> countByStatus() {
+        return jpaRepository.countByStatus().stream()
+                .map(row -> new CopyStatusCount(row.getStatus(), row.getActive(), row.getTotal())).toList();
     }
 }

@@ -47,4 +47,20 @@ interface CopyJpaRepository extends JpaRepository<CopyJpaEntity, Long> {
 
         Long getTotal();
     }
+
+    /** One row of {@link #countByStatus()}: the copies with a status, active or not. */
+    interface StatusCount {
+        com.riverfount.booksmanager.catalog.domain.CopyStatus getStatus();
+
+        Boolean getActive();
+
+        Long getTotal();
+    }
+
+    /** All the copies per status and active flag, in one grouped query (RF25). */
+    @Query("""
+            select c.status as status, c.active as active, count(c) as total from CopyJpaEntity c
+            group by c.status, c.active
+            """)
+    List<StatusCount> countByStatus();
 }

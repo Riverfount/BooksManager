@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.riverfount.booksmanager.PersistenceTest;
+import com.riverfount.booksmanager.catalog.application.port.out.CopyStatusCount;
 import com.riverfount.booksmanager.catalog.domain.Copy;
 import com.riverfount.booksmanager.catalog.domain.CopyStatus;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
@@ -345,5 +346,39 @@ class CopyPersistenceAdapterTest {
     @Test
     void shouldFindNoCopiesForNoIds() {
         assertThat(adapter.findAllByIds(java.util.Set.of())).isEmpty();
+    }
+
+    // the collection status (RF25, RN14)
+
+    private void insertCopy(String assetCode, String status, boolean active) {
+        jdbcTemplate.update("insert into copy (book_id, asset_code, status, active) values (?, ?, ?, ?)", bookId,
+                assetCode, status, active);
+    }
+
+    @Test
+    void shouldCountAllTheCopiesPerStatusAndActiveFlagInOneQuery() {
+        insertCopy("CS-1", "AVAILABLE", true);
+        insertCopy("CS-2", "AVAILABLE", true);
+        insertCopy("CS-3", "AVAILABLE", false);
+        insertCopy("CS-4", "BORROWED", true);
+        insertCopy("CS-5", "LOST", false);
+        insertCopy("CS-6", "RESERVED", true);
+
+        var counts = adapter.countByStatus();
+
+        assertThat(counts).extracting(CopyStatusCount::status, CopyStatusCount::active, CopyStatusCount::total)
+                .containsExactlyInAnyOrder(
+                        org.assertj.core.groups.Tuple.tuple(CopyStatus.AVAILABLE, true, 2L),
+                        org.assertj.core.groups.Tuple.tuple(CopyStatus.AVAILABLE, false, 1L),
+                        org.assertj.core.groups.Tuple.tuple(CopyStatus.BORROWED, true, 1L),
+                        org.assertj.core.groups.Tuple.tuple(CopyStatus.LOST, false, 1L),
+                        org.assertj.core.groups.Tuple.tuple(CopyStatus.RESERVED, true, 1L));
+    }
+
+    @Test
+    void aCombinationWithNoCopyShouldBeAbsent() {
+        insertCopy("CS-1", "DAMAGED", true);
+
+        assertThat(adapter.countByStatus()).extracting(CopyStatusCount::status).containsOnly(CopyStatus.DAMAGED);
     }
 }

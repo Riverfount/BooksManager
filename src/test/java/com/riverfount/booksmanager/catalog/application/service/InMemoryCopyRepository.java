@@ -1,12 +1,14 @@
 package com.riverfount.booksmanager.catalog.application.service;
 
 import com.riverfount.booksmanager.catalog.application.port.out.CopyRepository;
+import com.riverfount.booksmanager.catalog.application.port.out.CopyStatusCount;
 import com.riverfount.booksmanager.catalog.domain.Copy;
 import com.riverfount.booksmanager.catalog.domain.CopyStatus;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.PageResult;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -79,5 +81,16 @@ class InMemoryCopyRepository implements CopyRepository {
                 .filter(copy -> bookIds.contains(copy.getBookId()))
                 .filter(Copy::isActive)
                 .collect(Collectors.groupingBy(Copy::getBookId, Collectors.counting()));
+    }
+
+    @Override
+    public List<CopyStatusCount> countByStatus() {
+        return copies.values().stream()
+                .collect(Collectors.groupingBy(copy -> List.of(copy.getStatus(), copy.isActive()),
+                        Collectors.counting()))
+                .entrySet().stream()
+                .map(entry -> new CopyStatusCount((CopyStatus) entry.getKey().get(0),
+                        (Boolean) entry.getKey().get(1), entry.getValue()))
+                .toList();
     }
 }
