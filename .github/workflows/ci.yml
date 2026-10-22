@@ -41,6 +41,11 @@ jobs:
       - name: Build the Docker image
         run: docker build --tag booksmanager:ci .
 
+      # RNF26: the production Compose file must stay valid. Only parsed here, never started; the two variables
+      # that the sample leaves empty (they are required in a real deployment) get a dummy value just for this check.
+      - name: Validate the production Compose file
+        run: POSTGRES_PASSWORD=ci APP_JWT_SECRET=ci docker compose --env-file .env.prod-sample -f compose.prod.yaml config --quiet
+
       # Shows the numbers on the run page, also when the coverage check fails.
       - name: Coverage summary
         if: always()

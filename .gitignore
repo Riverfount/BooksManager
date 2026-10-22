@@ -27,3 +27,8 @@ HELP.md
 target/
 
 .env
+.env.prod
+
+# Production: certificates and database backups never go to the repository
+certs/
+backups/

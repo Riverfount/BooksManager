@@ -19,6 +19,12 @@ HELP.md
 .env-sample
 .env.*
 
+# Production files and data: private keys of the certificate and database backups must never reach a build
+certs
+backups
+deploy
+compose.prod.yaml
+
 # Docs, local tooling and the Compose files of development
 docs
 .claude

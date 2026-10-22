@@ -1,0 +1,86 @@
+# Production stack (RNF12, RNF18, RNF26): Nginx in front, ending the TLS, then the API, then the PostgreSQL.
+# Only the Nginx publishes ports (80 and 443); the API and the database live on a private network and cannot be
+# reached from outside. The guide is docs/implantacao.md.
+#
+#   cp .env.prod-sample .env.prod        # fill in the real values; .env.prod is never committed
+#   docker compose --env-file .env.prod -f compose.prod.yaml up -d --build
+#
+# The name of the project is NOT "booksmanager" on purpose: compose.yaml (development) is that project, and with the
+# same name this stack would share its containers and its volume of the database. Never use "down -v" here: it
+# deletes the data.
+name: booksmanager-prod
+
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Defina POSTGRES_DB no arquivo .env.prod}
+      POSTGRES_USER: ${POSTGRES_USER:?Defina POSTGRES_USER no arquivo .env.prod}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no arquivo .env.prod}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+
+  app:
+    build: .
+    # The tag of the image is the version that runs, so going back is going back to a previous tag.
+    image: booksmanager:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # The image already runs the production profile (SPRING_PROFILES_ACTIVE=prod).
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      APP_JWT_SECRET: ${APP_JWT_SECRET:?Defina APP_JWT_SECRET no arquivo .env.prod}
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-}
+      APP_ADMIN_LOGIN: ${APP_ADMIN_LOGIN:-}
+      APP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD:-}
+    # No "ports": the API is reached only by the Nginx, over the private network.
+    networks:
+      - backend
+
+  nginx:
+    image: nginx:1.28-alpine
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      # Filled into the configuration template by the image (only the variables listed here are replaced).
+      DOMAIN: ${DOMAIN:?Defina DOMAIN no arquivo .env.prod}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+      # The certificate is at live/<domain>/fullchain.pem and privkey.pem, whether it was mounted from a folder of the
+      # server or issued by certbot (a named volume): LETSENCRYPT_DIR says which (see the guide).
+      - ${LETSENCRYPT_DIR:-letsencrypt}:/etc/letsencrypt:ro
+    networks:
+      - backend
+
+  # Only for the certificate of Let's Encrypt: it does not run with "up". See the guide.
+  certbot:
+    image: certbot/certbot
+    profiles: ["certbot"]
+    volumes:
+      - ${LETSENCRYPT_DIR:-letsencrypt}:/etc/letsencrypt
+    networks:
+      - backend
+
+networks:
+  backend:
+
+volumes:
+  postgres_data:
+  letsencrypt:
