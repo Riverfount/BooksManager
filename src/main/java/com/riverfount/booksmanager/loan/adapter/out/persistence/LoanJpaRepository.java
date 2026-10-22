@@ -1,6 +1,7 @@
 package com.riverfount.booksmanager.loan.adapter.out.persistence;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Set;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -42,6 +43,14 @@ interface LoanJpaRepository extends JpaRepository<LoanJpaEntity, Long> {
             """)
     long countMatching(@Param("readerId") Long readerId, @Param("copyId") Long copyId,
             @Param("active") Boolean active, @Param("overdueDay") LocalDate overdueDay);
+
+    /** The loans picked up in the period (both ends inclusive) per copy: rows are {@code [copyId, total]}. */
+    @Query("""
+            select l.copyId, count(l) from LoanJpaEntity l
+            where l.pickupDate >= :from and l.pickupDate <= :to
+            group by l.copyId
+            """)
+    List<Object[]> countByCopyBetween(@Param("from") LocalDate from, @Param("to") LocalDate to);
 
     @Query("select l.copyId from LoanJpaEntity l where l.readerId = :readerId and l.returnDate is null")
     Set<Long> findActiveCopyIdsByReaderId(@Param("readerId") Long readerId);

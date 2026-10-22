@@ -3,6 +3,8 @@ package com.riverfount.booksmanager.loan.application.port.out;
 import com.riverfount.booksmanager.loan.domain.Loan;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.PageResult;
+import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -27,6 +29,13 @@ public interface LoanRepository {
      * at most as many as the loan limit of the configuration, so the answer is small and not paginated.
      */
     Set<Long> findActiveCopyIdsByReader(Long readerId);
+
+    /**
+     * How many loans each copy had in the period, in one aggregated query (RF24): the loans picked up from
+     * {@code from} to {@code to}, both inclusive. A renewal moves the due date, not the pickup date, so it is not
+     * a new loan. A copy with no loan in the period is absent. The order is not defined.
+     */
+    List<CopyLoanCount> countLoansByCopy(LocalDate from, LocalDate to);
 
     /** How many loans the filter keeps, in one aggregated query: the same total {@link #findAll} gives. */
     long count(LoanFilter filter);

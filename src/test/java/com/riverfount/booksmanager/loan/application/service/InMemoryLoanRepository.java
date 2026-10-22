@@ -1,5 +1,6 @@
 package com.riverfount.booksmanager.loan.application.service;
 
+import com.riverfount.booksmanager.loan.application.port.out.CopyLoanCount;
 import com.riverfount.booksmanager.loan.application.port.out.LoanFilter;
 import com.riverfount.booksmanager.loan.application.port.out.LoanRepository;
 import com.riverfount.booksmanager.loan.domain.Loan;
@@ -9,6 +10,7 @@ import com.riverfount.booksmanager.shared.domain.PageResult;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -58,6 +60,14 @@ class InMemoryLoanRepository implements LoanRepository {
     public Set<Long> findActiveCopyIdsByReader(Long readerId) {
         return loans.values().stream().filter(loan -> loan.isActive() && loan.getReaderId().equals(readerId))
                 .map(Loan::getCopyId).collect(Collectors.toSet());
+    }
+
+    @Override
+    public List<CopyLoanCount> countLoansByCopy(LocalDate from, LocalDate to) {
+        return loans.values().stream()
+                .filter(loan -> !loan.getPickupDate().isBefore(from) && !loan.getPickupDate().isAfter(to))
+                .collect(Collectors.groupingBy(Loan::getCopyId, Collectors.counting())).entrySet().stream()
+                .map(entry -> new CopyLoanCount(entry.getKey(), entry.getValue())).toList();
     }
 
     @Override

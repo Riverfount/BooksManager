@@ -1,9 +1,11 @@
 package com.riverfount.booksmanager.loan.adapter.out.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.riverfount.booksmanager.PersistenceTest;
+import com.riverfount.booksmanager.loan.application.port.out.CopyLoanCount;
 import com.riverfount.booksmanager.loan.application.port.out.LoanFilter;
 import com.riverfount.booksmanager.loan.domain.Loan;
 import com.riverfount.booksmanager.loan.domain.ReturnCondition;
@@ -330,5 +332,41 @@ class LoanPersistenceAdapterTest {
 
         assertThat(adapter.findActiveCopyIdsByReader(readerId)).containsExactlyInAnyOrder(copyId, otherCopy);
         assertThat(adapter.findActiveCopyIdsByReader(-1L)).isEmpty();
+    }
+
+    // the loans per copy in a period (RF24)
+
+    @Test
+    void shouldCountTheLoansOfEachCopyPickedUpInThePeriodWithBothEndsInclusive() {
+        var otherCopy = data.newCopy();
+        var thirdCopy = data.newCopy();
+        data.newReturnedLoan(copyId, readerId, PICKUP.minusDays(1));      // before the period
+        data.newReturnedLoan(copyId, readerId, PICKUP);                    // first day
+        data.newReturnedLoan(copyId, readerId, PICKUP.plusDays(10));
+        data.newReturnedLoan(otherCopy, readerId, PICKUP.plusDays(30));   // last day
+        data.newReturnedLoan(otherCopy, readerId, PICKUP.plusDays(31));   // after the period
+        data.newReturnedLoan(thirdCopy, readerId, PICKUP.plusDays(60));   // outside
+
+        var counts = adapter.countLoansByCopy(PICKUP, PICKUP.plusDays(30));
+
+        assertThat(counts).extracting(CopyLoanCount::copyId, CopyLoanCount::total)
+                .containsExactlyInAnyOrder(tuple(copyId, 2L), tuple(otherCopy, 1L));
+    }
+
+    @Test
+    void shouldCountAnActiveLoanAndNotCountARenewalAsANewLoan() {
+        var loan = saveLoan(copyId, readerId);
+        loan.renew(PICKUP.plusDays(3), 2, 14, false);
+        adapter.save(loan);
+        clearPersistenceContext();
+
+        assertThat(adapter.countLoansByCopy(PICKUP, PICKUP)).extracting(CopyLoanCount::total).containsExactly(1L);
+    }
+
+    @Test
+    void shouldAnswerNothingForAPeriodWithoutLoans() {
+        saveLoan(copyId, readerId);
+
+        assertThat(adapter.countLoansByCopy(PICKUP.plusDays(100), PICKUP.plusDays(200))).isEmpty();
     }
 }
