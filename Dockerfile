@@ -38,9 +38,11 @@ WORKDIR /app
 COPY --from=build --chown=app:app /workspace/app.jar app.jar
 USER app
 
-# The configuration comes only from environment variables (nothing secret is in the image). The Docker Compose
-# support of Spring Boot is for development, so it is off here; the database is given by SPRING_DATASOURCE_*.
-ENV SPRING_DOCKER_COMPOSE_ENABLED=false \
+# The configuration comes only from environment variables (nothing secret is in the image). The image runs the
+# production profile (application-prod.properties). The Docker Compose support of Spring Boot is for development,
+# so it is off here; the database is given by SPRING_DATASOURCE_*.
+ENV SPRING_PROFILES_ACTIVE=prod \
+    SPRING_DOCKER_COMPOSE_ENABLED=false \
     JAVA_OPTS="-XX:MaxRAMPercentage=75"
 
 EXPOSE 8080
