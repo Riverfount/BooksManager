@@ -41,7 +41,7 @@ Prioridade pelo método MoSCoW: **M** (deve, essencial na v1.0), **S** (deveria,
 | ID | Requisito | Prioridade |
 | --- | --- | --- |
 | RF16 | Reservar um livro sem exemplar disponível, entrando em uma fila de espera. | S |
-| RF17 | Cancelar uma reserva, pelo leitor ou pelo operador. | S |
+| RF17 | Cancelar uma reserva. O leitor não acessa o sistema, então o cancelamento é feito pelo operador ou pelo administrador, em nome dele. | S |
 | RF18 | Ao devolver um exemplar, reservá-lo ao primeiro da fila de espera. | S |
 | RF19 | Expirar automaticamente a reserva não retirada no prazo e passar a vez ao próximo da fila. | S |
 
@@ -59,7 +59,7 @@ Prioridade pelo método MoSCoW: **M** (deve, essencial na v1.0), **S** (deveria,
 | --- | --- | --- |
 | RF23 | Exibir o relatório de empréstimos em atraso, ordenado do maior para o menor atraso. | M |
 | RF24 | Exibir o relatório de livros mais emprestados por período. | S |
-| RF25 | Exibir a situação do acervo (total, disponível, emprestado e danificado). | S |
+| RF25 | Exibir a situação do acervo: o total de exemplares ativos e quantos há em cada status (disponível, emprestado, reservado, danificado e extraviado), com os exemplares inativos à parte. | S |
 | RF26 | Configurar as regras da biblioteca: política de penalidade por atraso (multa, suspensão, ambas ou nenhuma), valor diário da multa, dias de suspensão por dia de atraso, prazo de empréstimo, limite de empréstimos simultâneos, limite de renovações e prazo de retirada de reservas. | M |
 | RF27 | Registrar trilha de auditoria das operações sensíveis (quem, quando e o quê). | C |
 | RF28 | Notificar o leitor por e-mail sobre vencimento próximo, atraso e disponibilidade de livro reservado. | C |
