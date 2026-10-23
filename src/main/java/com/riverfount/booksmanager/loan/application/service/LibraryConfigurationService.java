@@ -38,7 +38,8 @@ class LibraryConfigurationService implements GetLibraryConfigurationUseCase, Upd
         var configuration = repository.getForUpdate();
         configuration.update(command.penaltyPolicy(), command.dailyFineAmount(), command.fineCap(),
                 command.suspensionDaysPerDay(), command.suspensionCapDays(), command.loanPeriodDays(),
-                command.loanLimit(), command.renewalLimit(), command.reservationPickupDays());
+                command.loanLimit(), command.renewalLimit(), command.reservationPickupDays(),
+                command.dueSoonNoticeDays());
         return repository.save(configuration);
     }
 }

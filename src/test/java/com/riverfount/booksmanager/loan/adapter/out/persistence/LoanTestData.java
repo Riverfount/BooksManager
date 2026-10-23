@@ -32,6 +32,12 @@ final class LoanTestData {
                 """, Long.class, "Reader " + ++sequence, "LP-DOC-" + sequence);
     }
 
+    long newActiveLoan(long copyId, long readerId, LocalDate pickup, LocalDate due) {
+        return jdbcTemplate.queryForObject("""
+                insert into loan (copy_id, reader_id, pickup_date, due_date) values (?, ?, ?, ?) returning id
+                """, Long.class, copyId, readerId, pickup, due);
+    }
+
     long newReturnedLoan(long copyId, long readerId, LocalDate pickup) {
         return jdbcTemplate.queryForObject("""
                 insert into loan (copy_id, reader_id, pickup_date, due_date, return_date, return_condition)

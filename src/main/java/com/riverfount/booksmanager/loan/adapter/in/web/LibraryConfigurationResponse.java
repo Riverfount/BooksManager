@@ -29,11 +29,14 @@ record LibraryConfigurationResponse(
         int renewalLimit,
         @Schema(requiredMode = REQUIRED, example = "3",
                 description = "Prazo, em dias, para o leitor retirar um livro reservado")
-        int reservationPickupDays) {
+        int reservationPickupDays,
+        @Schema(requiredMode = REQUIRED, example = "2",
+                description = "Antecedência, em dias, do aviso por e-mail de que o empréstimo vai vencer")
+        int dueSoonNoticeDays) {
 
     static LibraryConfigurationResponse from(LibraryConfiguration c) {
         return new LibraryConfigurationResponse(c.getPenaltyPolicy(), c.getDailyFineAmount(), c.getFineCap(),
                 c.getSuspensionDaysPerDay(), c.getSuspensionCapDays(), c.getLoanPeriodDays(), c.getLoanLimit(),
-                c.getRenewalLimit(), c.getReservationPickupDays());
+                c.getRenewalLimit(), c.getReservationPickupDays(), c.getDueSoonNoticeDays());
     }
 }

@@ -74,7 +74,7 @@ class FineTest {
     @Test
     void shouldBeBuiltFromThePenaltyOfThePolicy() {
         var penalty = PenaltyPolicy.FINE.calculate(3, LibraryConfiguration.reconstitute(1L, PenaltyPolicy.FINE,
-                new BigDecimal("1.00"), new BigDecimal("10.00"), 1, 365, 14, 3, 2, 3));
+                new BigDecimal("1.00"), new BigDecimal("10.00"), 1, 365, 14, 3, 2, 3, 2));
 
         var fine = Fine.create(10L, 20L, penalty.fineAmount());
 

@@ -6,6 +6,7 @@ import com.riverfount.booksmanager.shared.domain.PageResult;
 import com.riverfount.booksmanager.shared.domain.SortDirection;
 import com.riverfount.booksmanager.user.application.port.out.ReaderFilter;
 import com.riverfount.booksmanager.user.application.port.out.ReaderRepository;
+import com.riverfount.booksmanager.user.application.port.in.ReaderContact;
 import com.riverfount.booksmanager.user.domain.Reader;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -64,6 +65,13 @@ class InMemoryReaderRepository implements ReaderRepository {
     public Map<Long, String> findNamesByIds(Set<Long> ids) {
         return readers.values().stream().filter(reader -> ids.contains(reader.getId()))
                 .collect(Collectors.toMap(Reader::getId, Reader::getName));
+    }
+
+    @Override
+    public Map<Long, ReaderContact> findContactsByIds(Set<Long> ids) {
+        return readers.values().stream().filter(reader -> ids.contains(reader.getId()))
+                .collect(Collectors.toMap(Reader::getId, reader -> new ReaderContact(reader.getName(),
+                        reader.getEmail())));
     }
 
     @Override

@@ -7,6 +7,7 @@ import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.PageResult;
 import com.riverfount.booksmanager.user.application.port.out.ReaderFilter;
 import com.riverfount.booksmanager.user.application.port.out.ReaderRepository;
+import com.riverfount.booksmanager.user.application.port.in.ReaderContact;
 import com.riverfount.booksmanager.user.domain.Guardian;
 import com.riverfount.booksmanager.user.domain.Reader;
 import java.util.Locale;
@@ -63,6 +64,16 @@ class ReaderPersistenceAdapter implements ReaderRepository {
         }
         return jpaRepository.findNamesByIdIn(ids).stream()
                 .collect(Collectors.toMap(ReaderJpaRepository.ReaderName::getId, ReaderJpaRepository.ReaderName::getName));
+    }
+
+    @Override
+    public Map<Long, ReaderContact> findContactsByIds(Set<Long> ids) {
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        return jpaRepository.findContactsByIdIn(ids).stream().collect(Collectors.toMap(
+                ReaderJpaRepository.ReaderContactRow::getId,
+                row -> new ReaderContact(row.getName(), row.getEmail())));
     }
 
     @Override

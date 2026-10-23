@@ -15,14 +15,15 @@ import java.math.BigDecimal;
 class InMemoryLibraryConfigurationRepository implements LibraryConfigurationRepository {
 
     private LibraryConfiguration stored = LibraryConfiguration.reconstitute(1L, PenaltyPolicy.FINE,
-            new BigDecimal("1.00"), new BigDecimal("10.00"), 1, 365, 14, 3, 2, 3);
+            new BigDecimal("1.00"), new BigDecimal("10.00"), 1, 365, 14, 3, 2, 3, 2);
     private int saves;
     private int lockedReads;
 
     private static LibraryConfiguration copyOf(LibraryConfiguration c) {
         return LibraryConfiguration.reconstitute(c.getId(), c.getPenaltyPolicy(), c.getDailyFineAmount(),
                 c.getFineCap(), c.getSuspensionDaysPerDay(), c.getSuspensionCapDays(), c.getLoanPeriodDays(),
-                c.getLoanLimit(), c.getRenewalLimit(), c.getReservationPickupDays());
+                c.getLoanLimit(), c.getRenewalLimit(), c.getReservationPickupDays(),
+                c.getDueSoonNoticeDays());
     }
 
     @Override

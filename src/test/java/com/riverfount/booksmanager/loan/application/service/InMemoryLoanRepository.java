@@ -71,6 +71,12 @@ class InMemoryLoanRepository implements LoanRepository {
     }
 
     @Override
+    public List<Loan> findActiveDueOnOrBefore(LocalDate limit) {
+        return loans.values().stream().filter(loan -> loan.isActive() && !loan.getDueDate().isAfter(limit))
+                .sorted(Comparator.comparing(Loan::getId)).map(loan -> copyWithId(loan, loan.getId())).toList();
+    }
+
+    @Override
     public long count(LoanFilter filter) {
         return loans.values().stream()
                 .filter(loan -> (filter.readerId() == null || loan.getReaderId().equals(filter.readerId()))

@@ -27,7 +27,7 @@ class LibraryConfigurationServiceTest {
             Integer pickupDays) {
         return new UpdateLibraryConfigurationCommand(policy, dailyFine == null ? null : new BigDecimal(dailyFine),
                 fineCap == null ? null : new BigDecimal(fineCap), daysPerDay, suspensionCap, period, loanLimit,
-                renewalLimit, pickupDays);
+                renewalLimit, pickupDays, null);
     }
 
     // reading

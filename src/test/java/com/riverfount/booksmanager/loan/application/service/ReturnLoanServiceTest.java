@@ -85,7 +85,7 @@ class ReturnLoanServiceTest {
 
     private void policyIs(PenaltyPolicy policy) {
         var configuration = configurationRepository.getForUpdate();
-        configuration.update(policy, null, null, null, null, null, null, null, null);
+        configuration.update(policy, null, null, null, null, null, null, null, null, null);
         configurationRepository.save(configuration);
     }
 
@@ -164,7 +164,7 @@ class ReturnLoanServiceTest {
         copyIsBackOnTheShelfOfBook(BOOK);
         waitingFor(BOOK, 21L);
         var configuration = configurationRepository.getForUpdate();
-        configuration.update(null, null, null, null, null, null, null, null, 5);
+        configuration.update(null, null, null, null, null, null, null, null, 5, null);
         configurationRepository.save(configuration);
 
         var result = service.returnLoan(returning(openLoan(5)));
@@ -368,7 +368,7 @@ class ReturnLoanServiceTest {
     void theNumbersShouldComeFromTheConfigurationAndRespectTheCaps() {
         var configuration = configurationRepository.getForUpdate();
         configuration.update(PenaltyPolicy.BOTH, new BigDecimal("2.50"), new BigDecimal("12.00"), 2, 9, null,
-                null, null, null);
+                null, null, null, null);
         configurationRepository.save(configuration);
 
         var result = service.returnLoan(returning(lateLoan())); // 6 days late

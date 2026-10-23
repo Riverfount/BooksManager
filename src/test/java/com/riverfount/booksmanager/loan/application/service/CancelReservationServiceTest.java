@@ -120,7 +120,7 @@ class CancelReservationServiceTest {
     @Test
     void shouldTakeThePickupDaysFromTheConfiguration() {
         var configuration = configurationRepository.getForUpdate();
-        configuration.update(null, null, null, null, null, null, null, null, 5);
+        configuration.update(null, null, null, null, null, null, null, null, 5, null);
         configurationRepository.save(configuration);
         var holding = holdingTheCopy(1L);
         var next = waiting(2L);

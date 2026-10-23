@@ -1,6 +1,7 @@
 package com.riverfount.booksmanager.shared.adapter.out.mail;
 
 import com.riverfount.booksmanager.shared.application.port.out.Notification;
+import com.riverfount.booksmanager.shared.application.port.out.NotificationDeliveryException;
 import com.riverfount.booksmanager.shared.application.port.out.NotificationSender;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,6 +28,16 @@ abstract class AfterCommitNotificationSender implements NotificationSender {
             });
         } else {
             deliverSafely(notification);
+        }
+    }
+
+    @Override
+    public final void sendAndConfirm(Notification notification) {
+        try {
+            deliver(notification);
+        } catch (RuntimeException e) {
+            // The recipient address is personal data (LGPD): only the subject goes in the message.
+            throw new NotificationDeliveryException("Could not deliver the notification \"" + notification.subject() + "\"", e);
         }
     }
 

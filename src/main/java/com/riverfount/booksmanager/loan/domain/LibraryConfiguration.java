@@ -19,8 +19,9 @@ import java.math.BigDecimal;
  *       suspends spends nothing), the fine cap is positive and never below one
  *       day of fine; the money has at most two decimal places;</li>
  *   <li>the suspension days per day of delay, the suspension cap, the loan
- *       period, the loan limit and the reservation pickup period are at least
- *       one; the renewal limit is not negative (zero means no renewals).</li>
+ *       period, the loan limit, the reservation pickup period and the days of
+ *       notice before a due date are at least one; the renewal limit is not
+ *       negative (zero means no renewals).</li>
  * </ul>
  */
 public class LibraryConfiguration {
@@ -39,12 +40,13 @@ public class LibraryConfiguration {
     private int loanLimit;
     private int renewalLimit;
     private int reservationPickupDays;
+    private int dueSoonNoticeDays;
 
     private LibraryConfiguration(Long id, PenaltyPolicy penaltyPolicy, BigDecimal dailyFineAmount,
             BigDecimal fineCap, int suspensionDaysPerDay, int suspensionCapDays, int loanPeriodDays, int loanLimit,
-            int renewalLimit, int reservationPickupDays) {
+            int renewalLimit, int reservationPickupDays, int dueSoonNoticeDays) {
         validate(penaltyPolicy, dailyFineAmount, fineCap, suspensionDaysPerDay, suspensionCapDays, loanPeriodDays,
-                loanLimit, renewalLimit, reservationPickupDays);
+                loanLimit, renewalLimit, reservationPickupDays, dueSoonNoticeDays);
         this.id = id;
         this.penaltyPolicy = penaltyPolicy;
         this.dailyFineAmount = withMoneyScale(dailyFineAmount);
@@ -55,13 +57,15 @@ public class LibraryConfiguration {
         this.loanLimit = loanLimit;
         this.renewalLimit = renewalLimit;
         this.reservationPickupDays = reservationPickupDays;
+        this.dueSoonNoticeDays = dueSoonNoticeDays;
     }
 
     public static LibraryConfiguration reconstitute(Long id, PenaltyPolicy penaltyPolicy, BigDecimal dailyFineAmount,
             BigDecimal fineCap, int suspensionDaysPerDay, int suspensionCapDays, int loanPeriodDays, int loanLimit,
-            int renewalLimit, int reservationPickupDays) {
+            int renewalLimit, int reservationPickupDays, int dueSoonNoticeDays) {
         return new LibraryConfiguration(id, penaltyPolicy, dailyFineAmount, fineCap, suspensionDaysPerDay,
-                suspensionCapDays, loanPeriodDays, loanLimit, renewalLimit, reservationPickupDays);
+                suspensionCapDays, loanPeriodDays, loanLimit, renewalLimit, reservationPickupDays,
+                dueSoonNoticeDays);
     }
 
     /**
@@ -73,7 +77,7 @@ public class LibraryConfiguration {
      */
     public void update(PenaltyPolicy penaltyPolicy, BigDecimal dailyFineAmount, BigDecimal fineCap,
             Integer suspensionDaysPerDay, Integer suspensionCapDays, Integer loanPeriodDays, Integer loanLimit,
-            Integer renewalLimit, Integer reservationPickupDays) {
+            Integer renewalLimit, Integer reservationPickupDays, Integer dueSoonNoticeDays) {
         var newPolicy = penaltyPolicy != null ? penaltyPolicy : this.penaltyPolicy;
         var newDailyFine = dailyFineAmount != null ? dailyFineAmount : this.dailyFineAmount;
         var newFineCap = fineCap != null ? fineCap : this.fineCap;
@@ -83,8 +87,9 @@ public class LibraryConfiguration {
         var newLoanLimit = loanLimit != null ? loanLimit : this.loanLimit;
         var newRenewalLimit = renewalLimit != null ? renewalLimit : this.renewalLimit;
         var newPickup = reservationPickupDays != null ? reservationPickupDays : this.reservationPickupDays;
+        var newNoticeDays = dueSoonNoticeDays != null ? dueSoonNoticeDays : this.dueSoonNoticeDays;
         validate(newPolicy, newDailyFine, newFineCap, newDaysPerDay, newSuspensionCap, newPeriod, newLoanLimit,
-                newRenewalLimit, newPickup);
+                newRenewalLimit, newPickup, newNoticeDays);
         this.penaltyPolicy = newPolicy;
         this.dailyFineAmount = withMoneyScale(newDailyFine);
         this.fineCap = withMoneyScale(newFineCap);
@@ -94,11 +99,12 @@ public class LibraryConfiguration {
         this.loanLimit = newLoanLimit;
         this.renewalLimit = newRenewalLimit;
         this.reservationPickupDays = newPickup;
+        this.dueSoonNoticeDays = newNoticeDays;
     }
 
     private static void validate(PenaltyPolicy policy, BigDecimal dailyFineAmount, BigDecimal fineCap,
             int suspensionDaysPerDay, int suspensionCapDays, int loanPeriodDays, int loanLimit, int renewalLimit,
-            int reservationPickupDays) {
+            int reservationPickupDays, int dueSoonNoticeDays) {
         if (policy == null) {
             throw new BusinessRuleException("a política de penalidade é obrigatória");
         }
@@ -136,6 +142,9 @@ public class LibraryConfiguration {
         }
         if (reservationPickupDays < 1) {
             throw new BusinessRuleException("o prazo de retirada de reservas deve ser de pelo menos 1 dia");
+        }
+        if (dueSoonNoticeDays < 1) {
+            throw new BusinessRuleException("a antecedência do aviso de vencimento deve ser de pelo menos 1 dia");
         }
     }
 
@@ -195,5 +204,10 @@ public class LibraryConfiguration {
 
     public int getReservationPickupDays() {
         return reservationPickupDays;
+    }
+
+    /** How many days before the due date the reader is told by e-mail that the loan is about to fall due. */
+    public int getDueSoonNoticeDays() {
+        return dueSoonNoticeDays;
     }
 }

@@ -296,6 +296,23 @@ class ReaderPersistenceAdapterTest {
     }
 
     @Test
+    void shouldFindTheContactsOfSeveralReadersInOneCall() {
+        var maria = saveReader("Maria Silva", "111");
+        saveReader("Ana Lima", "333");
+
+        var contacts = adapter.findContactsByIds(java.util.Set.of(maria.getId(), -1L));
+
+        assertThat(contacts).containsOnlyKeys(maria.getId());
+        assertThat(contacts.get(maria.getId()).name()).isEqualTo("Maria Silva");
+        assertThat(contacts.get(maria.getId()).email()).isEqualTo(maria.getEmail());
+    }
+
+    @Test
+    void shouldFindNoContactsForNoIds() {
+        assertThat(adapter.findContactsByIds(java.util.Set.of())).isEmpty();
+    }
+
+    @Test
     void shouldFindNoNamesForNoIds() {
         assertThat(adapter.findNamesByIds(java.util.Set.of())).isEmpty();
     }

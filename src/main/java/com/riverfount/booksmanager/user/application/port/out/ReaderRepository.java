@@ -2,6 +2,7 @@ package com.riverfount.booksmanager.user.application.port.out;
 
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.PageResult;
+import com.riverfount.booksmanager.user.application.port.in.ReaderContact;
 import com.riverfount.booksmanager.user.domain.Reader;
 import java.util.Map;
 import java.util.Optional;
@@ -25,6 +26,12 @@ public interface ReaderRepository {
      * id that does not exist is absent from the map.
      */
     Map<Long, String> findNamesByIds(Set<Long> ids);
+
+    /**
+     * The name and the e-mail of the readers with the given ids, in one query and without loading the readers; an
+     * id that does not exist is absent from the map.
+     */
+    Map<Long, ReaderContact> findContactsByIds(Set<Long> ids);
 
     /** The document must already be normalized (see Reader.normalizeDocument). */
     boolean existsByDocument(String document);

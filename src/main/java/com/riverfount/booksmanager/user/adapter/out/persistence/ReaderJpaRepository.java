@@ -35,6 +35,19 @@ interface ReaderJpaRepository extends JpaRepository<ReaderJpaEntity, Long> {
     @Query("select r.id as id, r.name as name from ReaderJpaEntity r where r.id in :ids")
     List<ReaderName> findNamesByIdIn(@Param("ids") Collection<Long> ids);
 
+    /** The id, the name and the e-mail of each reader, without loading the readers (nor the rest of the data). */
+    @Query("select r.id as id, r.name as name, r.email as email from ReaderJpaEntity r where r.id in :ids")
+    List<ReaderContactRow> findContactsByIdIn(@Param("ids") Collection<Long> ids);
+
+    interface ReaderContactRow {
+
+        Long getId();
+
+        String getName();
+
+        String getEmail();
+    }
+
     interface ReaderName {
 
         Long getId();

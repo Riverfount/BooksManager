@@ -16,5 +16,6 @@ public record UpdateLibraryConfigurationCommand(
         Integer loanPeriodDays,
         Integer loanLimit,
         Integer renewalLimit,
-        Integer reservationPickupDays) {
+        Integer reservationPickupDays,
+        Integer dueSoonNoticeDays) {
 }

@@ -242,7 +242,7 @@ class ReserveBookServiceTest {
     @Test
     void theLimitIsTheLoanLimitOfTheConfigurationNotAConstant() {
         var configuration = configurationRepository.getForUpdate();
-        configuration.update(null, null, null, null, null, null, 1, null, null);
+        configuration.update(null, null, null, null, null, null, 1, null, null, null);
         configurationRepository.save(configuration);
         reserveFor(101L, READER);
 

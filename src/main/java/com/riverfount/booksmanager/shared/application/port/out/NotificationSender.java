@@ -8,4 +8,13 @@ package com.riverfount.booksmanager.shared.application.port.out;
 public interface NotificationSender {
 
     void send(Notification notification);
+
+    /**
+     * Delivers the {@link Notification} now, in the caller's thread and regardless of any transaction, and tells the
+     * caller if it failed. For the routines that must know whether the message went out before they record it as
+     * done (the loan notices, RF28); a use case that must not be affected by the mail uses {@link #send}.
+     *
+     * @throws NotificationDeliveryException if the message could not be delivered
+     */
+    void sendAndConfirm(Notification notification);
 }
