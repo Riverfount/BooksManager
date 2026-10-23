@@ -15,7 +15,12 @@ import com.riverfount.booksmanager.catalog.application.port.in.FindCopyAvailabil
 import com.riverfount.booksmanager.catalog.application.port.in.FindCopySummariesUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ReserveCopyUseCase;
 import com.riverfount.booksmanager.loan.domain.Reservation;
+import com.riverfount.booksmanager.shared.application.port.out.Notification;
+import com.riverfount.booksmanager.shared.application.port.out.NotificationSender;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
+import com.riverfount.booksmanager.user.application.port.in.FindReaderContactsUseCase;
+import com.riverfount.booksmanager.user.application.port.in.ReaderContact;
+import org.mockito.ArgumentCaptor;
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.Optional;
@@ -34,6 +39,8 @@ class ReservationQueueTest {
     private FindCopyAvailabilityUseCase copyAvailability;
     private FindCopySummariesUseCase copySummaries;
     private ReserveCopyUseCase reserveCopy;
+    private FindReaderContactsUseCase readerContacts;
+    private NotificationSender notificationSender;
     private ReservationQueue queue;
 
     @BeforeEach
@@ -42,10 +49,15 @@ class ReservationQueueTest {
         copyAvailability = mock(FindCopyAvailabilityUseCase.class);
         copySummaries = mock(FindCopySummariesUseCase.class);
         reserveCopy = mock(ReserveCopyUseCase.class);
-        queue = new ReservationQueue(reservations, copyAvailability, copySummaries, reserveCopy);
+        readerContacts = mock(FindReaderContactsUseCase.class);
+        notificationSender = mock(NotificationSender.class);
+        queue = new ReservationQueue(reservations, copyAvailability, copySummaries, reserveCopy, readerContacts,
+                notificationSender);
+        given(readerContacts.findContacts(Set.of(1L)))
+                .willReturn(Map.of(1L, new ReaderContact("Maria Silva", "maria@example.com")));
         copyIsLendable(true);
         given(copySummaries.findSummaries(Set.of(COPY)))
-                .willReturn(Map.of(COPY, new CopySummary(COPY, "PAT-7", BOOK, "T")));
+                .willReturn(Map.of(COPY, new CopySummary(COPY, "PAT-7", BOOK, "Dom Casmurro")));
     }
 
     private void copyIsLendable(boolean lendable) {
@@ -134,5 +146,66 @@ class ReservationQueueTest {
         assertThatThrownBy(() -> queue.passTheTurn(COPY, TODAY, 3)).isInstanceOf(BusinessRuleException.class);
 
         assertThat(reservations.findById(first.getId()).orElseThrow().isWaiting()).isTrue();
+    }
+
+    // the notice to the reader (RF28, RN13, RNF19)
+
+    @Test
+    void shouldTellTheFirstOfTheQueueTheBookAndTheLastDayToPickItUp() {
+        reserve(BOOK, 1L);
+        reserve(BOOK, 2L);
+
+        queue.passTheTurn(COPY, TODAY, 3);
+
+        var sent = ArgumentCaptor.forClass(Notification.class);
+        then(notificationSender).should().send(sent.capture());
+        var notice = sent.getValue();
+        assertThat(notice.recipient()).isEqualTo("maria@example.com");
+        assertThat(notice.subject()).isEqualTo("Livro reservado disponível: \"Dom Casmurro\"");
+        assertThat(notice.text()).contains("Maria Silva").contains("Dom Casmurro")
+                .contains("até 13/11/2026").contains("inclusive");
+        then(notificationSender).shouldHaveNoMoreInteractions();
+    }
+
+    @Test
+    void shouldSendTheNoticeThroughTheSendThatWaitsForTheCommit() {
+        reserve(BOOK, 1L);
+
+        queue.passTheTurn(COPY, TODAY, 3);
+
+        then(notificationSender).should().send(org.mockito.ArgumentMatchers.any());
+        then(notificationSender).should(never()).sendAndConfirm(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void shouldTellNobodyWhenNobodyWaitsOrTheCopyCannotBeKept() {
+        reserve(31L, 1L);
+        queue.passTheTurn(COPY, TODAY, 3);
+
+        reserve(BOOK, 1L);
+        copyIsLendable(false);
+        queue.passTheTurn(COPY, TODAY, 3);
+
+        then(notificationSender).shouldHaveNoInteractions();
+    }
+
+    @Test
+    void shouldTellNobodyWhenTheCatalogRefusesToKeepTheCopy() {
+        reserve(BOOK, 1L);
+        doThrow(new BusinessRuleException("o exemplar não está disponível")).when(reserveCopy).reserve(COPY);
+
+        assertThatThrownBy(() -> queue.passTheTurn(COPY, TODAY, 3)).isInstanceOf(BusinessRuleException.class);
+
+        then(notificationSender).shouldHaveNoInteractions();
+    }
+
+    @Test
+    void shouldStillServeTheReservationWhenTheReaderHasNoContact() {
+        reserve(BOOK, 5L);
+
+        var served = queue.passTheTurn(COPY, TODAY, 3);
+
+        assertThat(served).isPresent();
+        then(notificationSender).shouldHaveNoInteractions();
     }
 }

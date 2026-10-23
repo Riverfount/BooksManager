@@ -20,6 +20,8 @@ import com.riverfount.booksmanager.loan.domain.Reservation;
 import com.riverfount.booksmanager.loan.domain.ReservationStatus;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
+import com.riverfount.booksmanager.shared.application.port.out.NotificationSender;
+import com.riverfount.booksmanager.user.application.port.in.FindReaderContactsUseCase;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -61,7 +63,7 @@ class CancelReservationServiceTest {
         given(copyAvailability.findAvailability(COPY)).willReturn(Optional.of(new CopyAvailability(COPY, true, false)));
         given(copySummaries.findSummaries(Set.of(COPY)))
                 .willReturn(Map.of(COPY, new CopySummary(COPY, "PAT-7", BOOK, "T")));
-        var queue = new ReservationQueue(reservationRepository, copyAvailability, copySummaries, reserveCopy);
+        var queue = new ReservationQueue(reservationRepository, copyAvailability, copySummaries, reserveCopy, mock(FindReaderContactsUseCase.class), mock(NotificationSender.class));
         service = new CancelReservationService(configurationRepository, reservationRepository,
                 releaseCopyReservation, queue, CLOCK);
     }
