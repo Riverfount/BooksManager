@@ -21,13 +21,20 @@ class LibraryConfigurationTest {
     /** The values the first migration creates (decided on 10/10/2026). */
     private static LibraryConfiguration initial() {
         return LibraryConfiguration.reconstitute(1L, PenaltyPolicy.FINE, money("1.00"), money("10.00"), 1, 365, 14,
-                3, 2, 3);
+                3, 2, 3, 2);
     }
 
     private static LibraryConfiguration with(PenaltyPolicy policy, String dailyFine, String fineCap, int daysPerDay,
             int suspensionCap, int period, int loanLimit, int renewalLimit, int pickupDays) {
+        return withNotice(policy, dailyFine, fineCap, daysPerDay, suspensionCap, period, loanLimit, renewalLimit,
+                pickupDays, 2);
+    }
+
+    private static LibraryConfiguration withNotice(PenaltyPolicy policy, String dailyFine, String fineCap,
+            int daysPerDay, int suspensionCap, int period, int loanLimit, int renewalLimit, int pickupDays,
+            int dueSoonNoticeDays) {
         return LibraryConfiguration.reconstitute(1L, policy, money(dailyFine), money(fineCap), daysPerDay,
-                suspensionCap, period, loanLimit, renewalLimit, pickupDays);
+                suspensionCap, period, loanLimit, renewalLimit, pickupDays, dueSoonNoticeDays);
     }
 
     // reconstitution
@@ -66,11 +73,11 @@ class LibraryConfigurationTest {
     @Test
     void shouldRequireThePolicyAndEveryNumber() {
         assertThatThrownBy(() -> LibraryConfiguration.reconstitute(1L, null, money("1.00"), money("10.00"), 1, 365,
-                14, 3, 2, 3)).isInstanceOf(BusinessRuleException.class).hasMessageContaining("política");
+                14, 3, 2, 3, 2)).isInstanceOf(BusinessRuleException.class).hasMessageContaining("política");
         assertThatThrownBy(() -> LibraryConfiguration.reconstitute(1L, PenaltyPolicy.FINE, null, money("10.00"), 1,
-                365, 14, 3, 2, 3)).isInstanceOf(BusinessRuleException.class).hasMessageContaining("valor diário");
+                365, 14, 3, 2, 3, 2)).isInstanceOf(BusinessRuleException.class).hasMessageContaining("valor diário");
         assertThatThrownBy(() -> LibraryConfiguration.reconstitute(1L, PenaltyPolicy.FINE, money("1.00"), null, 1,
-                365, 14, 3, 2, 3)).isInstanceOf(BusinessRuleException.class).hasMessageContaining("teto da multa");
+                365, 14, 3, 2, 3, 2)).isInstanceOf(BusinessRuleException.class).hasMessageContaining("teto da multa");
     }
 
     // the rules (RN16), one by one
@@ -126,7 +133,7 @@ class LibraryConfigurationTest {
         assertThat(built.getFineCap().toPlainString()).isEqualTo("20.00");
 
         var configuration = initial();
-        configuration.update(null, money("2.500"), money("3E+1"), null, null, null, null, null, null);
+        configuration.update(null, money("2.500"), money("3E+1"), null, null, null, null, null, null, null);
         assertThat(configuration.getDailyFineAmount().toPlainString()).isEqualTo("2.50");
         assertThat(configuration.getFineCap().toPlainString()).isEqualTo("30.00");
     }
@@ -178,6 +185,24 @@ class LibraryConfigurationTest {
                 .hasMessageContaining("prazo de retirada");
     }
 
+    @ParameterizedTest
+    @ValueSource(ints = {0, -1})
+    void theDaysOfNoticeBeforeTheDueDateMustBeAtLeastOne(int value) {
+        assertThatThrownBy(() -> withNotice(PenaltyPolicy.FINE, "1.00", "10.00", 1, 365, 14, 3, 2, 3, value))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("antecedência do aviso de vencimento");
+    }
+
+    @Test
+    void shouldRefuseANewDaysOfNoticeBelowOneAndKeepTheCurrentOne() {
+        var configuration = initial();
+
+        assertThatThrownBy(() -> configuration.update(null, null, null, null, null, null, null, null, null, 0))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("antecedência do aviso de vencimento");
+        assertThat(configuration.getDueSoonNoticeDays()).isEqualTo(2);
+    }
+
     @Test
     void theRenewalLimitCannotBeNegative() {
         assertThatThrownBy(() -> with(PenaltyPolicy.FINE, "1.00", "10.00", 1, 365, 14, 3, -1, 3))
@@ -191,7 +216,7 @@ class LibraryConfigurationTest {
     void shouldChangeOnlyTheValuesInformed() {
         var configuration = initial();
 
-        configuration.update(PenaltyPolicy.BOTH, null, null, null, null, 21, null, null, null);
+        configuration.update(PenaltyPolicy.BOTH, null, null, null, null, 21, null, null, null, null);
 
         assertThat(configuration.getPenaltyPolicy()).isEqualTo(PenaltyPolicy.BOTH);
         assertThat(configuration.getLoanPeriodDays()).isEqualTo(21);
@@ -208,7 +233,7 @@ class LibraryConfigurationTest {
     void shouldChangeEveryValueWhenAllAreInformed() {
         var configuration = initial();
 
-        configuration.update(PenaltyPolicy.SUSPENSION, money("2.50"), money("30.00"), 2, 90, 7, 5, 0, 1);
+        configuration.update(PenaltyPolicy.SUSPENSION, money("2.50"), money("30.00"), 2, 90, 7, 5, 0, 1, 4);
 
         assertThat(configuration.getPenaltyPolicy()).isEqualTo(PenaltyPolicy.SUSPENSION);
         assertThat(configuration.getDailyFineAmount()).isEqualByComparingTo("2.50");
@@ -219,13 +244,14 @@ class LibraryConfigurationTest {
         assertThat(configuration.getLoanLimit()).isEqualTo(5);
         assertThat(configuration.getRenewalLimit()).isZero();
         assertThat(configuration.getReservationPickupDays()).isEqualTo(1);
+        assertThat(configuration.getDueSoonNoticeDays()).isEqualTo(4);
     }
 
     @Test
     void updatingWithNothingInformedChangesNothing() {
         var configuration = initial();
 
-        configuration.update(null, null, null, null, null, null, null, null, null);
+        configuration.update(null, null, null, null, null, null, null, null, null, null);
 
         assertThat(configuration).usingRecursiveComparison().isEqualTo(initial());
     }
@@ -236,7 +262,7 @@ class LibraryConfigurationTest {
 
         // the first values are fine; the last one (a zero loan limit) is not
         assertThatThrownBy(() -> configuration.update(PenaltyPolicy.NONE, money("2.00"), money("20.00"), 3, 30, 10,
-                0, 1, 2)).isInstanceOf(BusinessRuleException.class);
+                0, 1, 2, 3)).isInstanceOf(BusinessRuleException.class);
 
         assertThat(configuration).usingRecursiveComparison().isEqualTo(initial());
     }
@@ -246,13 +272,13 @@ class LibraryConfigurationTest {
         var configuration = initial();
 
         // the cap stays at 10.00, so a daily fine of 20.00 would exceed it
-        assertThatThrownBy(() -> configuration.update(null, money("20.00"), null, null, null, null, null, null, null))
+        assertThatThrownBy(() -> configuration.update(null, money("20.00"), null, null, null, null, null, null, null, null))
                 .isInstanceOf(BusinessRuleException.class)
                 .hasMessageContaining("teto da multa");
         assertThat(configuration.getDailyFineAmount()).isEqualByComparingTo("1.00");
 
         // raising both together is fine
-        configuration.update(null, money("20.00"), money("50.00"), null, null, null, null, null, null);
+        configuration.update(null, money("20.00"), money("50.00"), null, null, null, null, null, null, null);
         assertThat(configuration.getDailyFineAmount()).isEqualByComparingTo("20.00");
     }
 
@@ -260,7 +286,7 @@ class LibraryConfigurationTest {
     void shouldNotChangeTheId() {
         var configuration = initial();
 
-        configuration.update(PenaltyPolicy.NONE, null, null, null, null, null, null, null, null);
+        configuration.update(PenaltyPolicy.NONE, null, null, null, null, null, null, null, null, null);
 
         assertThat(configuration.getId()).isEqualTo(1L);
     }

@@ -40,5 +40,9 @@ record UpdateLibraryConfigurationRequest(
         Integer renewalLimit,
         @Schema(description = "Prazo de retirada de reservas, em dias (opcional): pelo menos 1", example = "3")
         @JsonDeserialize(using = WholeNumberDeserializer.class)
-        Integer reservationPickupDays) {
+        Integer reservationPickupDays,
+        @Schema(description = "Antecedência, em dias, do aviso por e-mail de que o empréstimo vai vencer "
+                + "(opcional): pelo menos 1", example = "2")
+        @JsonDeserialize(using = WholeNumberDeserializer.class)
+        Integer dueSoonNoticeDays) {
 }

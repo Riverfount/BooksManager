@@ -369,4 +369,19 @@ class LoanPersistenceAdapterTest {
 
         assertThat(adapter.countLoansByCopy(PICKUP.plusDays(100), PICKUP.plusDays(200))).isEmpty();
     }
+
+    // the loans a routine has to look at (RF28)
+
+    @Test
+    void shouldFindTheActiveLoansDueUpToTheLimitIncludingTheLateOnesAndNotTheReturned() {
+        var limit = LocalDate.of(2026, 11, 20);
+        var dueSoon = data.newActiveLoan(data.newCopy(), readerId, PICKUP, limit);
+        var late = data.newActiveLoan(copyId, readerId, PICKUP.minusDays(30), limit.minusDays(30));
+        data.newActiveLoan(data.newCopy(), readerId, PICKUP, limit.plusDays(1));
+        data.newReturnedLoan(data.newCopy(), readerId, PICKUP.minusDays(40));
+
+        var found = adapter.findActiveDueOnOrBefore(limit);
+
+        assertThat(found).extracting(Loan::getId).containsExactly(dueSoon, late);
+    }
 }

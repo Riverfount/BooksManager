@@ -71,7 +71,8 @@ class LibraryConfigurationIntegrationTest {
                 .andExpect(jsonPath("$.loanPeriodDays").value(14))
                 .andExpect(jsonPath("$.loanLimit").value(3))
                 .andExpect(jsonPath("$.renewalLimit").value(2))
-                .andExpect(jsonPath("$.reservationPickupDays").value(3));
+                .andExpect(jsonPath("$.reservationPickupDays").value(3))
+                .andExpect(jsonPath("$.dueSoonNoticeDays").value(2));
     }
 
     @Test

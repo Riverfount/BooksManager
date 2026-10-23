@@ -33,7 +33,7 @@ class LibraryConfigurationPersistenceAdapter implements LibraryConfigurationRepo
                 configuration.getDailyFineAmount(), configuration.getFineCap(),
                 configuration.getSuspensionDaysPerDay(), configuration.getSuspensionCapDays(),
                 configuration.getLoanPeriodDays(), configuration.getLoanLimit(), configuration.getRenewalLimit(),
-                configuration.getReservationPickupDays());
+                configuration.getReservationPickupDays(), configuration.getDueSoonNoticeDays());
         return toDomain(jpaRepository.saveAndFlush(entity));
     }
 
@@ -46,6 +46,6 @@ class LibraryConfigurationPersistenceAdapter implements LibraryConfigurationRepo
         return LibraryConfiguration.reconstitute(entity.getId().longValue(), entity.getPenaltyPolicy(),
                 entity.getDailyFineAmount(), entity.getFineCap(), entity.getSuspensionDaysPerDay(),
                 entity.getSuspensionCapDays(), entity.getLoanPeriodDays(), entity.getLoanLimit(),
-                entity.getRenewalLimit(), entity.getReservationPickupDays());
+                entity.getRenewalLimit(), entity.getReservationPickupDays(), entity.getDueSoonNoticeDays());
     }
 }

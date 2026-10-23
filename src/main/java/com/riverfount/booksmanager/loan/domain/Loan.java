@@ -3,6 +3,7 @@ package com.riverfount.booksmanager.loan.domain;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.Optional;
 
 /**
  * The loan of a copy to a reader (RF11, RF12, RF13). It keeps the ids of the copy and
@@ -162,6 +163,32 @@ public class Loan {
         requireDate(today);
         var until = returnDate != null ? returnDate : today;
         return Math.max(0, ChronoUnit.DAYS.between(dueDate, until));
+    }
+
+    /**
+     * The notice the reader is owed on {@code today} (RF28), if any. Only an active loan owes one. From
+     * {@code dueSoonNoticeDays} before the due date up to the due date itself (still on time) it is the due-soon
+     * notice; once late it is the overdue notice of the band of the late days, one band per seven days. The domain
+     * does not know what was already sent: the caller compares the result with what it recorded.
+     *
+     * @param dueSoonNoticeDays how many days before the due date the first notice is owed; at least one
+     */
+    public Optional<LoanNotice> noticeDue(LocalDate today, int dueSoonNoticeDays) {
+        requireDate(today);
+        if (dueSoonNoticeDays < 1) {
+            throw new IllegalArgumentException("the days of notice must be at least one");
+        }
+        if (isReturned()) {
+            return Optional.empty();
+        }
+        if (isOverdue(today)) {
+            var band = (int) ((daysLate(today) - 1) / LoanNotice.OVERDUE_BAND_DAYS);
+            return Optional.of(new LoanNotice(LoanNoticeKind.OVERDUE, dueDate, band));
+        }
+        if (!today.isBefore(dueDate.minusDays(dueSoonNoticeDays))) {
+            return Optional.of(new LoanNotice(LoanNoticeKind.DUE_SOON, dueDate, 0));
+        }
+        return Optional.empty();
     }
 
     public boolean isActive() {

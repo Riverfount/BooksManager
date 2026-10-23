@@ -57,14 +57,14 @@ class LibraryConfigurationConcurrencyTest {
                 var configuration = repository.getForUpdate();
                 firstHoldsTheRow.countDown();
                 sleep(700); // long enough for the second to try to read the same row
-                configuration.update(null, null, null, null, null, 21, null, null, null);
+                configuration.update(null, null, null, null, null, 21, null, null, null, null);
                 repository.save(configuration);
             }));
             var second = pool.submit(() -> {
                 firstHoldsTheRow.await();
                 transactions.executeWithoutResult(status -> {
                     var configuration = repository.getForUpdate();
-                    configuration.update(null, new BigDecimal("2.00"), null, null, null, null, null, null, null);
+                    configuration.update(null, new BigDecimal("2.00"), null, null, null, null, null, null, null, null);
                     repository.save(configuration);
                 });
                 return null;

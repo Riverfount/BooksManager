@@ -29,4 +29,9 @@ class ReservationExpirationOffInTestsTest {
         assertThat(context.getBeanNamesForType(ReservationExpirationJob.class)).isEmpty();
         assertThat(context.getBeanNamesForType(ScheduledAnnotationBeanPostProcessor.class)).isEmpty();
     }
+
+    @Test
+    void theLoanNoticeRoutineShouldBeOffInTheTestProfileToo() {
+        assertThat(context.getBeanNamesForType(LoanNoticeJob.class)).isEmpty();
+    }
 }

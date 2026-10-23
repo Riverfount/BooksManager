@@ -58,6 +58,13 @@ classDiagram
         Integer renewals
         ReturnCondition returnCondition
     }
+    class LoanNotice {
+        Long loanId
+        LoanNoticeKind kind
+        LocalDate dueDate
+        Integer band
+        LocalDate sentOn
+    }
     class Fine {
         Long id
         Long loanId
@@ -104,6 +111,7 @@ classDiagram
         Integer loanLimit
         Integer renewalLimit
         Integer reservationPickupDays
+        Integer dueSoonNoticeDays
     }
     Book "*" -- "*" Author : written by
     Category "1" --> "*" Book : classifies

@@ -54,7 +54,7 @@ class LibraryConfigurationMigrationTest {
 
         assertThat(columns).containsExactlyInAnyOrder("id", "penalty_policy", "daily_fine_amount", "fine_cap",
                 "suspension_days_per_day", "suspension_cap_days", "loan_period_days", "loan_limit", "renewal_limit",
-                "reservation_pickup_days");
+                "reservation_pickup_days", "due_soon_notice_days");
     }
 
     @Test

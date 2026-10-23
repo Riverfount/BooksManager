@@ -52,6 +52,9 @@ interface LoanJpaRepository extends JpaRepository<LoanJpaEntity, Long> {
             """)
     List<Object[]> countByCopyBetween(@Param("from") LocalDate from, @Param("to") LocalDate to);
 
+    @Query("select l from LoanJpaEntity l where l.returnDate is null and l.dueDate <= :limit order by l.id")
+    List<LoanJpaEntity> findActiveDueOnOrBefore(@Param("limit") LocalDate limit);
+
     @Query("select l.copyId from LoanJpaEntity l where l.readerId = :readerId and l.returnDate is null")
     Set<Long> findActiveCopyIdsByReaderId(@Param("readerId") Long readerId);
 }

@@ -37,6 +37,13 @@ public interface LoanRepository {
      */
     List<CopyLoanCount> countLoansByCopy(LocalDate from, LocalDate to);
 
+    /**
+     * The active loans (not returned) whose due date is on or before {@code limit}, in one query: the ones that fall
+     * due up to that day plus every one already late (RF28). Not paginated: it is read by a routine, and an active
+     * loan is bounded by the loan limit per reader.
+     */
+    List<Loan> findActiveDueOnOrBefore(LocalDate limit);
+
     /** How many loans the filter keeps, in one aggregated query: the same total {@link #findAll} gives. */
     long count(LoanFilter filter);
 }

@@ -60,7 +60,7 @@ class RenewLoanServiceTest {
 
     private void configure(Integer loanPeriodDays, Integer renewalLimit) {
         var configuration = configurationRepository.getForUpdate();
-        configuration.update(null, null, null, null, null, loanPeriodDays, null, renewalLimit, null);
+        configuration.update(null, null, null, null, null, loanPeriodDays, null, renewalLimit, null, null);
         configurationRepository.save(configuration);
     }
 

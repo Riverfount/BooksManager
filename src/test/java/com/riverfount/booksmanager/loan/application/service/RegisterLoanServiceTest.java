@@ -116,7 +116,7 @@ class RegisterLoanServiceTest {
     @Test
     void shouldTakeThePeriodFromTheConfigurationNotFromTheCode() {
         var configuration = configurationRepository.getForUpdate();
-        configuration.update(null, null, null, null, null, 7, null, null, null);
+        configuration.update(null, null, null, null, null, 7, null, null, null, null);
         configurationRepository.save(configuration);
 
         assertThat(register().getDueDate()).isEqualTo(TODAY.plusDays(7));
@@ -283,7 +283,7 @@ class RegisterLoanServiceTest {
     @Test
     void shouldTakeTheLimitFromTheConfiguration() {
         var configuration = configurationRepository.getForUpdate();
-        configuration.update(null, null, null, null, null, null, 1, null, null);
+        configuration.update(null, null, null, null, null, null, 1, null, null, null);
         configurationRepository.save(configuration);
         openLoanOfTheReader(101L, TODAY);
 

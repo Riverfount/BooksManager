@@ -61,6 +61,11 @@ class LoanPersistenceAdapter implements LoanRepository {
     }
 
     @Override
+    public List<Loan> findActiveDueOnOrBefore(LocalDate limit) {
+        return jpaRepository.findActiveDueOnOrBefore(limit).stream().map(this::toDomain).toList();
+    }
+
+    @Override
     public long count(LoanFilter filter) {
         return jpaRepository.countMatching(filter.readerId(), filter.copyId(), filter.active(),
                 filter.overdueOn());

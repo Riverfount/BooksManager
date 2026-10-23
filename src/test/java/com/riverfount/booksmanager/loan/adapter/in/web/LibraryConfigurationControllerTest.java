@@ -49,7 +49,7 @@ class LibraryConfigurationControllerTest {
 
     private static LibraryConfiguration initial() {
         return LibraryConfiguration.reconstitute(1L, PenaltyPolicy.FINE, new BigDecimal("1.00"),
-                new BigDecimal("10.00"), 1, 365, 14, 3, 2, 3);
+                new BigDecimal("10.00"), 1, 365, 14, 3, 2, 3, 2);
     }
 
     private static MockHttpServletRequestBuilder edit(String json) {
@@ -74,7 +74,8 @@ class LibraryConfigurationControllerTest {
                 .andExpect(jsonPath("$.loanPeriodDays").value(14))
                 .andExpect(jsonPath("$.loanLimit").value(3))
                 .andExpect(jsonPath("$.renewalLimit").value(2))
-                .andExpect(jsonPath("$.reservationPickupDays").value(3));
+                .andExpect(jsonPath("$.reservationPickupDays").value(3))
+                .andExpect(jsonPath("$.dueSoonNoticeDays").value(2));
     }
 
     @Test
@@ -95,7 +96,7 @@ class LibraryConfigurationControllerTest {
         mockMvc.perform(edit("""
                 {"penaltyPolicy":"BOTH","dailyFineAmount":2.50,"fineCap":30.00,"suspensionDaysPerDay":2,
                  "suspensionCapDays":90,"loanPeriodDays":21,"loanLimit":5,"renewalLimit":0,
-                 "reservationPickupDays":7}"""))
+                 "reservationPickupDays":7, "dueSoonNoticeDays":5}"""))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.penaltyPolicy").value("FINE"));
 
@@ -111,6 +112,7 @@ class LibraryConfigurationControllerTest {
         assertThat(command.loanLimit()).isEqualTo(5);
         assertThat(command.renewalLimit()).isZero();
         assertThat(command.reservationPickupDays()).isEqualTo(7);
+        assertThat(command.dueSoonNoticeDays()).isEqualTo(5);
     }
 
     @Test

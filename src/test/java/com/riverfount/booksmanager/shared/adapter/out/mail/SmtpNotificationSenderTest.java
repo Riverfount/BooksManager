@@ -8,6 +8,7 @@ import com.icegreen.greenmail.junit5.GreenMailExtension;
 import com.icegreen.greenmail.util.ServerSetup;
 import com.icegreen.greenmail.util.ServerSetupTest;
 import com.riverfount.booksmanager.shared.application.port.out.Notification;
+import com.riverfount.booksmanager.shared.application.port.out.NotificationDeliveryException;
 import java.time.Duration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -47,6 +48,28 @@ class SmtpNotificationSenderTest {
         var sender = new SmtpNotificationSender(properties(unusedPort));
 
         assertThatCode(() -> sender.send(NOTIFICATION)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void shouldSendAndConfirmAtOnceEvenInsideATransaction() {
+        var sender = new SmtpNotificationSender(properties(greenMail.getSmtp().getPort()));
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            sender.sendAndConfirm(NOTIFICATION);
+
+            assertThat(greenMail.getReceivedMessages()).hasSize(1);
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
+    void shouldTellTheCallerWhenSendAndConfirmFails() {
+        var unusedPort = ServerSetup.PORT_SMTP + 4000;
+        var sender = new SmtpNotificationSender(properties(unusedPort));
+
+        assertThatThrownBy(() -> sender.sendAndConfirm(NOTIFICATION))
+                .isInstanceOf(NotificationDeliveryException.class);
     }
 
     @Test
