@@ -28,6 +28,8 @@ import com.riverfount.booksmanager.loan.domain.ReturnCondition;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
+import com.riverfount.booksmanager.shared.application.port.out.NotificationSender;
+import com.riverfount.booksmanager.user.application.port.in.FindReaderContactsUseCase;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -78,7 +80,7 @@ class ReturnLoanServiceTest {
         copySummaries = mock(FindCopySummariesUseCase.class);
         reserveCopy = mock(ReserveCopyUseCase.class);
         var reservationQueue = new ReservationQueue(reservationRepository, copyAvailability, copySummaries,
-                reserveCopy);
+                reserveCopy, mock(FindReaderContactsUseCase.class), mock(NotificationSender.class));
         service = new ReturnLoanService(configurationRepository, loanRepository, fineRepository,
                 suspensionRepository, checkInCopy, reservationQueue, CLOCK);
     }
@@ -270,7 +272,7 @@ class ReturnLoanServiceTest {
         var lateNight = Clock.fixed(Instant.parse("2026-11-11T01:00:00Z"), ZONE);
         var lateService = new ReturnLoanService(configurationRepository, loanRepository, fineRepository,
                 suspensionRepository, checkInCopy,
-                new ReservationQueue(reservationRepository, copyAvailability, copySummaries, reserveCopy), lateNight);
+                new ReservationQueue(reservationRepository, copyAvailability, copySummaries, reserveCopy, mock(FindReaderContactsUseCase.class), mock(NotificationSender.class)), lateNight);
 
         assertThat(lateService.returnLoan(returning(openLoan(5))).loan().getReturnDate()).isEqualTo(TODAY);
     }

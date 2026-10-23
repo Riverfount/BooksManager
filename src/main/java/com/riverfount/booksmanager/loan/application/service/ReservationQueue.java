@@ -5,6 +5,8 @@ import com.riverfount.booksmanager.catalog.application.port.in.FindCopySummaries
 import com.riverfount.booksmanager.catalog.application.port.in.ReserveCopyUseCase;
 import com.riverfount.booksmanager.loan.application.port.out.ReservationRepository;
 import com.riverfount.booksmanager.loan.domain.Reservation;
+import com.riverfount.booksmanager.shared.application.port.out.NotificationSender;
+import com.riverfount.booksmanager.user.application.port.in.FindReaderContactsUseCase;
 import java.time.LocalDate;
 import java.util.Optional;
 import java.util.Set;
@@ -19,6 +21,10 @@ import org.springframework.transaction.annotation.Transactional;
  * orchestrates: the catalog keeps the copy ({@code RESERVED}) and the {@link Reservation} sets its own
  * pickup deadline. The queue is in order of arrival; two copies of the same book freed at once go to
  * different readers, and a race for the same reservation fails on its version (409, RNF17).
+ *
+ * <p>The reader of the reservation served is told by e-mail (RF28): the book and the last day to pick the copy up.
+ * The notice goes through {@link NotificationSender#send}, so it leaves only after the commit of the caller's
+ * transaction, is dropped if that is rolled back, and a failure of the mail never reaches the caller (RNF19).
  */
 @Service
 @Transactional
@@ -28,13 +34,18 @@ class ReservationQueue {
     private final FindCopyAvailabilityUseCase copyAvailability;
     private final FindCopySummariesUseCase copySummaries;
     private final ReserveCopyUseCase reserveCopy;
+    private final FindReaderContactsUseCase readerContacts;
+    private final NotificationSender notificationSender;
 
     ReservationQueue(ReservationRepository reservationRepository, FindCopyAvailabilityUseCase copyAvailability,
-            FindCopySummariesUseCase copySummaries, ReserveCopyUseCase reserveCopy) {
+            FindCopySummariesUseCase copySummaries, ReserveCopyUseCase reserveCopy,
+            FindReaderContactsUseCase readerContacts, NotificationSender notificationSender) {
         this.reservationRepository = reservationRepository;
         this.copyAvailability = copyAvailability;
         this.copySummaries = copySummaries;
         this.reserveCopy = reserveCopy;
+        this.readerContacts = readerContacts;
+        this.notificationSender = notificationSender;
     }
 
     /**
@@ -60,6 +71,17 @@ class ReservationQueue {
         var reservation = first.get();
         reserveCopy.reserve(copyId);
         reservation.assignCopy(copyId, today, pickupDays);
-        return Optional.of(reservationRepository.save(reservation));
+        var served = reservationRepository.save(reservation);
+        notifyReader(served, summary.bookTitle());
+        return Optional.of(served);
+    }
+
+    /** A reader without a contact is still served; there is just nobody to tell. */
+    private void notifyReader(Reservation served, String bookTitle) {
+        var contact = readerContacts.findContacts(Set.of(served.getReaderId())).get(served.getReaderId());
+        if (contact != null) {
+            notificationSender.send(
+                    ReservationNoticeMessages.copyReady(contact, bookTitle, served.getPickupDeadline()));
+        }
     }
 }

@@ -17,6 +17,8 @@ import com.riverfount.booksmanager.catalog.application.port.in.ReserveCopyUseCas
 import com.riverfount.booksmanager.loan.domain.Reservation;
 import com.riverfount.booksmanager.loan.domain.ReservationStatus;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
+import com.riverfount.booksmanager.shared.application.port.out.NotificationSender;
+import com.riverfount.booksmanager.user.application.port.in.FindReaderContactsUseCase;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -56,7 +58,7 @@ class ExpireReservationsServiceTest {
         reserveCopy = mock(ReserveCopyUseCase.class);
         copyAvailability = mock(FindCopyAvailabilityUseCase.class);
         copySummaries = mock(FindCopySummariesUseCase.class);
-        var queue = new ReservationQueue(reservationRepository, copyAvailability, copySummaries, reserveCopy);
+        var queue = new ReservationQueue(reservationRepository, copyAvailability, copySummaries, reserveCopy, mock(FindReaderContactsUseCase.class), mock(NotificationSender.class));
         expirer = new ReservationExpirer(configurationRepository, reservationRepository, releaseCopyReservation,
                 queue);
         service = new ExpireReservationsService(reservationRepository, expirer, CLOCK);
