@@ -3,6 +3,7 @@ package com.riverfount.booksmanager.catalog.adapter.in.web;
 import com.riverfount.booksmanager.catalog.application.port.in.DeactivateBookUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.GetBookUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ListBooksQuery;
+import com.riverfount.booksmanager.catalog.application.port.in.LookupBookByIsbnUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ListBooksUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterBookCommand;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterBookUseCase;
@@ -46,15 +47,17 @@ class BookController {
     private final ListBooksUseCase listBooksUseCase;
     private final UpdateBookUseCase updateBookUseCase;
     private final DeactivateBookUseCase deactivateBookUseCase;
+    private final LookupBookByIsbnUseCase lookupBookByIsbnUseCase;
 
     BookController(RegisterBookUseCase registerBookUseCase, GetBookUseCase getBookUseCase,
             ListBooksUseCase listBooksUseCase, UpdateBookUseCase updateBookUseCase,
-            DeactivateBookUseCase deactivateBookUseCase) {
+            DeactivateBookUseCase deactivateBookUseCase, LookupBookByIsbnUseCase lookupBookByIsbnUseCase) {
         this.registerBookUseCase = registerBookUseCase;
         this.getBookUseCase = getBookUseCase;
         this.listBooksUseCase = listBooksUseCase;
         this.updateBookUseCase = updateBookUseCase;
         this.deactivateBookUseCase = deactivateBookUseCase;
+        this.lookupBookByIsbnUseCase = lookupBookByIsbnUseCase;
     }
 
     @PostMapping
@@ -117,6 +120,28 @@ class BookController {
             @RequestParam(defaultValue = ListBooksQuery.DEFAULT_SORT) String sort) {
         var query = new ListBooksQuery(title, author, isbn, categoryId, active, PageQuery.of(page, size, sort));
         return PageResponse.from(listBooksUseCase.list(query), BookResponse::from);
+    }
+
+    @GetMapping("/lookup")
+    @Operation(summary = "Sugerir os dados de um livro pelo ISBN",
+            description = "Consulta uma fonte externa pelo ISBN e devolve título, autores, editora e ano como "
+                    + "sugestão para pré-preencher o cadastro (RF06); não grava nada, quem cadastra o livro é o "
+                    + "`POST /api/v1/books`. Cada autor sugerido traz `existingAuthorId` quando o acervo já tem "
+                    + "um autor ativo com esse nome (sem diferenciar maiúsculas), para não duplicar o cadastro. "
+                    + "Se já existe um livro com o ISBN, responde `ALREADY_REGISTERED` com o `registeredBookId` e "
+                    + "não consulta a fonte. Fonte desligada, lenta, fora do ar ou sem o ISBN responde 200 com "
+                    + "`NOT_FOUND` e uma mensagem: o cadastro manual segue funcionando (RNF19).")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Sugestão, ISBN já cadastrado ou nada encontrado"),
+            @ApiResponse(responseCode = "400",
+                    description = "ISBN ausente ou inválido (tamanho ou dígito verificador)",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    BookLookupResponse lookup(
+            @Parameter(description = "ISBN-10 ou ISBN-13, com ou sem hífens", example = "978-85-333-0227-3")
+            @RequestParam(required = false) String isbn) {
+        return BookLookupResponse.from(lookupBookByIsbnUseCase.lookup(isbn));
     }
 
     @GetMapping("/{id}")

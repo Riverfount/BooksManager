@@ -45,6 +45,13 @@ class InMemoryAuthorRepository implements AuthorRepository {
     }
 
     @Override
+    public List<Author> findActiveByNames(Set<String> names) {
+        var lower = names.stream().map(name -> name.toLowerCase(Locale.ROOT)).collect(java.util.stream.Collectors.toSet());
+        return authors.values().stream().filter(Author::isActive)
+                .filter(author -> lower.contains(author.getName().toLowerCase(Locale.ROOT))).toList();
+    }
+
+    @Override
     public PageResult<Author> findAll(String nameContains, boolean active, PageQuery page) {
         var matching = authors.values().stream()
                 .filter(author -> author.isActive() == active)

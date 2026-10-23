@@ -37,6 +37,16 @@ class AuthorPersistenceAdapter implements AuthorRepository {
     }
 
     @Override
+    public List<Author> findActiveByNames(Set<String> names) {
+        if (names.isEmpty()) {
+            return List.of();
+        }
+        var lowerNames = names.stream().map(name -> name.toLowerCase(java.util.Locale.ROOT)).collect(
+                java.util.stream.Collectors.toSet());
+        return jpaRepository.findActiveByLowerNames(lowerNames).stream().map(this::toDomain).toList();
+    }
+
+    @Override
     public PageResult<Author> findAll(String nameContains, boolean active, PageQuery page) {
         var pageable = SpringDataPages.toPageable(page);
         var result = nameContains == null

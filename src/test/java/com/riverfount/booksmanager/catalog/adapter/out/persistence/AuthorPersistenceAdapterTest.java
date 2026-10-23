@@ -151,4 +151,24 @@ class AuthorPersistenceAdapterTest {
 
         assertThat(result.items()).extracting(Author::getId).containsExactly(second.getId(), first.getId());
     }
+
+    @Test
+    void shouldFindTheActiveAuthorsByNameIgnoringCaseInOneCall() {
+        var machado = adapter.save(Author.create("Machado de Assis"));
+        var clarice = adapter.save(Author.create("Clarice Lispector"));
+        var inactive = Author.create("Graciliano Ramos");
+        inactive.deactivate();
+        adapter.save(inactive);
+        adapter.save(Author.create("Outro Autor"));
+
+        var found = adapter.findActiveByNames(Set.of("MACHADO DE ASSIS", "clarice lispector", "Graciliano Ramos",
+                "Ninguém"));
+
+        assertThat(found).extracting(Author::getId).containsExactlyInAnyOrder(machado.getId(), clarice.getId());
+    }
+
+    @Test
+    void shouldFindNoAuthorsForNoNames() {
+        assertThat(adapter.findActiveByNames(Set.of())).isEmpty();
+    }
 }

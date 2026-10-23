@@ -135,7 +135,7 @@ Todos os recursos do catálogo seguem o mesmo contrato, sob o prefixo **/api/v1*
 
 | Recurso | Rota base | Observações |
 |---|---|---|
-| Livros | `/books` | O ISBN é imutável depois do cadastro. A listagem pesquisa por `title`, `author`, `isbn` (por trecho) e `categoryId`, e cada livro traz `availableCopies`, `totalCopies`, a categoria e os autores com nome. |
+| Livros | `/books` | O ISBN é imutável depois do cadastro. `GET /books/lookup?isbn=` sugere título, autores (com o id do autor que o acervo já tem), editora e ano a partir do ISBN, para pré-preencher o cadastro: responde sempre 200 (`FOUND`, `NOT_FOUND` ou `ALREADY_REGISTERED`), 400 para ISBN inválido, e só consulta a fonte externa com `APP_ISBN_LOOKUP_ENABLED=true`. A listagem pesquisa por `title`, `author`, `isbn` (por trecho) e `categoryId`, e cada livro traz `availableCopies`, `totalCopies`, a categoria e os autores com nome. |
 | Autores | `/authors` | Filtro por `name`. |
 | Categorias | `/categories` | Filtro por `name`; o nome é único. |
 | Exemplares | `/copies` | Filtros por `bookId`, `status` e `assetCode` (o código de patrimônio inteiro, sem diferenciar maiúsculas); a edição altera só o status. |

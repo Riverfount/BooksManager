@@ -12,6 +12,9 @@ interface BookJpaRepository extends JpaRepository<BookJpaEntity, Long> {
 
     boolean existsByIsbn(String isbn);
 
+    @org.springframework.data.jpa.repository.Query("select b.id from BookJpaEntity b where b.isbn = :isbn")
+    java.util.Optional<Long> findIdByIsbn(@org.springframework.data.repository.query.Param("isbn") String isbn);
+
     /**
      * Listing and search (RF05). A null parameter means "no filter on that
      * field". The text parameters come already lowercased and wrapped as a

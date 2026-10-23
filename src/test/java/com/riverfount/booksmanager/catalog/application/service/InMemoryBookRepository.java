@@ -62,6 +62,11 @@ class InMemoryBookRepository implements BookRepository {
     }
 
     @Override
+    public Optional<Long> findIdByIsbn(Isbn isbn) {
+        return books.values().stream().filter(book -> book.getIsbn().equals(isbn)).map(Book::getId).findFirst();
+    }
+
+    @Override
     public boolean existsByIsbn(Isbn isbn) {
         return books.values().stream().anyMatch(book -> book.getIsbn().equals(isbn));
     }

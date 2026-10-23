@@ -19,6 +19,12 @@ public interface AuthorRepository {
     List<Author> findAllByIds(Set<Long> ids);
 
     /**
+     * The active authors whose name is one of the given names, ignoring case, in one query. An author that is
+     * inactive is not a candidate to be reused, so it is not returned.
+     */
+    List<Author> findActiveByNames(Set<String> names);
+
+    /**
      * Lists authors by active flag and, when nameContains is not null, by
      * name containing it (case-insensitive). The sort field is one of
      * ListAuthorsQuery.SORTABLE_FIELDS.

@@ -25,7 +25,9 @@ import com.riverfount.booksmanager.catalog.application.port.in.BookWithAvailabil
 import com.riverfount.booksmanager.catalog.application.port.in.DeactivateBookUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.GetBookUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ListBooksQuery;
+import com.riverfount.booksmanager.catalog.application.port.in.BookLookupResult;
 import com.riverfount.booksmanager.catalog.application.port.in.ListBooksUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.LookupBookByIsbnUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterBookUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateBookCommand;
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateBookUseCase;
@@ -77,6 +79,9 @@ class BookControllerTest {
 
     @MockitoBean
     private DeactivateBookUseCase deactivateBookUseCase;
+
+    @MockitoBean
+    private LookupBookByIsbnUseCase lookupBookByIsbnUseCase;
 
     private BookWithAvailability sampleBook() {
         return withNames(plainBook(), 2, 5);
@@ -528,5 +533,76 @@ class BookControllerTest {
     @WithOperator
     void anOperatorMayCallTheRoutes() throws Exception {
         mockMvc.perform(delete("/api/v1/books/1").with(csrf())).andExpect(status().isNoContent());
+    }
+
+    // the lookup of an ISBN (RF06)
+
+    @Test
+    @WithOperator
+    void shouldSuggestTheDataOfAnIsbnAndIdentifyTheKnownAuthors() throws Exception {
+        given(lookupBookByIsbnUseCase.lookup("978-85-333-0227-3")).willReturn(BookLookupResult.found("9788533302273",
+                new BookLookupResult.Suggestion("Dom Casmurro", "Garnier", 1899,
+                        List.of(new BookLookupResult.SuggestedAuthor("Machado de Assis", 3L),
+                                new BookLookupResult.SuggestedAuthor("Outro", null)))));
+
+        mockMvc.perform(get("/api/v1/books/lookup").param("isbn", "978-85-333-0227-3"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.isbn").value("9788533302273"))
+                .andExpect(jsonPath("$.outcome").value("FOUND"))
+                .andExpect(jsonPath("$.message").isNotEmpty())
+                .andExpect(jsonPath("$.suggestion.title").value("Dom Casmurro"))
+                .andExpect(jsonPath("$.suggestion.publisher").value("Garnier"))
+                .andExpect(jsonPath("$.suggestion.publicationYear").value(1899))
+                .andExpect(jsonPath("$.suggestion.authors[0].name").value("Machado de Assis"))
+                .andExpect(jsonPath("$.suggestion.authors[0].existingAuthorId").value(3))
+                .andExpect(jsonPath("$.suggestion.authors[1].existingAuthorId").doesNotExist())
+                .andExpect(jsonPath("$.registeredBookId").doesNotExist());
+    }
+
+    @Test
+    @WithAdmin
+    void shouldSignalAnIsbnThatIsAlreadyRegistered() throws Exception {
+        given(lookupBookByIsbnUseCase.lookup("9788533302273"))
+                .willReturn(BookLookupResult.alreadyRegistered("9788533302273", 7L));
+
+        mockMvc.perform(get("/api/v1/books/lookup").param("isbn", "9788533302273"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.outcome").value("ALREADY_REGISTERED"))
+                .andExpect(jsonPath("$.registeredBookId").value(7))
+                .andExpect(jsonPath("$.message").value(containsString("Já existe")))
+                .andExpect(jsonPath("$.suggestion").doesNotExist());
+    }
+
+    @Test
+    @WithOperator
+    void shouldAnswer200WithAReasonWhenNothingCameBack() throws Exception {
+        given(lookupBookByIsbnUseCase.lookup("9788533302273")).willReturn(BookLookupResult.notFound("9788533302273"));
+
+        mockMvc.perform(get("/api/v1/books/lookup").param("isbn", "9788533302273"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.outcome").value("NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value(containsString("manualmente")))
+                .andExpect(jsonPath("$.suggestion").doesNotExist());
+    }
+
+    @Test
+    @WithOperator
+    void shouldAnswer400ForAnInvalidOrMissingIsbn() throws Exception {
+        given(lookupBookByIsbnUseCase.lookup("123"))
+                .willThrow(new com.riverfount.booksmanager.shared.domain.InvalidQueryException("ISBN deve ter 10 ou 13 dígitos"));
+        given(lookupBookByIsbnUseCase.lookup(null))
+                .willThrow(new com.riverfount.booksmanager.shared.domain.InvalidQueryException("o ISBN é obrigatório"));
+
+        mockMvc.perform(get("/api/v1/books/lookup").param("isbn", "123"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+                .andExpect(jsonPath("$.detail").value("ISBN deve ter 10 ou 13 dígitos"));
+        mockMvc.perform(get("/api/v1/books/lookup")).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void shouldRequireAuthenticationForTheLookup() throws Exception {
+        mockMvc.perform(get("/api/v1/books/lookup").param("isbn", "9788533302273"))
+                .andExpect(status().isUnauthorized());
     }
 }
