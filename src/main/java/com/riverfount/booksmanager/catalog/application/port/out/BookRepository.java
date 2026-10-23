@@ -25,6 +25,9 @@ public interface BookRepository {
 
     boolean existsByIsbn(Isbn isbn);
 
+    /** The id of the book with the ISBN, active or not (the ISBN is unique among all), or empty. */
+    Optional<Long> findIdByIsbn(Isbn isbn);
+
     /**
      * Lists books by active flag, narrowed by the optional filters (RF05).
      * The sort field is one of ListBooksQuery.SORTABLE_FIELDS.

@@ -305,6 +305,17 @@ class BookPersistenceAdapterTest {
     }
 
     @Test
+    void findIdByIsbnShouldGiveTheIdOfTheBookEvenWhenItIsInactive() {
+        var saved = adapter.save(Book.create(new Isbn("9788533302273"), "Dom Casmurro", "Editora X", 1899, categoryId,
+                Set.of(authorId1), FIXED_CLOCK));
+        saved.deactivate();
+        adapter.save(saved);
+
+        assertThat(adapter.findIdByIsbn(new Isbn("9788533302273"))).contains(saved.getId());
+        assertThat(adapter.findIdByIsbn(new Isbn("080442957X"))).isEmpty();
+    }
+
+    @Test
     void shouldReturnEmptyForNonExistentId() {
         assertThat(adapter.findById(-1L)).isEmpty();
     }

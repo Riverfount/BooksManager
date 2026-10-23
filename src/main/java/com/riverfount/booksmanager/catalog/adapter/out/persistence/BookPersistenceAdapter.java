@@ -69,6 +69,11 @@ class BookPersistenceAdapter implements BookRepository {
     }
 
     @Override
+    public Optional<Long> findIdByIsbn(Isbn isbn) {
+        return jpaRepository.findIdByIsbn(isbn.value());
+    }
+
+    @Override
     public PageResult<Book> findAll(BookFilter filter, boolean active, PageQuery page) {
         var result = jpaRepository.search(likePattern(filter.title()), likePattern(filter.author()),
                 likePatternKeepingCase(filter.isbn()), filter.categoryId(), active,
