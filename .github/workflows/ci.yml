@@ -58,6 +58,10 @@ jobs:
             -v "$PWD/deploy/nginx/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro" \
             -v "$certs:/etc/letsencrypt:ro" nginx:1.28-alpine nginx -t
 
+      # RNF18: the backup scripts must stay free of the usual shell mistakes. ShellCheck is already on the runner.
+      - name: Check the backup scripts
+        run: shellcheck -x deploy/backup/*.sh
+
       # Shows the numbers on the run page, also when the coverage check fails.
       - name: Coverage summary
         if: always()

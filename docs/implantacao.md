@@ -229,53 +229,62 @@ O banco é o único estado que importa: a imagem e os arquivos de configuração
 
 Os comandos usam o formato "custom" do `pg_dump` (`-Fc`), compactado e restaurável com o `pg_restore`, inclusive só em parte.
 
-### 7.1 Fazer um backup
+### 7.1 O backup diário (script)
+
+O `deploy/backup/backup.sh` faz o `pg_dump -Fc`, dá ao arquivo o nome `booksmanager-AAAA-MM-DD-HHMM.dump`, **confere que o arquivo não está vazio e que pode ser lido** (um dump cortado pela metade não lista o conteúdo), apaga os mais antigos pela retenção (14 dias no servidor), copia para fora do servidor (seção 7.2) e avisa o serviço de monitoramento. Se qualquer passo falha, o script para, apaga o arquivo incompleto e chama o aviso de falha. Não há segredo dentro dele.
+
+**Configurar** (uma vez):
 
 ```
 cd /opt/booksmanager
-mkdir -p backups
-docker compose --env-file .env.prod -f compose.prod.yaml exec -T postgres \
-  sh -c 'pg_dump -U "$POSTGRES_USER" -Fc "$POSTGRES_DB"' > backups/biblioteca-$(date +%F-%H%M).dump
+cp .env.backup-sample .env.backup && chmod 600 .env.backup     # preencha conforme a seção 7.2
+deploy/backup/backup.sh                                         # roda uma vez, à mão, e confira o log
 ```
 
-O arquivo sai no servidor, na pasta `backups/` (ignorada pelo Git). **Um backup só no mesmo disco do banco não protege de um disco perdido**: copie os arquivos para outra máquina ou serviço (`rsync`, `rclone`, um disco externo).
-
-### 7.2 Agendar
-
-No `cron` (`crontab -e`), todo dia às 02:30, guardando 14 dias. **Em um `crontab`, o `%` precisa de barra invertida** (`\%`), senão a linha quebra:
+**Agendar** no `cron` do usuário que roda o Docker (`crontab -e`), todo dia às 02:30. Os scripts acham a pasta do projeto sozinhos, então o caminho pode ser absoluto, e não há `%` para escapar:
 
 ```
-30 2 * * * cd /opt/booksmanager && docker compose --env-file .env.prod -f compose.prod.yaml exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -Fc "$POSTGRES_DB"' > backups/biblioteca-$(date +\%F-\%H\%M).dump && find backups -name '*.dump' -mtime +14 -delete
+30 2 * * * /opt/booksmanager/deploy/backup/backup.sh >> /opt/booksmanager/backups/backup.log 2>&1
 ```
 
-(Esta automação é só documentada: um script próprio, com cópia para fora do servidor e alerta de falha, é trabalho de prioridade C.)
+**Proteção dos arquivos:** a pasta `backups/` é criada com permissão `700` e cada backup com `600`, então outros usuários do servidor não os leem. O `.env.backup` também é `600` e está no `.gitignore`. O backup traz nome, documento e e-mail dos leitores, inclusive de menores: **não o copie para lugar nenhum sem criptografia** (seção 7.2). O `backup.log` cresce pouco (algumas linhas por dia); gire-o com o `logrotate` se quiser.
 
-### 7.3 Testar a restauração (faça de vez em quando)
+Cada variável do `.env.backup` está explicada no próprio `.env.backup-sample`. As principais: `BACKUP_KEEP_LOCAL` (14), `BACKUP_RCLONE_REMOTE`, `BACKUP_REMOTE_KEEP_DAYS` (90), `BACKUP_PING_URL` e `BACKUP_RESTORE_PING_URL`. O que está no ambiente vale mais que o arquivo.
 
-Um backup que nunca foi restaurado não é uma garantia. O teste usa um banco temporário e **não mexe no banco de verdade**:
+### 7.2 A cópia para fora do servidor (`rclone`) e o aviso de falha
+
+**Um backup só no disco do próprio banco não protege de perder o servidor.** O script copia o arquivo com o `rclone`, **só para um remoto criptografado** (`crypt`): ele recusa qualquer outro, porque o arquivo leva dados pessoais. Sem `BACKUP_RCLONE_REMOTE`, o backup fica só no servidor e o log avisa isso em toda execução (nada falha: é o ponto de partida enquanto não há para onde enviar).
+
+**Montar o destino** (quando houver um provedor; o script não conhece nenhum):
+
+1. Instale o `rclone` no servidor (pacote da distribuição ou <https://rclone.org/install/>).
+2. `rclone config`: crie primeiro o remoto do armazenamento (um bucket de objetos, como Cloudflare R2 ou Backblaze B2, ou outro servidor por SFTP), e depois um segundo remoto do tipo **`crypt`** por cima dele, por exemplo `biblioteca-cripto`, apontando para `<remoto-do-armazenamento>:booksmanager-backups`, com a criptografia de nomes de arquivo ligada. O `rclone` pede uma senha e um sal: deixe-o gerar.
+3. **Guarde a senha e o sal do `crypt` fora do servidor** (um gerenciador de senhas): sem eles, os backups criptografados **não abrem**, nem num servidor novo. O `rclone` também os mantém, de forma reversível, em `~/.config/rclone/rclone.conf` no servidor; mantenha esse arquivo em `600`.
+4. Em `.env.backup`: `BACKUP_RCLONE_REMOTE=biblioteca-cripto:` (ou `biblioteca-cripto:subpasta`).
+5. Rode o `deploy/backup/backup.sh` e confira o log (`remote: ... is there`) e, com `rclone ls biblioteca-cripto:`, que o arquivo aparece decifrado; no armazenamento de verdade ele tem nome e conteúdo ilegíveis.
+
+> O backup remoto guarda os arquivos dos últimos `BACKUP_REMOTE_KEEP_DAYS` dias (90). As condições dos planos gratuitos dos provedores mudam: confira na página do provedor antes de escolher.
+
+**O aviso de falha** é um serviço de monitoramento por ping (o Healthchecks.io tem plano gratuito). Crie duas verificações, uma diária e uma mensal, e ponha as URLs em `BACKUP_PING_URL` e `BACKUP_RESTORE_PING_URL`. O script chama a URL ao terminar com sucesso e a URL com `/fail` quando falha; **a falta do ping no prazo também gera o alerta**, o que cobre o caso de o `cron` nem ter rodado, que um aviso só em caso de erro não cobriria. Sem as URLs, ninguém é avisado e o único rastro é o log.
+
+### 7.3 O teste de restauração (automático)
+
+Um backup que nunca foi restaurado não é uma garantia. O `deploy/backup/restore-test.sh` restaura o backup **mais recente** num banco temporário (`restore_test_<número>`), confere que as migrações do Flyway estão aplicadas e sem falha, que as tabelas principais existem e podem ser lidas e que há ao menos um usuário, **apaga o banco temporário** (também quando falha) e registra o resultado em `backups/restore-test.log` e no aviso `BACKUP_RESTORE_PING_URL`. **Ele não mexe no banco de verdade.** Se o backup mais novo tem mais de 48 horas (`BACKUP_MAX_AGE_HOURS`), o teste falha: é o sinal de que o backup diário parou.
+
+Agende uma vez por mês (dia 1, às 04:00):
 
 ```
-ARQ=backups/biblioteca-2026-10-22-0230.dump        # o backup a testar
-C="docker compose --env-file .env.prod -f compose.prod.yaml"
-
-$C exec -T postgres sh -c 'createdb -U "$POSTGRES_USER" restauracao_teste'
-$C exec -T postgres sh -c 'pg_restore -U "$POSTGRES_USER" -d restauracao_teste --no-owner --exit-on-error' < "$ARQ"
-
-# compare com o banco de verdade: os números devem bater (ou ser menores, se o backup for mais antigo)
-$C exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d restauracao_teste -tAc "select count(*) from reader"'
-$C exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "select count(*) from reader"'
-$C exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d restauracao_teste -tAc "select count(*) from flyway_schema_history where success"'
-
-# apaga o banco temporário
-$C exec -T postgres sh -c 'dropdb -U "$POSTGRES_USER" restauracao_teste'
+0 4 1 * * /opt/booksmanager/deploy/backup/restore-test.sh >> /opt/booksmanager/backups/backup.log 2>&1
 ```
+
+Para testar um arquivo específico (por exemplo, um baixado do remoto): `deploy/backup/restore-test.sh backups/<arquivo>.dump`.
 
 ### 7.4 Restaurar de verdade (perdeu ou estragou o banco)
 
 **Isto apaga o banco atual e o troca pelo backup.** Pare a aplicação antes, para ninguém gravar durante a troca:
 
 ```
-ARQ=backups/biblioteca-2026-10-22-0230.dump
+ARQ=backups/booksmanager-2026-10-22-0230.dump        # se só existe no remoto: rclone copy biblioteca-cripto:booksmanager-2026-10-22-0230.dump backups/
 C="docker compose --env-file .env.prod -f compose.prod.yaml"
 
 $C stop app
@@ -337,5 +346,4 @@ Isto complementa o bloqueio da conta (que protege cada usuário) e não o substi
 
 ## 10. O que este guia ainda não cobre
 
-- A **automação do backup** (script, cópia para fora, alerta): só documentada aqui (prioridade C).
 - O **front-end**, que é outro repositório.

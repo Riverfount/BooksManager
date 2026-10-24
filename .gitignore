@@ -32,3 +32,4 @@ target/
 # Production: certificates and database backups never go to the repository
 certs/
 backups/
+.env.backup
