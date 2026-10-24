@@ -60,7 +60,7 @@ class CancelReservationServiceTest {
         var copyAvailability = mock(FindCopyAvailabilityUseCase.class);
         var copySummaries = mock(FindCopySummariesUseCase.class);
         // once released, the copy is on the shelf of its book and can be lent
-        given(copyAvailability.findAvailability(COPY)).willReturn(Optional.of(new CopyAvailability(COPY, true, false)));
+        given(copyAvailability.findAvailability(COPY)).willReturn(Optional.of(new CopyAvailability(COPY, true, false, true)));
         given(copySummaries.findSummaries(Set.of(COPY)))
                 .willReturn(Map.of(COPY, new CopySummary(COPY, "PAT-7", BOOK, "T")));
         var queue = new ReservationQueue(reservationRepository, copyAvailability, copySummaries, reserveCopy, mock(FindReaderContactsUseCase.class), mock(NotificationSender.class));

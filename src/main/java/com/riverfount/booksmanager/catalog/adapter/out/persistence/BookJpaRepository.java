@@ -12,6 +12,8 @@ interface BookJpaRepository extends JpaRepository<BookJpaEntity, Long> {
 
     boolean existsByIsbn(String isbn);
 
+    boolean existsByIdAndActiveTrue(Long id);
+
     @org.springframework.data.jpa.repository.Query("select b.id from BookJpaEntity b where b.isbn = :isbn")
     java.util.Optional<Long> findIdByIsbn(@org.springframework.data.repository.query.Param("isbn") String isbn);
 

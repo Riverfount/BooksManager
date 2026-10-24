@@ -87,7 +87,7 @@ class RegisterLoanService implements RegisterLoanUseCase {
         var holding = copy.reserved() ? reservationRepository.findActiveByCopyId(loan.getCopyId()).orElse(null) : null;
         var hold = copy.reserved() ? CopyHold.of(holding, loan.getReaderId(), today) : CopyHold.NONE;
 
-        BorrowingEligibility.check(situationOf(loan, copy.lendable(), hold, today), configuration.getLoanLimit());
+        BorrowingEligibility.check(situationOf(loan, copy.lendable(), copy.bookActive(), hold, today), configuration.getLoanLimit());
 
         if (hold == CopyHold.FOR_THIS_READER) {
             pickUpReservedCopy(loan, holding, today);
@@ -104,7 +104,8 @@ class RegisterLoanService implements RegisterLoanUseCase {
         reservationRepository.save(reservation);
     }
 
-    private BorrowingSituation situationOf(Loan loan, boolean copyLendable, CopyHold hold, LocalDate today) {
+    private BorrowingSituation situationOf(Loan loan, boolean copyLendable, boolean bookActive, CopyHold hold,
+            LocalDate today) {
         var reader = readerState.getBorrowingState(loan.getReaderId());
         var readerId = loan.getReaderId();
         var activeLoans = loanRepository.findAll(new LoanFilter(readerId, null, true, null), JUST_THE_COUNT)
@@ -115,7 +116,7 @@ class RegisterLoanService implements RegisterLoanUseCase {
                 .totalItems();
         var suspensions = suspensionRepository.findAll(new SuspensionFilter(readerId, null, today, null), JUST_THE_COUNT)
                 .totalItems();
-        return new BorrowingSituation(copyLendable, hold, reader.active(), reader.blocked(),
+        return new BorrowingSituation(copyLendable, hold, bookActive, reader.active(), reader.blocked(),
                 Math.toIntExact(activeLoans), pendingFines > 0, suspensions > 0, overdueLoans > 0);
     }
 }

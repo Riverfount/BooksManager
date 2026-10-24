@@ -11,6 +11,7 @@ import java.util.List;
  *
  * <p>A loan is refused for:
  * <ul>
+ *   <li>a copy of a book that was inactivated (RN14), even the one kept for the reservation of the reader;</li>
  *   <li>a copy that is not available (RN03), or that is kept for a reservation the reader does not own, or
  *       whose pickup deadline has passed (RN13);</li>
  *   <li>a reader who is inactive or blocked (RN11);</li>
@@ -45,6 +46,9 @@ public final class BorrowingEligibility {
             throw new IllegalArgumentException("the loan limit must be at least one");
         }
         var reasons = new ArrayList<String>();
+        if (!situation.bookActive()) {
+            reasons.add("o livro está inativo");
+        }
         switch (situation.copyHold()) {
             case NONE -> {
                 if (!situation.copyAvailable()) {

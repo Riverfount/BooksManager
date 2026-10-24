@@ -25,6 +25,12 @@ public interface BookRepository {
 
     boolean existsByIsbn(Isbn isbn);
 
+    /**
+     * Whether the book exists and is active (RN14), without loading the book: the loan module asks it on every
+     * loan, reservation and return, and only the flag is needed.
+     */
+    boolean existsActiveById(Long id);
+
     /** The id of the book with the ISBN, active or not (the ISBN is unique among all), or empty. */
     Optional<Long> findIdByIsbn(Isbn isbn);
 

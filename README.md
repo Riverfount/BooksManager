@@ -179,7 +179,7 @@ Todos aceitam os perfis `ADMIN` e `OPERATOR` (a configuração da biblioteca, a 
 
 O que vale saber:
 - A retirada é sempre hoje (no fuso `America/Sao_Paulo`) e a data prevista de devolução soma o prazo da configuração; nenhuma data é aceita no corpo.
-- Um empréstimo é recusado por exemplar indisponível, limite de empréstimos simultâneos, multa pendente, suspensão em vigor, empréstimo em atraso ou leitor inativo ou bloqueado, e a mensagem traz todos os motivos de uma vez.
+- Um empréstimo é recusado por exemplar indisponível, **livro inativo**, limite de empréstimos simultâneos, multa pendente, suspensão em vigor, empréstimo em atraso ou leitor inativo ou bloqueado, e a mensagem traz todos os motivos de uma vez. Um livro inativo também não é reservado, e nem o dono de uma reserva retira o exemplar dele; a renovação de um empréstimo em curso de livro inativo também é recusada, mas a devolução continua funcionando.
 - A política de penalidade (multa, suspensão, as duas ou nada) e seus números vêm da configuração. A penalidade é calculada na devolução e guardada: mudar a política depois não recalcula devoluções já registradas.
 - Só a multa pendente impede novos empréstimos; paga ou abonada, o leitor volta a poder emprestar. Uma suspensão que já terminou não está em vigor, sem nenhuma rotina para fechá-la.
 - Um exemplar com empréstimo ativo não pode ser inativado (`DELETE /api/v1/copies/{id}` devolve 422 até a devolução).

@@ -69,6 +69,11 @@ class BookPersistenceAdapter implements BookRepository {
     }
 
     @Override
+    public boolean existsActiveById(Long id) {
+        return jpaRepository.existsByIdAndActiveTrue(id);
+    }
+
+    @Override
     public Optional<Long> findIdByIsbn(Isbn isbn) {
         return jpaRepository.findIdByIsbn(isbn.value());
     }

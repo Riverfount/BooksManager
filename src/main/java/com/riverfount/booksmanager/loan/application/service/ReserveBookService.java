@@ -101,7 +101,7 @@ class ReserveBookService implements ReserveBookUseCase {
         var suspensions = suspensionRepository.findAll(new SuspensionFilter(readerId, null, today, null), JUST_THE_COUNT)
                 .totalItems();
         return new ReservationSituation(reader.active(), reader.blocked(), Math.toIntExact(activeReservations),
-                sameBookReserved > 0, book.hasAvailableCopy(), hasOnLoan(readerId, bookId), pendingFines > 0,
+                sameBookReserved > 0, book.bookActive(), book.hasAvailableCopy(), hasOnLoan(readerId, bookId), pendingFines > 0,
                 suspensions > 0, overdueLoans > 0);
     }
 

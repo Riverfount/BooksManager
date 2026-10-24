@@ -75,7 +75,7 @@ class LoanNoticeTest {
         var loan = loan();
         var before = loan.noticeDue(DUE, NOTICE_DAYS).orElseThrow();
 
-        loan.renew(DUE, 2, 14, false);
+        loan.renew(DUE, 2, 14, false, true);
 
         assertThat(loan.noticeDue(DUE, NOTICE_DAYS)).isEmpty();
         var after = loan.noticeDue(DUE.plusDays(14), NOTICE_DAYS).orElseThrow();

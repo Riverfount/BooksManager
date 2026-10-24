@@ -7,6 +7,8 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 
 import com.riverfount.booksmanager.catalog.application.port.in.CopySummary;
+import com.riverfount.booksmanager.catalog.application.port.in.CopyAvailability;
+import com.riverfount.booksmanager.catalog.application.port.in.FindCopyAvailabilityUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.FindCopySummariesUseCase;
 import com.riverfount.booksmanager.loan.application.port.in.RenewLoanCommand;
 import com.riverfount.booksmanager.loan.domain.Loan;
@@ -18,6 +20,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,6 +42,7 @@ class RenewLoanServiceTest {
     private InMemoryLoanRepository loanRepository;
     private InMemoryReservationRepository reservationRepository;
     private FindCopySummariesUseCase copySummaries;
+    private FindCopyAvailabilityUseCase copyAvailability;
     private RenewLoanService service;
 
     @BeforeEach
@@ -49,8 +53,15 @@ class RenewLoanServiceTest {
         copySummaries = mock(FindCopySummariesUseCase.class);
         given(copySummaries.findSummaries(Set.of(COPY)))
                 .willReturn(Map.of(COPY, new CopySummary(COPY, "PAT-7", BOOK, "T")));
+        copyAvailability = mock(FindCopyAvailabilityUseCase.class);
+        bookIsActive(true);
         service = new RenewLoanService(configurationRepository, loanRepository, reservationRepository,
-                copySummaries, CLOCK);
+                copySummaries, copyAvailability, CLOCK);
+    }
+
+    private void bookIsActive(boolean active) {
+        given(copyAvailability.findAvailability(COPY))
+                .willReturn(Optional.of(new CopyAvailability(COPY, false, false, active)));
     }
 
     /** An active loan picked up {@code daysAgo} days ago for 14 days. */
@@ -78,6 +89,29 @@ class RenewLoanServiceTest {
         assertThat(loan.getRenewals()).isEqualTo(1);
         assertThat(loanRepository.findById(id).orElseThrow().getRenewals()).isEqualTo(1);
         assertThat(loanRepository.findById(id).orElseThrow().getDueDate()).isEqualTo(loan.getDueDate());
+    }
+
+    @Test
+    void shouldRefuseRenewingALoanOfABookThatWasInactivatedChangingNothing() {
+        var id = openLoan(10);
+        bookIsActive(false);
+
+        assertThatThrownBy(() -> renew(id)).isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("o livro está inativo");
+
+        var stored = loanRepository.findById(id).orElseThrow();
+        assertThat(stored.getRenewals()).isZero();
+        assertThat(stored.getDueDate()).isEqualTo(TODAY.minusDays(10).plusDays(14));
+    }
+
+    @Test
+    void shouldRenewAgainOnceTheBookIsActiveAgain() {
+        var id = openLoan(10);
+        bookIsActive(false);
+        assertThatThrownBy(() -> renew(id)).isInstanceOf(BusinessRuleException.class);
+        bookIsActive(true);
+
+        assertThat(renew(id).getRenewals()).isEqualTo(1);
     }
 
     @Test
@@ -147,7 +181,7 @@ class RenewLoanServiceTest {
         // 01:00 UTC of the 25th is still the 24th in São Paulo, the day the loan is due: on time
         var lateNight = Clock.fixed(Instant.parse("2026-11-25T01:00:00Z"), ZONE);
         var lateService = new RenewLoanService(configurationRepository, loanRepository, reservationRepository,
-                copySummaries, lateNight);
+                copySummaries, copyAvailability, lateNight);
         var id = loanRepository.save(Loan.create(7L, 20L, LocalDate.of(2026, 11, 10), 14)).getId();
 
         assertThat(lateService.renew(new RenewLoanCommand(id)).getRenewals()).isEqualTo(1);

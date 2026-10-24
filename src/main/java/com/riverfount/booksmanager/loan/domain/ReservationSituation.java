@@ -12,6 +12,7 @@ package com.riverfount.booksmanager.loan.domain;
  * @param readerBlocked the reader was blocked by an operator (RN11)
  * @param activeReservations how many active reservations the reader has, counted apart from loans (RN12)
  * @param hasActiveReservationForBook the reader already has an active reservation of this book (RN12)
+ * @param bookActive the book is active (RN14): a book that was inactivated is not reserved
  * @param bookHasAvailableCopy the book has a copy that can be lent now, so it is a case for lending (RN12)
  * @param readerHasBookOnLoan the reader holds an open loan of a copy of this book (RN12)
  * @param hasPendingFine the reader owes a fine that is neither paid nor waived (RN05)
@@ -23,6 +24,7 @@ public record ReservationSituation(
         boolean readerBlocked,
         int activeReservations,
         boolean hasActiveReservationForBook,
+        boolean bookActive,
         boolean bookHasAvailableCopy,
         boolean readerHasBookOnLoan,
         boolean hasPendingFine,

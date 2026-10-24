@@ -73,7 +73,7 @@ class ReservationController {
                             schema = @Schema(implementation = ProblemDetail.class))),
             @ApiResponse(responseCode = "422",
                     description = "Reserva não permitida; a mensagem traz todos os motivos de uma vez: leitor "
-                            + "inativo ou bloqueado (RN11), livro com exemplar disponível, já emprestado ao leitor "
+                            + "inativo ou bloqueado (RN11), livro inativo (RN14), livro com exemplar disponível, já emprestado ao leitor "
                             + "ou já reservado por ele, limite de reservas ativas (RN12), multa pendente, suspensão "
                             + "ou empréstimo em atraso (RN05)",
                     content = @Content(mediaType = "application/problem+json",

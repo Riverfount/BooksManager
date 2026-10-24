@@ -55,7 +55,8 @@ class CopyLoanService implements FindCopyAvailabilityUseCase, CheckOutCopyUseCas
         return copyRepository.findById(copyId)
                 .map(copy -> new CopyAvailability(copy.getId(),
                         copy.isActive() && copy.getStatus() == CopyStatus.AVAILABLE,
-                        copy.getStatus() == CopyStatus.RESERVED));
+                        copy.getStatus() == CopyStatus.RESERVED,
+                        bookRepository.existsActiveById(copy.getBookId())));
     }
 
     @Override
@@ -63,7 +64,8 @@ class CopyLoanService implements FindCopyAvailabilityUseCase, CheckOutCopyUseCas
     public Optional<BookAvailability> findBookAvailability(Long bookId) {
         return bookRepository.findById(bookId)
                 .map(book -> new BookAvailability(bookId,
-                        copyRepository.countAvailableByBookIds(Set.of(bookId)).getOrDefault(bookId, 0L) > 0));
+                        copyRepository.countAvailableByBookIds(Set.of(bookId)).getOrDefault(bookId, 0L) > 0,
+                        book.isActive()));
     }
 
     @Override

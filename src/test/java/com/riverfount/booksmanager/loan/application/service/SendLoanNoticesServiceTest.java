@@ -249,7 +249,7 @@ class SendLoanNoticesServiceTest {
         service.sendNotices();
 
         var renewed = loanRepository.findById(loan.getId()).orElseThrow();
-        renewed.renew(today, 2, 14, false);
+        renewed.renew(today, 2, 14, false, true);
         loanRepository.save(renewed);
 
         assertThat(service.sendNotices()).isZero(); // the new due date is far

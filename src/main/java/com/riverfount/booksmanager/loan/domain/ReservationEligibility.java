@@ -14,6 +14,7 @@ import java.util.List;
  * <p>A reservation is refused for:
  * <ul>
  *   <li>a reader who is inactive or blocked (RN11);</li>
+ *   <li>a book that was inactivated (RN14);</li>
  *   <li>a book with a copy available, which is a case for lending (RN12);</li>
  *   <li>a book the reader already has on loan, or already reserved (RN12);</li>
  *   <li>a reader who already has as many active reservations as the limit (RN12);</li>
@@ -53,7 +54,10 @@ public final class ReservationEligibility {
         if (situation.readerBlocked()) {
             reasons.add("o leitor está bloqueado");
         }
-        if (situation.bookHasAvailableCopy()) {
+        if (!situation.bookActive()) {
+            reasons.add("o livro está inativo");
+        } else if (situation.bookHasAvailableCopy()) {
+            // only for an active book: the loan of an inactive one is refused too, so it would be wrong to point to it
             reasons.add("o livro tem exemplar disponível, então deve ser feito o empréstimo");
         }
         if (situation.readerHasBookOnLoan()) {

@@ -61,7 +61,19 @@ class ReservationQueueTest {
     }
 
     private void copyIsLendable(boolean lendable) {
-        given(copyAvailability.findAvailability(COPY)).willReturn(Optional.of(new CopyAvailability(COPY, lendable, false)));
+        given(copyAvailability.findAvailability(COPY)).willReturn(Optional.of(new CopyAvailability(COPY, lendable, false, true)));
+    }
+
+    @Test
+    void shouldNotKeepACopyOfAnInactiveBookForAReservationThatCouldNotPickItUp() {
+        var waiting = reserve(BOOK, 1L);
+        given(copyAvailability.findAvailability(COPY))
+                .willReturn(Optional.of(new CopyAvailability(COPY, true, false, false)));
+
+        assertThat(queue.passTheTurn(COPY, TODAY, 3)).isEmpty();
+
+        then(reserveCopy).should(never()).reserve(COPY);
+        assertThat(reservations.findById(waiting.getId()).orElseThrow().isWaiting()).isTrue();
     }
 
     private Reservation reserve(long book, long reader) {
@@ -89,7 +101,7 @@ class ReservationQueueTest {
     void twoCopiesOfTheSameBookShouldGoToDifferentReadersOfTheQueue() {
         var first = reserve(BOOK, 1L);
         var second = reserve(BOOK, 2L);
-        given(copyAvailability.findAvailability(8L)).willReturn(Optional.of(new CopyAvailability(8L, true, false)));
+        given(copyAvailability.findAvailability(8L)).willReturn(Optional.of(new CopyAvailability(8L, true, false, true)));
         given(copySummaries.findSummaries(Set.of(8L)))
                 .willReturn(Map.of(8L, new CopySummary(8L, "PAT-8", BOOK, "T")));
 
@@ -134,7 +146,7 @@ class ReservationQueueTest {
         reserve(BOOK, 1L);
 
         assertThat(queue.passTheTurn(99L, TODAY, 3)).isEmpty();
-        given(copyAvailability.findAvailability(98L)).willReturn(Optional.of(new CopyAvailability(98L, true, false)));
+        given(copyAvailability.findAvailability(98L)).willReturn(Optional.of(new CopyAvailability(98L, true, false, true)));
         assertThat(queue.passTheTurn(98L, TODAY, 3)).isEmpty();
     }
 

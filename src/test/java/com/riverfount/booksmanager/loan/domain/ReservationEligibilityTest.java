@@ -28,6 +28,7 @@ class ReservationEligibilityTest {
         private boolean readerBlocked = false;
         private int activeReservations = 0;
         private boolean duplicate = false;
+        private boolean bookActive = true;
         private boolean availableCopy = false;
         private boolean onLoan = false;
         private boolean pendingFine = false;
@@ -51,6 +52,11 @@ class ReservationEligibilityTest {
 
         Builder reservedAlready() {
             duplicate = true;
+            return this;
+        }
+
+        Builder inactiveBook() {
+            bookActive = false;
             return this;
         }
 
@@ -80,9 +86,34 @@ class ReservationEligibilityTest {
         }
 
         ReservationSituation build() {
-            return new ReservationSituation(readerActive, readerBlocked, activeReservations, duplicate, availableCopy,
-                    onLoan, pendingFine, suspended, overdue);
+            return new ReservationSituation(readerActive, readerBlocked, activeReservations, duplicate, bookActive,
+                    availableCopy, onLoan, pendingFine, suspended, overdue);
         }
+    }
+
+    // an inactive book (RN14)
+
+    @Test
+    void shouldRefuseTheReservationOfAnInactiveBook() {
+        assertThatThrownBy(() -> ReservationEligibility.check(ok().inactiveBook().build(), LIMIT))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("o livro está inativo");
+    }
+
+    @Test
+    void shouldNotTellToLendABookThatIsInactiveEvenWithACopyAvailable() {
+        // the loan would be refused too: pointing the operator to it would be wrong
+        var reasons = ReservationEligibility.refusals(ok().inactiveBook().bookWithAvailableCopy().build(), LIMIT);
+
+        assertThat(reasons).containsExactly("o livro está inativo");
+    }
+
+    @Test
+    void shouldReportTheInactiveBookTogetherWithTheOtherReasons() {
+        var reasons = ReservationEligibility.refusals(ok().inactiveBook().blockedReader().pendingFine().build(), LIMIT);
+
+        assertThat(reasons).containsExactly("o leitor está bloqueado", "o livro está inativo",
+                "o leitor tem multa pendente");
     }
 
     // allowed

@@ -132,7 +132,7 @@ class MostBorrowedBooksQueryServiceTest {
     void aRenewalShouldNotCountAsANewLoan() {
         copy(1L, 10L, "Dom Casmurro");
         var loan = activeLoan(1L, FROM);
-        loan.renew(FROM.plusDays(3), 2, 14, false);
+        loan.renew(FROM.plusDays(3), 2, 14, false, true);
         loanRepository.save(loan);
 
         assertThat(service.list(query()).items()).singleElement()
