@@ -1,6 +1,7 @@
 package com.riverfount.booksmanager.catalog.adapter.in.web;
 
 import com.riverfount.booksmanager.catalog.application.port.in.DeactivateBookUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.ReactivateBookUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.GetBookUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ListBooksQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.LookupBookByIsbnUseCase;
@@ -9,6 +10,7 @@ import com.riverfount.booksmanager.catalog.application.port.in.RegisterBookComma
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterBookUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateBookCommand;
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateBookUseCase;
+import com.riverfount.booksmanager.shared.adapter.in.web.AdminOnly;
 import com.riverfount.booksmanager.shared.adapter.in.web.AdminOrOperator;
 import com.riverfount.booksmanager.shared.adapter.in.web.PageResponse;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
@@ -47,16 +49,18 @@ class BookController {
     private final ListBooksUseCase listBooksUseCase;
     private final UpdateBookUseCase updateBookUseCase;
     private final DeactivateBookUseCase deactivateBookUseCase;
+    private final ReactivateBookUseCase reactivateBookUseCase;
     private final LookupBookByIsbnUseCase lookupBookByIsbnUseCase;
 
     BookController(RegisterBookUseCase registerBookUseCase, GetBookUseCase getBookUseCase,
             ListBooksUseCase listBooksUseCase, UpdateBookUseCase updateBookUseCase,
-            DeactivateBookUseCase deactivateBookUseCase, LookupBookByIsbnUseCase lookupBookByIsbnUseCase) {
+            DeactivateBookUseCase deactivateBookUseCase, ReactivateBookUseCase reactivateBookUseCase, LookupBookByIsbnUseCase lookupBookByIsbnUseCase) {
         this.registerBookUseCase = registerBookUseCase;
         this.getBookUseCase = getBookUseCase;
         this.listBooksUseCase = listBooksUseCase;
         this.updateBookUseCase = updateBookUseCase;
         this.deactivateBookUseCase = deactivateBookUseCase;
+        this.reactivateBookUseCase = reactivateBookUseCase;
         this.lookupBookByIsbnUseCase = lookupBookByIsbnUseCase;
     }
 
@@ -205,5 +209,23 @@ class BookController {
     })
     void deactivate(@PathVariable Long id) {
         deactivateBookUseCase.deactivate(id);
+    }
+
+    @PostMapping("/{id}/reactivate")
+    @AdminOnly
+    @Operation(summary = "Reativar livro",
+            description = "Reativa um livro inativado (RN14), só para o administrador. O livro só volta se a categoria e todos os autores dele estão ativos; a recusa (422) diz quais estão inativos. Os exemplares não são alterados. Reativar um livro já ativo não tem efeito e devolve o livro.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Reativar reativado"),
+            @ApiResponse(responseCode = "404", description = "Livro não encontrado",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "422",
+                    description = "Categoria ou algum autor do livro está inativo (a mensagem diz quais): reative-os antes",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    BookResponse reactivate(@PathVariable Long id) {
+        return BookResponse.from(reactivateBookUseCase.reactivate(id));
     }
 }

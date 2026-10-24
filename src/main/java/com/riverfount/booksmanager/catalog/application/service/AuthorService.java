@@ -5,6 +5,7 @@ import com.riverfount.booksmanager.catalog.application.port.in.GetAuthorUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ListAuthorsQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.ListAuthorsUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterAuthorCommand;
+import com.riverfount.booksmanager.catalog.application.port.in.ReactivateAuthorUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterAuthorUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateAuthorCommand;
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateAuthorUseCase;
@@ -23,7 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 class AuthorService implements RegisterAuthorUseCase, GetAuthorUseCase, ListAuthorsUseCase,
-        UpdateAuthorUseCase, DeactivateAuthorUseCase {
+        UpdateAuthorUseCase, DeactivateAuthorUseCase, ReactivateAuthorUseCase {
 
     private final AuthorRepository authorRepository;
 
@@ -62,6 +63,13 @@ class AuthorService implements RegisterAuthorUseCase, GetAuthorUseCase, ListAuth
         var author = loadExisting(id);
         author.deactivate();
         authorRepository.save(author);
+    }
+
+    @Override
+    public Author reactivate(Long id) {
+        var author = loadExisting(id);
+        author.reactivate();
+        return authorRepository.save(author);
     }
 
     private Author loadExisting(Long id) {

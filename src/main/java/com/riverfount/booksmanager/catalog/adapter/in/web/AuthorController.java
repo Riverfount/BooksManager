@@ -1,6 +1,7 @@
 package com.riverfount.booksmanager.catalog.adapter.in.web;
 
 import com.riverfount.booksmanager.catalog.application.port.in.DeactivateAuthorUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.ReactivateAuthorUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.GetAuthorUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ListAuthorsQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.ListAuthorsUseCase;
@@ -8,6 +9,7 @@ import com.riverfount.booksmanager.catalog.application.port.in.RegisterAuthorCom
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterAuthorUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateAuthorCommand;
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateAuthorUseCase;
+import com.riverfount.booksmanager.shared.adapter.in.web.AdminOnly;
 import com.riverfount.booksmanager.shared.adapter.in.web.AdminOrOperator;
 import com.riverfount.booksmanager.shared.adapter.in.web.PageResponse;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
@@ -46,15 +48,17 @@ class AuthorController {
     private final ListAuthorsUseCase listAuthorsUseCase;
     private final UpdateAuthorUseCase updateAuthorUseCase;
     private final DeactivateAuthorUseCase deactivateAuthorUseCase;
+    private final ReactivateAuthorUseCase reactivateAuthorUseCase;
 
     AuthorController(RegisterAuthorUseCase registerAuthorUseCase, GetAuthorUseCase getAuthorUseCase,
             ListAuthorsUseCase listAuthorsUseCase, UpdateAuthorUseCase updateAuthorUseCase,
-            DeactivateAuthorUseCase deactivateAuthorUseCase) {
+            DeactivateAuthorUseCase deactivateAuthorUseCase, ReactivateAuthorUseCase reactivateAuthorUseCase) {
         this.registerAuthorUseCase = registerAuthorUseCase;
         this.getAuthorUseCase = getAuthorUseCase;
         this.listAuthorsUseCase = listAuthorsUseCase;
         this.updateAuthorUseCase = updateAuthorUseCase;
         this.deactivateAuthorUseCase = deactivateAuthorUseCase;
+        this.reactivateAuthorUseCase = reactivateAuthorUseCase;
     }
 
     @PostMapping
@@ -147,5 +151,19 @@ class AuthorController {
     })
     void deactivate(@PathVariable Long id) {
         deactivateAuthorUseCase.deactivate(id);
+    }
+
+    @PostMapping("/{id}/reactivate")
+    @AdminOnly
+    @Operation(summary = "Reativar autor",
+            description = "Reativa um autor inativado (RN14), só para o administrador. Reativar um autor já ativo não tem efeito e devolve o autor.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Reativar reativado"),
+            @ApiResponse(responseCode = "404", description = "Autor não encontrado",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    AuthorResponse reactivate(@PathVariable Long id) {
+        return AuthorResponse.from(reactivateAuthorUseCase.reactivate(id));
     }
 }

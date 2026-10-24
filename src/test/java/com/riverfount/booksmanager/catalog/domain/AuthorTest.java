@@ -93,4 +93,23 @@ class AuthorTest {
         assertThat(author.isActive()).isFalse();
         assertThat(author.getName()).isEqualTo("Machado de Assis");
     }
+
+    @Test
+    void shouldReactivateAnInactiveAuthor() {
+        var author = Author.reconstitute(1L, "Machado de Assis", false);
+
+        author.reactivate();
+
+        assertThat(author.isActive()).isTrue();
+        assertThat(author.getName()).isEqualTo("Machado de Assis");
+    }
+
+    @Test
+    void reactivatingAnActiveAuthorShouldChangeNothing() {
+        var author = Author.create("Machado de Assis");
+
+        author.reactivate();
+
+        assertThat(author.isActive()).isTrue();
+    }
 }
