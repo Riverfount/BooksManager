@@ -1,6 +1,7 @@
 package com.riverfount.booksmanager.catalog.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
@@ -111,5 +112,33 @@ class AuthorTest {
         author.reactivate();
 
         assertThat(author.isActive()).isTrue();
+    }
+
+    // a name already taken by an active author (RF02): refused unless the homonym is confirmed
+
+    @Test
+    void shouldRefuseANameTakenByAnotherActiveAuthorNamingIt() {
+        assertThatThrownBy(() -> Author.validateNameNotTaken("Machado de Assis", 7L, false))
+                .isInstanceOf(DuplicateAuthorNameException.class)
+                .hasMessageContaining("Machado de Assis")
+                .hasMessageContaining("allowDuplicate")
+                .satisfies(e -> assertThat(((DuplicateAuthorNameException) e).getExistingAuthorId()).isEqualTo(7L));
+    }
+
+    @Test
+    void theDuplicateRefusalShouldBeABusinessRule() {
+        assertThatThrownBy(() -> Author.validateNameNotTaken("Machado de Assis", 7L, false))
+                .isInstanceOf(BusinessRuleException.class);
+    }
+
+    @Test
+    void shouldAcceptAHomonymWhenTheOwnerConfirmsIt() {
+        assertThatCode(() -> Author.validateNameNotTaken("Machado de Assis", 7L, true)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void shouldAcceptANameNobodyActiveHas() {
+        assertThatCode(() -> Author.validateNameNotTaken("Machado de Assis", null, false))
+                .doesNotThrowAnyException();
     }
 }

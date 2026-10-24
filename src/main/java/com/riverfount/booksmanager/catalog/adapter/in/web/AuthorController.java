@@ -9,6 +9,7 @@ import com.riverfount.booksmanager.catalog.application.port.in.RegisterAuthorCom
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterAuthorUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateAuthorCommand;
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateAuthorUseCase;
+import com.riverfount.booksmanager.catalog.domain.DuplicateAuthorNameException;
 import com.riverfount.booksmanager.shared.adapter.in.web.AdminOnly;
 import com.riverfount.booksmanager.shared.adapter.in.web.AdminOrOperator;
 import com.riverfount.booksmanager.shared.adapter.in.web.PageResponse;
@@ -26,6 +27,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -62,15 +64,25 @@ class AuthorController {
     }
 
     @PostMapping
-    @Operation(summary = "Cadastrar autor", description = "Cadastra um novo autor do acervo.")
+    @Operation(summary = "Cadastrar autor",
+            description = "Cadastra um novo autor do acervo. Se um autor ativo já tem o mesmo nome (sem diferenciar "
+                    + "maiúsculas), o cadastro é recusado com 422 e o `existingAuthorId` do autor que existe; "
+                    + "se for outro autor com o mesmo nome, repita com `allowDuplicate: true`. Autor inativo "
+                    + "não conta.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Autor cadastrado"),
             @ApiResponse(responseCode = "400", description = "Requisição inválida",
                     content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "422",
+                    description = "Já existe um autor ativo com o mesmo nome; a resposta traz o "
+                            + "`existingAuthorId` (repita com `allowDuplicate: true` para confirmar o homônimo)",
+                    content = @Content(mediaType = "application/problem+json",
                             schema = @Schema(implementation = ProblemDetail.class)))
     })
     ResponseEntity<AuthorResponse> register(@Valid @RequestBody RegisterAuthorRequest request) {
-        var author = registerAuthorUseCase.register(new RegisterAuthorCommand(request.name()));
+        var author = registerAuthorUseCase.register(
+                new RegisterAuthorCommand(request.name(), Boolean.TRUE.equals(request.allowDuplicate())));
         var location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")
                 .buildAndExpand(author.getId())
@@ -122,7 +134,9 @@ class AuthorController {
 
     @PatchMapping("/{id}")
     @Operation(summary = "Editar autor",
-            description = "Altera só os campos enviados; os omitidos mantêm o valor atual.")
+            description = "Altera só os campos enviados; os omitidos mantêm o valor atual. Renomear para o nome de "
+                    + "outro autor ativo (sem diferenciar maiúsculas) é recusado com 422 e o `existingAuthorId`, "
+                    + "a menos que venha `allowDuplicate: true`; manter o próprio nome não é duplicidade.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Autor atualizado"),
             @ApiResponse(responseCode = "400", description = "Requisição inválida",
@@ -130,10 +144,16 @@ class AuthorController {
                             schema = @Schema(implementation = ProblemDetail.class))),
             @ApiResponse(responseCode = "404", description = "Autor não encontrado",
                     content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "422",
+                    description = "Outro autor ativo já tem o nome; a resposta traz o `existingAuthorId` (repita "
+                            + "com `allowDuplicate: true` para confirmar o homônimo)",
+                    content = @Content(mediaType = "application/problem+json",
                             schema = @Schema(implementation = ProblemDetail.class)))
     })
     AuthorResponse update(@PathVariable Long id, @Valid @RequestBody UpdateAuthorRequest request) {
-        var author = updateAuthorUseCase.update(new UpdateAuthorCommand(id, request.name()));
+        var author = updateAuthorUseCase.update(
+                new UpdateAuthorCommand(id, request.name(), Boolean.TRUE.equals(request.allowDuplicate())));
         return AuthorResponse.from(author);
     }
 
@@ -165,5 +185,17 @@ class AuthorController {
     })
     AuthorResponse reactivate(@PathVariable Long id) {
         return AuthorResponse.from(reactivateAuthorUseCase.reactivate(id));
+    }
+
+    /**
+     * 422 like any business rule, plus the id of the author that already has the name, so the front can show who
+     * exists and offer to confirm the homonym. The handler of the controller wins over the shared advice.
+     */
+    @ExceptionHandler(DuplicateAuthorNameException.class)
+    @ResponseStatus(HttpStatus.UNPROCESSABLE_CONTENT)
+    ProblemDetail handleDuplicateName(DuplicateAuthorNameException exception) {
+        var problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_CONTENT, exception.getMessage());
+        problem.setProperty("existingAuthorId", exception.getExistingAuthorId());
+        return problem;
     }
 }

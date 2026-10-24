@@ -7,6 +7,7 @@ import com.riverfount.booksmanager.catalog.application.port.in.ListAuthorsQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterAuthorCommand;
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateAuthorCommand;
 import com.riverfount.booksmanager.catalog.domain.Author;
+import com.riverfount.booksmanager.catalog.domain.DuplicateAuthorNameException;
 import com.riverfount.booksmanager.shared.domain.InvalidQueryException;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
@@ -35,9 +36,9 @@ class AuthorServiceTest {
     }
 
     @Test
-    void shouldAcceptTwoAuthorsWithTheSameName() {
+    void shouldAcceptTwoAuthorsWithTheSameNameWhenTheHomonymIsConfirmed() {
         var first = service.register(new RegisterAuthorCommand("José Silva"));
-        var second = service.register(new RegisterAuthorCommand("José Silva"));
+        var second = service.register(new RegisterAuthorCommand("José Silva", true));
 
         assertThat(first.getId()).isNotEqualTo(second.getId());
     }
@@ -238,5 +239,81 @@ class AuthorServiceTest {
     @Test
     void shouldFailWhenReactivatingAnAuthorThatDoesNotExist() {
         assertThatThrownBy(() -> service.reactivate(999L)).isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    // a name already taken by an active author (RF02): refused unless the homonym is confirmed
+
+    @Test
+    void shouldRefuseRegisteringTheNameOfAnActiveAuthorIgnoringCaseAndNameIt() {
+        var existing = service.register(new RegisterAuthorCommand("Machado de Assis"));
+
+        assertThatThrownBy(() -> service.register(new RegisterAuthorCommand("machado DE assis")))
+                .isInstanceOf(DuplicateAuthorNameException.class)
+                .satisfies(e -> assertThat(((DuplicateAuthorNameException) e).getExistingAuthorId())
+                        .isEqualTo(existing.getId()));
+
+        assertThat(repository.findAll(null, true, PageQuery.of(0, 10, "id")).items()).hasSize(1);
+    }
+
+    @Test
+    void shouldRegisterAHomonymWhenConfirmed() {
+        service.register(new RegisterAuthorCommand("Machado de Assis"));
+
+        var homonym = service.register(new RegisterAuthorCommand("Machado de Assis", true));
+
+        assertThat(homonym.getId()).isNotNull();
+        assertThat(repository.findAll(null, true, PageQuery.of(0, 10, "id")).items()).hasSize(2);
+    }
+
+    @Test
+    void anInactiveAuthorWithTheSameNameShouldNotBlockTheRegistration() {
+        var old = service.register(new RegisterAuthorCommand("Machado de Assis"));
+        service.deactivate(old.getId());
+
+        var again = service.register(new RegisterAuthorCommand("Machado de Assis"));
+
+        assertThat(again.isActive()).isTrue();
+    }
+
+    @Test
+    void shouldRefuseRenamingToTheNameOfAnotherActiveAuthor() {
+        var first = service.register(new RegisterAuthorCommand("Machado de Assis"));
+        var second = service.register(new RegisterAuthorCommand("Clarice Lispector"));
+
+        assertThatThrownBy(() -> service.update(new UpdateAuthorCommand(second.getId(), "Machado de Assis")))
+                .isInstanceOf(DuplicateAuthorNameException.class)
+                .satisfies(e -> assertThat(((DuplicateAuthorNameException) e).getExistingAuthorId())
+                        .isEqualTo(first.getId()));
+
+        assertThat(repository.findById(second.getId()).orElseThrow().getName()).isEqualTo("Clarice Lispector");
+    }
+
+    @Test
+    void shouldRenameToTheNameOfAnotherActiveAuthorWhenConfirmed() {
+        service.register(new RegisterAuthorCommand("Machado de Assis"));
+        var second = service.register(new RegisterAuthorCommand("Clarice Lispector"));
+
+        var renamed = service.update(new UpdateAuthorCommand(second.getId(), "Machado de Assis", true));
+
+        assertThat(renamed.getName()).isEqualTo("Machado de Assis");
+    }
+
+    @Test
+    void theAuthorShouldNotBeADuplicateOfItselfWhenItsNameIsKeptOrOnlyTheCaseChanges() {
+        var author = service.register(new RegisterAuthorCommand("Machado de Assis"));
+
+        assertThat(service.update(new UpdateAuthorCommand(author.getId(), "Machado de Assis")).getName())
+                .isEqualTo("Machado de Assis");
+        assertThat(service.update(new UpdateAuthorCommand(author.getId(), "MACHADO DE ASSIS")).getName())
+                .isEqualTo("MACHADO DE ASSIS");
+    }
+
+    @Test
+    void anUpdateWithoutANameShouldNotCheckTheNames() {
+        service.register(new RegisterAuthorCommand("Machado de Assis"));
+        var other = service.register(new RegisterAuthorCommand("Clarice Lispector"));
+
+        assertThat(service.update(new UpdateAuthorCommand(other.getId(), null)).getName())
+                .isEqualTo("Clarice Lispector");
     }
 }

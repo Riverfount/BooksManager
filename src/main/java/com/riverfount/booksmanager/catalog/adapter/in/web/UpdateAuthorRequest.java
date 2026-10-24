@@ -15,5 +15,8 @@ record UpdateAuthorRequest(
                 + " caracteres")
         @Pattern(regexp = "^\\S(.*\\S)?$",
                 message = "o nome não pode ficar em branco nem ter espaços nas pontas")
-        String name) {
+        String name,
+        @Schema(description = "Confirma que o novo nome é de outro autor ativo de propósito (homônimo). Opcional; "
+                + "o padrão é falso.", example = "false")
+        Boolean allowDuplicate) {
 }

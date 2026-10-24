@@ -14,12 +14,16 @@ import com.riverfount.booksmanager.catalog.domain.Author;
 import com.riverfount.booksmanager.shared.domain.PageResult;
 import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
 import java.util.Optional;
+import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Orchestrates registering, querying, listing, updating and deactivating Author: calls the domain and
- * persists. No unique-name check — author.name has no such restriction.
+ * persists. A name that another active author already has is refused unless the homonym is confirmed
+ * (allowDuplicate): two real authors can share a name, but a duplicate by mistake is likely (RF02). Inactive
+ * authors do not count. The check is made at registration time, without a database constraint, so two requests at
+ * the same time can both pass; that only creates a homonym, which the rule allows anyway.
  */
 @Service
 @Transactional
@@ -34,7 +38,9 @@ class AuthorService implements RegisterAuthorUseCase, GetAuthorUseCase, ListAuth
 
     @Override
     public Author register(RegisterAuthorCommand command) {
-        return authorRepository.save(Author.create(command.name()));
+        var author = Author.create(command.name());
+        Author.validateNameNotTaken(command.name(), activeAuthorWithName(command.name(), null), command.allowDuplicate());
+        return authorRepository.save(author);
     }
 
     @Override
@@ -53,6 +59,9 @@ class AuthorService implements RegisterAuthorUseCase, GetAuthorUseCase, ListAuth
     public Author update(UpdateAuthorCommand command) {
         var author = loadExisting(command.id());
         if (command.name() != null) {
+            // decided before the author changes, so a refusal leaves the loaded author as it was
+            Author.validateNameNotTaken(command.name(), activeAuthorWithName(command.name(), author.getId()),
+                    command.allowDuplicate());
             author.rename(command.name());
         }
         return authorRepository.save(author);
@@ -70,6 +79,15 @@ class AuthorService implements RegisterAuthorUseCase, GetAuthorUseCase, ListAuth
         var author = loadExisting(id);
         author.reactivate();
         return authorRepository.save(author);
+    }
+
+    /** The id of an active author, other than {@code exceptId}, that has the name (ignoring case), or null. */
+    private Long activeAuthorWithName(String name, Long exceptId) {
+        return authorRepository.findActiveByNames(Set.of(name)).stream()
+                .map(Author::getId)
+                .filter(id -> !id.equals(exceptId))
+                .findFirst()
+                .orElse(null);
     }
 
     private Author loadExisting(Long id) {
