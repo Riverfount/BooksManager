@@ -53,10 +53,13 @@ class ReservationQueue {
      * reservation gets {@code today} plus {@code pickupDays} as its deadline.
      *
      * @return the reservation served, or empty when the copy stays available: nobody waits for the book, or
-     *         the copy is not one that can be lent (inactive, damaged or lost) and so cannot be kept for anyone
+     *         the copy is not one that can be lent (inactive, damaged or lost, or of a book that was inactivated)
+     *         and so cannot be kept for anyone
      */
     Optional<Reservation> passTheTurn(Long copyId, LocalDate today, int pickupDays) {
-        var lendable = copyAvailability.findAvailability(copyId).map(availability -> availability.lendable());
+        // a copy of an inactive book is not kept for anyone: its reservation could not pick it up (RN14)
+        var lendable = copyAvailability.findAvailability(copyId)
+                .map(availability -> availability.lendable() && availability.bookActive());
         if (lendable.isEmpty() || !lendable.get()) {
             return Optional.empty();
         }

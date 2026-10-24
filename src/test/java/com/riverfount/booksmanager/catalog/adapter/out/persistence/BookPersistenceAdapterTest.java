@@ -183,6 +183,17 @@ class BookPersistenceAdapterTest {
     }
 
     @Test
+    void shouldTellWhetherABookExistsAndIsActiveWithoutLoadingIt() {
+        var active = saveBook("9788533302273", "Ativo", categoryId, Set.of(authorId1));
+        var inactive = saveBook("9780804429573", "Inativo", categoryId, Set.of(authorId1));
+        jdbcTemplate.update("update book set active = false where id = ?", inactive);
+
+        assertThat(adapter.existsActiveById(active)).isTrue();
+        assertThat(adapter.existsActiveById(inactive)).isFalse();
+        assertThat(adapter.existsActiveById(999_999L)).isFalse();
+    }
+
+    @Test
     void shouldStoreAnIsbn10AsTheIsbn13OfTheSameBook() {
         saveBook("080442957X", "Livro ISBN-10", categoryId, Set.of(authorId1));
 

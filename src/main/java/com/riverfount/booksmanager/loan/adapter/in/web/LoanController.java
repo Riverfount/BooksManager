@@ -76,8 +76,8 @@ class LoanController {
                     content = @Content(mediaType = "application/problem+json",
                             schema = @Schema(implementation = ProblemDetail.class))),
             @ApiResponse(responseCode = "422",
-                    description = "Empréstimo não permitido; a mensagem traz todos os motivos de uma vez: exemplar "
-                            + "indisponível, reservado para outro leitor ou com o prazo de retirada da reserva "
+                    description = "Empréstimo não permitido; a mensagem traz todos os motivos de uma vez: livro "
+                            + "inativo (RN14), exemplar indisponível, reservado para outro leitor ou com o prazo de retirada da reserva "
                             + "vencido (RN03, RN13), limite de empréstimos simultâneos (RN04), multa pendente, "
                             + "suspensão ou empréstimo em atraso (RN05), leitor inativo ou bloqueado (RN11)",
                     content = @Content(mediaType = "application/problem+json",
@@ -148,8 +148,8 @@ class LoanController {
                             schema = @Schema(implementation = ProblemDetail.class))),
             @ApiResponse(responseCode = "422",
                     description = "Renovação não permitida (a mensagem diz o motivo): empréstimo encerrado (RN09), "
-                            + "em atraso, com o limite de renovações atingido ou com outro leitor esperando o livro "
-                            + "na fila de reservas (RN07)",
+                            + "em atraso, livro inativo (RN14), com o limite de renovações atingido ou com outro leitor "
+                            + "esperando o livro na fila de reservas (RN07)",
                     content = @Content(mediaType = "application/problem+json",
                             schema = @Schema(implementation = ProblemDetail.class)))
     })

@@ -39,6 +39,7 @@
 
 **HU15 —** Como operador, quero inativar um livro que saiu do acervo, para que ele deixe de aparecer nas operações do dia a dia sem perder o histórico.
 - Critério de aceite: o livro é inativado, nunca excluído fisicamente, e continua visível no histórico de empréstimos (RN14).
+- Critério de aceite: enquanto o livro está inativo, nenhum exemplar dele é emprestado, o livro não é reservado e os empréstimos em curso não são renovados; a devolução de um empréstimo em curso continua funcionando (RN14).
 - Critério de aceite: um livro inativo não aceita novos exemplares nem aparece nas listagens padrão (RF01).
 
 **HU16 —** Como operador, quero cadastrar e editar autores, para associá-los aos livros do acervo.
@@ -105,6 +106,7 @@
 **HU07 —** Como operador, quero registrar o empréstimo de um exemplar a um leitor, para saber com quem cada livro está.
 - Critério de aceite: só aparecem para empréstimo exemplares com status disponível; após registrar, o exemplar passa a emprestado e a data prevista de devolução respeita o prazo configurado (RN03, RN06).
 - Critério de aceite: se o leitor tiver multa pendente, suspensão em vigor, empréstimo em atraso ou já estiver no limite de empréstimos, o sistema recusa o empréstimo e informa o motivo (RN04, RN05).
+- Critério de aceite: um exemplar de livro inativo não é emprestado, e o sistema informa "o livro está inativo" (RN14).
 
 **HU08 —** Como operador, quero registrar a devolução de um exemplar, para que ele volte a ficar disponível e o atraso seja penalizado sem cálculo manual.
 - Critério de aceite: ao devolver, o exemplar volta a disponível e o empréstimo é encerrado; um empréstimo já encerrado não pode ser devolvido de novo (RN09).
@@ -114,6 +116,7 @@
 **HU09 —** Como operador, quero renovar um empréstimo, para dar mais prazo ao leitor sem precisar devolver e emprestar de novo.
 - Critério de aceite: cada empréstimo pode ser renovado no máximo 2 vezes, valor configurável (RN07).
 - Critério de aceite: a renovação é recusada se o empréstimo estiver em atraso ou se houver reserva pendente para o livro (RN07).
+- Critério de aceite: a renovação é recusada se o livro foi inativado; o leitor ainda pode devolver o exemplar (RN14).
 
 **HU30 —** Como operador, quero consultar os empréstimos ativos e o histórico de um leitor ou de um exemplar, para responder dúvidas e acompanhar a circulação do acervo.
 - Critério de aceite: a consulta filtra por leitor ou por exemplar e separa os empréstimos ativos dos encerrados (RF14).
@@ -138,7 +141,7 @@
 
 **HU32 —** Como operador, quero reservar um livro sem exemplar disponível para um leitor, para que ele entre na fila de espera.
 - Critério de aceite: só reserva quem poderia emprestar: leitor ativo, não bloqueado, sem suspensão em vigor, sem multa pendente e sem empréstimo em atraso; a disponibilidade do exemplar e o limite de empréstimos não entram nessa conta (RF16, RN05, RN11).
-- Critério de aceite: o leitor não reserva um livro que já tem emprestado nem um que tenha exemplar disponível (RN12).
+- Critério de aceite: o leitor não reserva um livro que já tem emprestado nem um que tenha exemplar disponível (RN12), nem um livro inativo (RN14).
 - Critério de aceite: o leitor não reserva o mesmo livro duas vezes; o total de reservas ativas dele é limitado pelo mesmo valor do limite de empréstimos da configuração e contado à parte dos empréstimos (RF16, RN04).
 - Critério de aceite: a fila de cada livro respeita a ordem das reservas (RF16).
 
@@ -150,6 +153,7 @@
 - Critério de aceite: ao devolver um exemplar em boas condições com fila de espera, ele fica reservado ao primeiro da fila e a reserva passa a ter o prazo de retirada da configuração, contado da data em que o exemplar ficou disponível para o leitor (RF18, RN13).
 - Critério de aceite: o `POST /api/v1/loans` aceita o exemplar reservado quando o leitor é o dono da reserva e ainda está no prazo (o último dia conta); o exemplar passa a emprestado e a reserva a atendida na mesma operação (RN03).
 - Critério de aceite: outro leitor que tente retirar o exemplar reservado é recusado com a mensagem "exemplar reservado para outro leitor" (RN03).
+- Critério de aceite: se o livro foi inativado, nem o dono da reserva retira o exemplar ("o livro está inativo", RN14), e o exemplar devolvido de um livro inativo não é guardado para a fila.
 - Critério de aceite: a renovação de um empréstimo só é recusada pela reserva quando há alguém esperando na fila do livro; a reserva que já segura um exemplar não bloqueia (RN07).
 
 **HU38 —** Como operador, quero consultar as reservas e a fila de espera de um livro, para informar ao leitor em que lugar ele está e até quando pode retirar o exemplar.

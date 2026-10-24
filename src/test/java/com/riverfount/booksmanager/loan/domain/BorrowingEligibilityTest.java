@@ -25,6 +25,7 @@ class BorrowingEligibilityTest {
     private static final class Builder {
         private boolean copyAvailable = true;
         private CopyHold copyHold = CopyHold.NONE;
+        private boolean bookActive = true;
         private boolean readerActive = true;
         private boolean readerBlocked = false;
         private int activeLoans = 0;
@@ -40,6 +41,11 @@ class BorrowingEligibilityTest {
         Builder copyHold(CopyHold hold) {
             copyHold = hold;
             copyAvailable = false; // a kept copy is never "available"
+            return this;
+        }
+
+        Builder inactiveBook() {
+            bookActive = false;
             return this;
         }
 
@@ -74,15 +80,45 @@ class BorrowingEligibilityTest {
         }
 
         BorrowingSituation build() {
-            return new BorrowingSituation(copyAvailable, copyHold, readerActive, readerBlocked, activeLoans, pendingFine,
-                    suspended, overdue);
+            return new BorrowingSituation(copyAvailable, copyHold, bookActive, readerActive, readerBlocked, activeLoans,
+                    pendingFine, suspended, overdue);
         }
     }
 
     @Test
     void shouldRequireTheHoldOnTheCopy() {
-        assertThatThrownBy(() -> new BorrowingSituation(true, null, true, false, 0, false, false, false))
+        assertThatThrownBy(() -> new BorrowingSituation(true, null, true, true, false, 0, false, false, false))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    // an inactive book (RN14)
+
+    @Test
+    void shouldRefuseALoanOfACopyOfAnInactiveBook() {
+        assertThatThrownBy(() -> BorrowingEligibility.check(ok().inactiveBook().build(), LIMIT))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("o livro está inativo");
+    }
+
+    @Test
+    void shouldRefuseTheOwnerOfTheReservationToPickUpACopyOfAnInactiveBook() {
+        var situation = ok().copyHold(CopyHold.FOR_THIS_READER).inactiveBook().build();
+
+        assertThat(BorrowingEligibility.refusals(situation, LIMIT)).containsExactly("o livro está inativo");
+    }
+
+    @Test
+    void shouldReportTheInactiveBookTogetherWithTheOtherReasons() {
+        var reasons = BorrowingEligibility.refusals(ok().inactiveBook().inactiveReader().pendingFine().build(), LIMIT);
+
+        assertThat(reasons).containsExactly("o livro está inativo", "o leitor está inativo",
+                "o leitor tem multa pendente");
+    }
+
+    @Test
+    void shouldNotMentionTheBookWhenItIsActive() {
+        assertThat(BorrowingEligibility.refusals(ok().copyUnavailable().build(), LIMIT))
+                .noneMatch(reason -> reason.contains("livro"));
     }
 
     // allowed

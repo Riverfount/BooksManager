@@ -84,17 +84,20 @@ public class Loan {
     /**
      * Renews the loan (RF13): the due date moves forward by the loan period, counted from
      * the current due date, so a renewal never gives the reader less time than there was.
-     * Refused when the loan is already closed (RN09), is late, when another reader waits in the
-     * queue for the book, or when it has used all the renewals the library allows (RN07). Nothing
-     * changes when it is refused.
+     * Refused when the loan is already closed (RN09), is late, when the book was inactivated (RN14), when
+     * another reader waits in the queue for the book, or when it has used all the renewals the library allows
+     * (RN07). Nothing changes when it is refused.
      *
      * @param renewalLimit how many renewals the library allows per loan; zero means none
      * @param loanPeriodDays how many days a renewal adds
      * @param bookHasWaitingReservation whether a reservation of the book waits in the queue for a copy; a
      *        reservation that already holds a copy does not count (RN07). The domain does not look it up: the
      *        application hands it over, like the other facts the loan does not know
+     * @param bookActive whether the book of the copy is still active (RN14): a loan of a book that was inactivated
+     *        is not extended, though the copy can still be returned
      */
-    public void renew(LocalDate today, int renewalLimit, int loanPeriodDays, boolean bookHasWaitingReservation) {
+    public void renew(LocalDate today, int renewalLimit, int loanPeriodDays, boolean bookHasWaitingReservation,
+            boolean bookActive) {
         requireDate(today);
         if (renewalLimit < 0 || loanPeriodDays < 1) {
             throw new IllegalArgumentException("the renewal limit cannot be negative and the period must be one day or more");
@@ -102,6 +105,9 @@ public class Loan {
         requireActive();
         if (isOverdue(today)) {
             throw new BusinessRuleException("o empréstimo está em atraso e não pode ser renovado");
+        }
+        if (!bookActive) {
+            throw new BusinessRuleException("o livro está inativo e o empréstimo não pode ser renovado");
         }
         if (bookHasWaitingReservation) {
             throw new BusinessRuleException(

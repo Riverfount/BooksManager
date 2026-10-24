@@ -67,6 +67,12 @@ class InMemoryBookRepository implements BookRepository {
     }
 
     @Override
+    public boolean existsActiveById(Long id) {
+        var book = books.get(id);
+        return book != null && book.isActive();
+    }
+
+    @Override
     public boolean existsByIsbn(Isbn isbn) {
         return books.values().stream().anyMatch(book -> book.getIsbn().equals(isbn));
     }

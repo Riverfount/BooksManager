@@ -116,7 +116,7 @@ class LoanConcurrencyTest {
             firstHasLoaded.await();
             transactions.executeWithoutResult(status -> {
                 var loan = repository.findById(saved.getId()).orElseThrow();
-                loan.renew(PICKUP.plusDays(2), 2, 14, false);
+                loan.renew(PICKUP.plusDays(2), 2, 14, false, true);
                 repository.save(loan);
             });
             secondHasCommitted.countDown();

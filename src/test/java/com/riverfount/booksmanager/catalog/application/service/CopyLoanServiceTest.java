@@ -402,6 +402,32 @@ class CopyLoanServiceTest {
         assertThat(service.findBookAvailability(999L)).isEmpty();
     }
 
+    // an inactive book (RN14): the loan module needs to know it to refuse new loans and reservations
+
+    @Test
+    void anActiveBookShouldBeReportedAsActiveInBothAnswers() {
+        var book = saveBook("9788533302273", "Dom Casmurro");
+        var copy = saveCopyOf(book, "PAT-1");
+
+        assertThat(service.findBookAvailability(book).orElseThrow().bookActive()).isTrue();
+        assertThat(service.findAvailability(copy).orElseThrow().bookActive()).isTrue();
+    }
+
+    @Test
+    void anInactiveBookShouldBeReportedAsInactiveInBothAnswersWhileItsCopyStaysLendable() {
+        var book = saveBook("9788533302273", "Dom Casmurro");
+        var copy = saveCopyOf(book, "PAT-1");
+        var inactive = bookRepository.findById(book).orElseThrow();
+        inactive.deactivate();
+        bookRepository.save(inactive);
+
+        assertThat(service.findBookAvailability(book).orElseThrow().bookActive()).isFalse();
+        var availability = service.findAvailability(copy).orElseThrow();
+        assertThat(availability.bookActive()).isFalse();
+        // the copy itself is not touched by the book's inactivation: the decision is the loan module's
+        assertThat(availability.lendable()).isTrue();
+    }
+
     @Test
     void reservingTheLastAvailableCopyMakesTheBookUnavailable() {
         var book = saveBook("9788533302273", "Dom Casmurro");

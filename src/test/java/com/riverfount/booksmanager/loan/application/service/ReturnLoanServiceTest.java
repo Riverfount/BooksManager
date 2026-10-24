@@ -137,7 +137,7 @@ class ReturnLoanServiceTest {
     private static final long BOOK = 30L;
 
     private void copyIsBackOnTheShelfOfBook(long book) {
-        given(copyAvailability.findAvailability(COPY)).willReturn(Optional.of(new CopyAvailability(COPY, true, false)));
+        given(copyAvailability.findAvailability(COPY)).willReturn(Optional.of(new CopyAvailability(COPY, true, false, true)));
         given(copySummaries.findSummaries(Set.of(COPY)))
                 .willReturn(Map.of(COPY, new CopySummary(COPY, "PAT-7", book, "T")));
     }

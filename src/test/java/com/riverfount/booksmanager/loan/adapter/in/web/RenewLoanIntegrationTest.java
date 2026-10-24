@@ -122,6 +122,21 @@ class RenewLoanIntegrationTest {
     }
 
     @Test
+    void shouldRefuseTheLoanOfABookThatWasInactivatedAndRenewAgainOnceItIsActive() throws Exception {
+        var loanId = activeLoan(5);
+        jdbcTemplate.update("update book set active = false where id = ?", bookId);
+
+        renew(loanId).andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.detail").value(containsString("o livro está inativo")));
+
+        assertThat(renewalsOf(loanId)).isZero();
+
+        jdbcTemplate.update("update book set active = true where id = ?", bookId);
+
+        renew(loanId).andExpect(status().isOk()).andExpect(jsonPath("$.renewals").value(1));
+    }
+
+    @Test
     void shouldRefuseAboveTheLimitOfTheConfiguration() throws Exception {
         jdbcTemplate.update("update library_configuration set renewal_limit = 1");
         var loanId = activeLoan(5);

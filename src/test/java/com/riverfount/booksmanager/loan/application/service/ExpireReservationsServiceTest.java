@@ -66,7 +66,7 @@ class ExpireReservationsServiceTest {
 
     /** Once released, the copy is on the shelf of the book and can be lent. */
     private void copyIsOnTheShelf(long copy, long book) {
-        given(copyAvailability.findAvailability(copy)).willReturn(Optional.of(new CopyAvailability(copy, true, false)));
+        given(copyAvailability.findAvailability(copy)).willReturn(Optional.of(new CopyAvailability(copy, true, false, true)));
         given(copySummaries.findSummaries(Set.of(copy)))
                 .willReturn(Map.of(copy, new CopySummary(copy, "PAT-" + copy, book, "T")));
     }

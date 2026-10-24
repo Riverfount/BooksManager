@@ -78,7 +78,11 @@ class RegisterLoanServiceTest {
     }
 
     private void copyIs(boolean lendable) {
-        given(copyAvailability.findAvailability(COPY)).willReturn(Optional.of(new CopyAvailability(COPY, lendable, false)));
+        given(copyAvailability.findAvailability(COPY)).willReturn(Optional.of(new CopyAvailability(COPY, lendable, false, true)));
+    }
+
+    private void copyOfAnInactiveBook() {
+        given(copyAvailability.findAvailability(COPY)).willReturn(Optional.of(new CopyAvailability(COPY, true, false, false)));
     }
 
     private void readerIs(boolean active, boolean blocked) {
@@ -140,13 +144,51 @@ class RegisterLoanServiceTest {
         then(checkOutCopy).should().checkOut(COPY);
     }
 
+    // a book that was inactivated (RN14): no new loan, not even the pickup of a reserved copy
+
+    @Test
+    void shouldNotLendACopyOfAnInactiveBook() {
+        copyOfAnInactiveBook();
+
+        assertThatThrownBy(this::register).isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("o livro está inativo");
+
+        then(checkOutCopy).should(never()).checkOut(anyLong());
+        assertThat(storedLoans()).isZero();
+    }
+
+    @Test
+    void shouldReportTheInactiveBookTogetherWithTheReaderReasons() {
+        copyOfAnInactiveBook();
+        readerIs(true, true);
+
+        assertThatThrownBy(this::register).isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("o livro está inativo")
+                .hasMessageContaining("o leitor está bloqueado");
+    }
+
+    @Test
+    void theOwnerShouldNotPickUpTheReservedCopyOfAnInactiveBookAndTheReservationStaysAsItIs() {
+        var reservation = reservationHoldingTheCopy(READER, TODAY, 3);
+        given(copyAvailability.findAvailability(COPY))
+                .willReturn(Optional.of(new CopyAvailability(COPY, false, true, false)));
+
+        assertThatThrownBy(this::register).isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("o livro está inativo");
+
+        then(checkOutReservedCopy).should(never()).checkOutReserved(anyLong());
+        then(checkOutCopy).should(never()).checkOut(anyLong());
+        assertThat(reservationRepository.findById(reservation.getId()).orElseThrow().isHoldingCopy()).isTrue();
+        assertThat(storedLoans()).isZero();
+    }
+
     // a copy kept for a reservation (RN03, RN13, RF17, RF18)
 
     private static final long OTHER_READER = 21L;
     private static final long BOOK = 30L;
 
     private void copyIsReserved() {
-        given(copyAvailability.findAvailability(COPY)).willReturn(Optional.of(new CopyAvailability(COPY, false, true)));
+        given(copyAvailability.findAvailability(COPY)).willReturn(Optional.of(new CopyAvailability(COPY, false, true, true)));
     }
 
     /** The copy is kept for {@code owner} until TODAY + days (inclusive), the way the return leaves it. */

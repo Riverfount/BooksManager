@@ -72,7 +72,12 @@ class ReserveBookServiceTest {
 
     private void bookHasAvailableCopy(boolean available) {
         given(bookAvailability.findBookAvailability(BOOK))
-                .willReturn(Optional.of(new BookAvailability(BOOK, available)));
+                .willReturn(Optional.of(new BookAvailability(BOOK, available, true)));
+    }
+
+    private void bookIsInactive() {
+        given(bookAvailability.findBookAvailability(BOOK))
+                .willReturn(Optional.of(new BookAvailability(BOOK, false, false)));
     }
 
     private void readerIs(boolean active, boolean blocked) {
@@ -154,6 +159,17 @@ class ReserveBookServiceTest {
     }
 
     // the refusals (RN05, RN11, RN12)
+
+    @Test
+    void shouldRefuseTheReservationOfAnInactiveBook() {
+        bookIsInactive();
+
+        assertThatThrownBy(() -> service.reserve(new ReserveBookCommand(BOOK, READER)))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("o livro está inativo");
+
+        assertThat(reservationRepository.countActiveByReader(READER)).isZero();
+    }
 
     @Test
     void shouldRefuseAnInactiveReader() {
