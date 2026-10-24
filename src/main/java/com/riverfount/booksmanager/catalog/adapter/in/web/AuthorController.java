@@ -142,6 +142,10 @@ class AuthorController {
             @ApiResponse(responseCode = "400", description = "Requisição inválida",
                     content = @Content(mediaType = "application/problem+json",
                             schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "409",
+                    description = "Outra requisição alterou o mesmo autor ao mesmo tempo; tente novamente",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class))),
             @ApiResponse(responseCode = "404", description = "Autor não encontrado",
                     content = @Content(mediaType = "application/problem+json",
                             schema = @Schema(implementation = ProblemDetail.class))),
@@ -165,6 +169,10 @@ class AuthorController {
                     + "inativo não tem efeito.")
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Autor inativado"),
+            @ApiResponse(responseCode = "409",
+                    description = "Outra requisição alterou o mesmo autor ao mesmo tempo; tente novamente",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class))),
             @ApiResponse(responseCode = "404", description = "Autor não encontrado",
                     content = @Content(mediaType = "application/problem+json",
                             schema = @Schema(implementation = ProblemDetail.class)))
@@ -184,6 +192,10 @@ class AuthorController {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Autor reativado"),
             @ApiResponse(responseCode = "400", description = "Corpo ilegível",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "409",
+                    description = "Outra requisição alterou o mesmo autor ao mesmo tempo; tente novamente",
                     content = @Content(mediaType = "application/problem+json",
                             schema = @Schema(implementation = ProblemDetail.class))),
             @ApiResponse(responseCode = "404", description = "Autor não encontrado",

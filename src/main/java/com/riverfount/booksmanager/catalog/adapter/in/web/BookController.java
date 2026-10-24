@@ -183,6 +183,10 @@ class BookController {
             @ApiResponse(responseCode = "400", description = "Requisição inválida",
                     content = @Content(mediaType = "application/problem+json",
                             schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "409",
+                    description = "Outra requisição alterou o mesmo livro ao mesmo tempo; tente novamente",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class))),
             @ApiResponse(responseCode = "404", description = "Livro não encontrado",
                     content = @Content(mediaType = "application/problem+json",
                             schema = @Schema(implementation = ProblemDetail.class))),
@@ -205,6 +209,10 @@ class BookController {
                     + "exemplares novos. Inativar um livro já inativo não tem efeito.")
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Livro inativado"),
+            @ApiResponse(responseCode = "409",
+                    description = "Outra requisição alterou o mesmo livro ao mesmo tempo; tente novamente",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class))),
             @ApiResponse(responseCode = "404", description = "Livro não encontrado",
                     content = @Content(mediaType = "application/problem+json",
                             schema = @Schema(implementation = ProblemDetail.class)))
@@ -219,6 +227,10 @@ class BookController {
             description = "Reativa um livro inativado (RN14), só para o administrador. O livro só volta se a categoria e todos os autores dele estão ativos; a recusa (422) diz quais estão inativos. Os exemplares não são alterados. Reativar um livro já ativo não tem efeito e devolve o livro.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Livro reativado"),
+            @ApiResponse(responseCode = "409",
+                    description = "Outra requisição alterou o mesmo livro ao mesmo tempo; tente novamente",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class))),
             @ApiResponse(responseCode = "404", description = "Livro não encontrado",
                     content = @Content(mediaType = "application/problem+json",
                             schema = @Schema(implementation = ProblemDetail.class))),

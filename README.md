@@ -184,7 +184,7 @@ O que vale saber:
 - A política de penalidade (multa, suspensão, as duas ou nada) e seus números vêm da configuração. A penalidade é calculada na devolução e guardada: mudar a política depois não recalcula devoluções já registradas.
 - Só a multa pendente impede novos empréstimos; paga ou abonada, o leitor volta a poder emprestar. Uma suspensão que já terminou não está em vigor, sem nenhuma rotina para fechá-la.
 - Um exemplar com empréstimo ativo não pode ser inativado (`DELETE /api/v1/copies/{id}` devolve 422 até a devolução).
-- Dois pedidos simultâneos sobre o mesmo registro deixam só um: o outro recebe 409 (tente novamente) ou 422.
+- Dois pedidos simultâneos sobre o mesmo registro deixam só um: o outro recebe 409 (tente novamente) ou 422. O lock vale também para livros e autores (duas edições do mesmo livro ao mesmo tempo não se sobrescrevem em silêncio). A versão não é exposta: o 409 só protege requisições que se cruzam no tempo, não um formulário aberto há minutos.
 
 Os erros seguem o formato ProblemDetail (400, 404, 409 e 422). O **400** de uma requisição inválida (campo ausente, fora do limite, de tipo errado, data malformada, JSON quebrado ou parâmetro de tipo errado) traz `detail: "A requisição tem campos inválidos."` e a lista `errors`, de `{field, message}` com o caminho completo do campo (`guardian.email`, `authorIds[0]`) e a mensagem em português, em ordem de campo; um JSON que não dá para ler, sem campo identificável, devolve só o `detail` ("O corpo da requisição não é um JSON válido." ou "... é obrigatório."). O 422 é só das regras de negócio. Os detalhes do contrato estão em [`docs/projeto.md`](docs/projeto.md), seção "Interface e API", e cada endpoint está descrito no Swagger.
 

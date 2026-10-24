@@ -129,7 +129,7 @@ Mesma escala de prioridade dos requisitos funcionais.
 | RNF14 | Paginar todas as listagens, com tamanho máximo de página de 100 itens. | M |
 | RNF15 | Responder consultas e operações comuns em até 1 segundo, para acervo de até 100 mil livros. | S |
 | RNF16 | Executar cada caso de uso de forma transacional (tudo ou nada). | M |
-| RNF17 | Impedir dois empréstimos simultâneos do mesmo exemplar, com controle de concorrência (lock otimista com @Version e restrições no banco). | M |
+| RNF17 | Impedir dois empréstimos simultâneos do mesmo exemplar, com controle de concorrência (lock otimista com @Version e restrições no banco). O mesmo lock vale para a edição de livros e de autores: duas alterações simultâneas do mesmo registro (sobretudo a troca do conjunto de autores de um livro) não se sobrescrevem em silêncio, e a segunda recebe 409 (tente novamente). Decidido em 24/10/2026. | M |
 | RNF18 | Fazer backup diário do banco em produção, com testes periódicos de restauração. O backup é automático (script agendado), guardado 14 dias no servidor e 90 dias fora dele, **criptografado antes de sair do servidor** (traz dados pessoais dos leitores, inclusive de menores; RNF11), com aviso quando falha e teste de restauração mensal que também avisa quando falha. Decidido em 24/10/2026. | C |
 | RNF19 | Garantir que falhas em sistemas externos (ISBN e e-mail) não impeçam as operações centrais. | C |
 
