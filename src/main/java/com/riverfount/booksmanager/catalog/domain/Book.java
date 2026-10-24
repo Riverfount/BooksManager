@@ -49,7 +49,9 @@ public class Book {
         validateTitle(title);
         validateCategory(categoryId);
         validateAuthors(authorIds);
+        validatePublisherRequired(publisher);
         validatePublisher(publisher);
+        validatePublicationYearRequired(publicationYear);
         validatePublicationYear(publicationYear, clock);
         return new Book(null, isbn, title, publisher, publicationYear, categoryId, authorIds, true);
     }
@@ -180,7 +182,29 @@ public class Book {
         }
     }
 
+    /** A new book has a publisher (RF01). The update does not ask for it again: a book that predates the rule may have none. */
+    private static void validatePublisherRequired(String publisher) {
+        if (publisher == null || publisher.isBlank()) {
+            throw new BusinessRuleException("a editora do livro é obrigatória");
+        }
+    }
+
+    /** A new book has a publication year (RF01). */
+    private static void validatePublicationYearRequired(Integer publicationYear) {
+        if (publicationYear == null) {
+            throw new BusinessRuleException("o ano de publicação é obrigatório");
+        }
+    }
+
+    /**
+     * What a publisher may be, on creation and on update: never blank (it can be replaced, not emptied) and up to
+     * the limit. Null is accepted here only because an update keeps the current value when it is not sent, and a
+     * book that predates the rule may have none.
+     */
     private static void validatePublisher(String publisher) {
+        if (publisher != null && publisher.isBlank()) {
+            throw new BusinessRuleException("a editora do livro não pode ficar em branco");
+        }
         if (publisher != null && publisher.length() > MAX_PUBLISHER_LENGTH) {
             throw new BusinessRuleException(
                     "a editora do livro deve ter até " + MAX_PUBLISHER_LENGTH + " caracteres");

@@ -232,7 +232,7 @@ class BookControllerTest {
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"isbn":"9788533302273","title":"Dom Casmurro","categoryId":999999,"authorIds":[10]}
+                                {"isbn":"9788533302273","title":"Dom Casmurro","publisher":"Editora X","publicationYear":1899,"categoryId":999999,"authorIds":[10]}
                                 """))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")))
@@ -249,7 +249,7 @@ class BookControllerTest {
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"isbn":"9788533302273","title":"Dom Casmurro","categoryId":1,"authorIds":[10]}
+                                {"isbn":"9788533302273","title":"Dom Casmurro","publisher":"Editora X","publicationYear":1899,"categoryId":1,"authorIds":[10]}
                                 """))
                 .andExpect(status().isUnprocessableContent());
     }
@@ -720,5 +720,70 @@ class BookControllerTest {
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.detail").value("o livro não pode ser reativado (categoria inativa: Romance): reative antes"));
+    }
+
+    // every book has a publisher and a publication year (RF01)
+
+    @Test
+    @WithOperator
+    void shouldReturn400WhenRegisteringWithoutPublisher() throws Exception {
+        mockMvc.perform(post("/api/v1/books")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"isbn":"9788533302273","title":"Dom Casmurro","publicationYear":1899,
+                                 "categoryId":1,"authorIds":[10]}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+
+        then(registerBookUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @WithOperator
+    void shouldReturn400WhenRegisteringWithABlankPublisher() throws Exception {
+        mockMvc.perform(post("/api/v1/books")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"isbn":"9788533302273","title":"Dom Casmurro","publisher":"   ",
+                                 "publicationYear":1899,"categoryId":1,"authorIds":[10]}
+                                """))
+                .andExpect(status().isBadRequest());
+
+        then(registerBookUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @WithOperator
+    void shouldReturn400WhenRegisteringWithoutPublicationYear() throws Exception {
+        mockMvc.perform(post("/api/v1/books")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"isbn":"9788533302273","title":"Dom Casmurro","publisher":"Editora X",
+                                 "categoryId":1,"authorIds":[10]}
+                                """))
+                .andExpect(status().isBadRequest());
+
+        then(registerBookUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @WithOperator
+    void shouldReturn400WhenUpdatingWithABlankPublisher() throws Exception {
+        mockMvc.perform(patch("/api/v1/books/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"publisher\":\"  \"}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(patch("/api/v1/books/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"publisher\":\"\"}"))
+                .andExpect(status().isBadRequest());
+
+        then(updateBookUseCase).shouldHaveNoInteractions();
     }
 }

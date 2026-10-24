@@ -20,7 +20,8 @@ record UpdateBookRequest(
         @Pattern(regexp = "^\\S(.*\\S)?$",
                 message = "o título não pode ficar em branco nem ter espaços nas pontas")
         String title,
-        @Schema(description = "Nova editora, até 255 caracteres (opcional)", example = "Garnier")
+        @Schema(description = "Nova editora, até 255 caracteres (opcional; não pode ficar em branco)", example = "Garnier")
+        @Pattern(regexp = ".*\\S.*", message = "a editora não pode ficar em branco")
         @Size(max = Book.MAX_PUBLISHER_LENGTH, message = "a editora deve ter até " + Book.MAX_PUBLISHER_LENGTH
                 + " caracteres")
         String publisher,

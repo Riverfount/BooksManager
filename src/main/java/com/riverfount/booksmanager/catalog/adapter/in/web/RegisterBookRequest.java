@@ -21,11 +21,13 @@ record RegisterBookRequest(
                 + " caracteres")
         @Pattern(regexp = "^\\S(.*\\S)?$", message = "o título não pode ter espaços nas pontas")
         String title,
-        @Schema(description = "Editora (até 255 caracteres)", example = "Garnier")
+        @Schema(description = "Editora (obrigatória, até 255 caracteres)", example = "Garnier")
+        @NotBlank(message = "a editora é obrigatória")
         @Size(max = Book.MAX_PUBLISHER_LENGTH, message = "a editora deve ter até " + Book.MAX_PUBLISHER_LENGTH
                 + " caracteres")
         String publisher,
-        @Schema(description = "Ano de publicação (de 1450 até o ano atual)", example = "1899")
+        @Schema(description = "Ano de publicação (obrigatório, de 1450 até o ano atual)", example = "1899")
+        @NotNull(message = "o ano de publicação é obrigatório")
         @Min(value = Book.MIN_PUBLICATION_YEAR, message = "o ano de publicação não pode ser anterior a "
                 + Book.MIN_PUBLICATION_YEAR)
         Integer publicationYear,

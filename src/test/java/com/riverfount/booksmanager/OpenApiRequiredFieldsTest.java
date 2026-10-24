@@ -104,7 +104,8 @@ class OpenApiRequiredFieldsTest {
 
     @Test
     void registrationRequestsShouldRequireWhatTheyValidate() throws Exception {
-        apiDocs.andExpect(requiredOf("RegisterBookRequest", "isbn", "title", "categoryId", "authorIds"))
+        apiDocs.andExpect(requiredOf("RegisterBookRequest", "isbn", "title", "publisher", "publicationYear", "categoryId",
+                        "authorIds"))
                 .andExpect(requiredOf("RegisterAuthorRequest", "name"))
                 .andExpect(requiredOf("RegisterCategoryRequest", "name"))
                 .andExpect(requiredOf("RegisterCopyRequest", "bookId", "assetCode"))

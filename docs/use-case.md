@@ -8,7 +8,8 @@
 
 **HU01 —** Como operador, quero cadastrar um livro com ISBN, título, editora, ano e categoria, para manter o acervo organizado.
 - Critério de aceite: o ISBN deve ser único e válido (dígito verificador de ISBN-10 ou ISBN-13); um ISBN inválido ou repetido é recusado com mensagem clara (RN01). O ISBN-10 e o ISBN-13 do mesmo livro contam como o mesmo ISBN: o livro é guardado com o ISBN-13.
-- Critério de aceite: a editora aceita até 255 caracteres e o ano de publicação vai de 1450 até o ano atual (RF01).
+- Critério de aceite: a editora (até 255 caracteres) e o ano de publicação (de 1450 até o ano atual) são obrigatórios no cadastro (RF01).
+- Critério de aceite: ao editar, a editora e o ano podem ser trocados por outro valor válido, mas não esvaziados; um livro de antes da exigência, sem os dois, continua editável e pode ser completado (RF01).
 - Critério de aceite: a categoria e os autores informados precisam existir e estar ativos (RF01, RF02).
 
 **HU02 —** Como operador, quero cadastrar um exemplar de um livro com código de patrimônio único, para controlar cada cópia física separadamente.
