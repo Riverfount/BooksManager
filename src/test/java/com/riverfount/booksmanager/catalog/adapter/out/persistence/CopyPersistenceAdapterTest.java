@@ -152,7 +152,7 @@ class CopyPersistenceAdapterTest {
         var otherBookId = jdbcTemplate.queryForObject(
                 """
                 insert into book (isbn, title, category_id, active)
-                values ('080442957X', 'Outro Livro', (select category_id from book where id = ?), true)
+                values ('9780804429573', 'Outro Livro', (select category_id from book where id = ?), true)
                 returning id
                 """,
                 Long.class, bookId);
@@ -238,7 +238,7 @@ class CopyPersistenceAdapterTest {
         var otherBookId = jdbcTemplate.queryForObject(
                 """
                 insert into book (isbn, title, category_id, active)
-                values ('080442957X', 'Outro Livro', (select category_id from book where id = ?), true)
+                values ('9780804429573', 'Outro Livro', (select category_id from book where id = ?), true)
                 returning id
                 """,
                 Long.class, bookId);
@@ -275,7 +275,7 @@ class CopyPersistenceAdapterTest {
         var otherBookId = jdbcTemplate.queryForObject(
                 """
                 insert into book (isbn, title, category_id, active)
-                values ('080442957X', 'Outro Livro', (select category_id from book where id = ?), true)
+                values ('9780804429573', 'Outro Livro', (select category_id from book where id = ?), true)
                 returning id
                 """,
                 Long.class, bookId);

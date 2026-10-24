@@ -66,6 +66,67 @@ class BookTest {
                 .isInstanceOf(BusinessRuleException.class);
     }
 
+    // the publisher (the column has 255 characters) and the year (RF01)
+
+    @Test
+    void shouldAcceptPublisherWithTheMaximumLength() {
+        var publisher = "e".repeat(Book.MAX_PUBLISHER_LENGTH);
+
+        var book = Book.create(ISBN, "Dom Casmurro", publisher, 1899, 1L, Set.of(10L), FIXED_CLOCK);
+
+        assertThat(book.getPublisher()).isEqualTo(publisher);
+    }
+
+    @Test
+    void shouldNotAcceptPublisherLongerThanTheMaximum() {
+        var publisher = "e".repeat(Book.MAX_PUBLISHER_LENGTH + 1);
+
+        assertThatThrownBy(() -> Book.create(ISBN, "Dom Casmurro", publisher, 1899, 1L, Set.of(10L), FIXED_CLOCK))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("editora")
+                .hasMessageContaining("255");
+    }
+
+    @Test
+    void shouldNotUpdateWithPublisherLongerThanTheMaximum() {
+        var book = Book.create(ISBN, "Dom Casmurro", "Editora X", 1899, 1L, Set.of(10L), FIXED_CLOCK);
+        var publisher = "e".repeat(Book.MAX_PUBLISHER_LENGTH + 1);
+
+        assertThatThrownBy(() -> book.updateDetails("Dom Casmurro", publisher, 1899, 1L, FIXED_CLOCK))
+                .isInstanceOf(BusinessRuleException.class);
+    }
+
+    @Test
+    void shouldAcceptPublicationYearAtTheFloor() {
+        var book = Book.create(ISBN, "Dom Casmurro", "Editora X", Book.MIN_PUBLICATION_YEAR, 1L, Set.of(10L),
+                FIXED_CLOCK);
+
+        assertThat(book.getPublicationYear()).isEqualTo(1450);
+    }
+
+    @Test
+    void shouldNotAcceptPublicationYearBelowTheFloor() {
+        assertThatThrownBy(() -> Book.create(ISBN, "Dom Casmurro", "Editora X", 1449, 1L, Set.of(10L), FIXED_CLOCK))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("1450");
+    }
+
+    @Test
+    void shouldNotAcceptZeroOrNegativePublicationYear() {
+        assertThatThrownBy(() -> Book.create(ISBN, "Dom Casmurro", "Editora X", 0, 1L, Set.of(10L), FIXED_CLOCK))
+                .isInstanceOf(BusinessRuleException.class);
+        assertThatThrownBy(() -> Book.create(ISBN, "Dom Casmurro", "Editora X", -5, 1L, Set.of(10L), FIXED_CLOCK))
+                .isInstanceOf(BusinessRuleException.class);
+    }
+
+    @Test
+    void shouldNotUpdateWithPublicationYearBelowTheFloor() {
+        var book = Book.create(ISBN, "Dom Casmurro", "Editora X", 1899, 1L, Set.of(10L), FIXED_CLOCK);
+
+        assertThatThrownBy(() -> book.updateDetails("Dom Casmurro", "Editora X", 12, 1L, FIXED_CLOCK))
+                .isInstanceOf(BusinessRuleException.class);
+    }
+
     @Test
     void shouldNotCreateBookWithNullIsbn() {
         assertThatThrownBy(() -> Book.create(null, "Dom Casmurro", "Editora X", 1899, 1L, Set.of(10L), FIXED_CLOCK))

@@ -183,12 +183,30 @@ class BookPersistenceAdapterTest {
     }
 
     @Test
-    void shouldFindAnIsbn10WithTheCheckLetter() {
+    void shouldStoreAnIsbn10AsTheIsbn13OfTheSameBook() {
         saveBook("080442957X", "Livro ISBN-10", categoryId, Set.of(authorId1));
 
-        var result = adapter.findAll(new BookFilter(null, null, "442957x", null), true, byTitle());
+        assertThat(jdbcTemplate.queryForObject("select isbn from book", String.class)).isEqualTo("9780804429573");
+        assertThat(adapter.existsByIsbn(new Isbn("9780804429573"))).isTrue();
+        assertThat(adapter.existsByIsbn(new Isbn("080442957X"))).isTrue();
+        assertThat(adapter.findIdByIsbn(new Isbn("0-8044-2957-X"))).isPresent();
+    }
+
+    @Test
+    void shouldFindAnIsbn10ByTheDigitsThatItSharesWithTheIsbn13() {
+        saveBook("080442957X", "Livro ISBN-10", categoryId, Set.of(authorId1));
+
+        var result = adapter.findAll(new BookFilter(null, null, "0442957", null), true, byTitle());
 
         assertThat(result.items()).extracting(Book::getTitle).containsExactly("Livro ISBN-10");
+    }
+
+    @Test
+    void theDatabaseShouldRefuseAnIsbnThatIsNotAnIsbn13() {
+        assertThatThrownBy(() -> jdbcTemplate.update(
+                "insert into book (isbn, title, category_id) values ('080442957X', 'Livro', ?)", categoryId))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("book_isbn_13_digits");
     }
 
     @Test
