@@ -32,6 +32,9 @@ class CollectionReportControllerTest {
     @MockitoBean
     private GetCollectionStatusUseCase getCollectionStatusUseCase;
 
+    @MockitoBean
+    private java.time.Clock clock;
+
     private void collectionIs(long available, long borrowed, long reserved, long damaged, long lost, long inactive) {
         var byStatus = new EnumMap<CopyStatus, Long>(CopyStatus.class);
         byStatus.put(CopyStatus.AVAILABLE, available);
