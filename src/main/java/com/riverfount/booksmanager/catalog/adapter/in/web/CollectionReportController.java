@@ -1,9 +1,12 @@
 package com.riverfount.booksmanager.catalog.adapter.in.web;
 
 import com.riverfount.booksmanager.catalog.application.port.in.GetCollectionStatusUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.CollectionStatus;
 import com.riverfount.booksmanager.catalog.domain.CopyStatus;
 import com.riverfount.booksmanager.shared.adapter.in.web.AdminOrOperator;
 import com.riverfount.booksmanager.shared.adapter.in.web.CsvFile;
+import com.riverfount.booksmanager.shared.adapter.in.web.PdfReport;
+import com.riverfount.booksmanager.shared.adapter.in.web.ReportTable;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -54,13 +57,35 @@ class CollectionReportController {
     @ApiResponses(@ApiResponse(responseCode = "200", description = "Arquivo CSV",
             content = @Content(mediaType = "text/csv", schema = @Schema(type = "string"))))
     ResponseEntity<byte[]> getCsv() {
+        var table = table(getCollectionStatusUseCase.get());
+        return CsvFile.response("collection-status", LocalDate.now(clock),
+                CsvFile.render(table.header(), table.rows()));
+    }
+
+    @GetMapping("/pdf")
+    @Operation(summary = "Exportar a situação do acervo em PDF",
+            description = "Baixa a situação do acervo (RF29, RF25) como arquivo PDF, para imprimir ou guardar, com "
+                    + "os mesmos números de `GET /reports/collection-status`: o total de exemplares ativos, um por "
+                    + "status e os inativos à parte. O PDF traz o título, a data e a hora da emissão "
+                    + "(`America/Sao_Paulo`), a tabela, o total no fim e o número da página. Se chama "
+                    + "`collection-status-AAAA-MM-DD.pdf`.")
+    @ApiResponses(@ApiResponse(responseCode = "200", description = "Arquivo PDF",
+            content = @Content(mediaType = "application/pdf", schema = @Schema(type = "string", format = "binary"))))
+    ResponseEntity<byte[]> getPdf() {
         var status = getCollectionStatusUseCase.get();
+        var pdf = PdfReport.render("Situação do acervo", clock.instant(), List.of("Filtros: nenhum"), table(status),
+                "Total de exemplares ativos: " + status.totalActive() + " (os inativos ficam à parte: "
+                        + status.inactive() + ")");
+        return PdfReport.response("collection-status", LocalDate.now(clock), pdf);
+    }
+
+    /** One line per item: the total, one per status and the inactive apart. */
+    private static ReportTable table(CollectionStatus status) {
         var rows = new ArrayList<List<Object>>();
         rows.add(List.of("Total de exemplares ativos", status.totalActive()));
         status.activeByStatus().forEach((copyStatus, total) -> rows.add(List.of(label(copyStatus), total)));
         rows.add(List.of("Exemplares inativos", status.inactive()));
-        return CsvFile.response("collection-status", LocalDate.now(clock),
-                CsvFile.render(List.of("Situação", "Exemplares"), rows));
+        return new ReportTable(List.of("Situação", "Exemplares"), rows);
     }
 
     private static String label(CopyStatus status) {
