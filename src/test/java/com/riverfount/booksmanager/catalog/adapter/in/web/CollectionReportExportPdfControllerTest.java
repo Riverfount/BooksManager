@@ -2,6 +2,7 @@ package com.riverfount.booksmanager.catalog.adapter.in.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -29,10 +30,10 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-@WebMvcTest(CollectionReportController.class)
+@WebMvcTest(CollectionReportExportController.class)
 @Import({GlobalExceptionHandler.class, MethodSecurityConfiguration.class,
-        CollectionReportPdfControllerTest.FixedClock.class})
-class CollectionReportPdfControllerTest {
+        CollectionReportExportPdfControllerTest.FixedClock.class})
+class CollectionReportExportPdfControllerTest {
 
     private static final String URL = "/api/v1/reports/collection-status/pdf";
 
@@ -62,7 +63,7 @@ class CollectionReportPdfControllerTest {
     }
 
     @Test
-    @WithOperator
+    @WithAdmin
     void shouldExportTheCollectionStatusAsAPdfAttachment() throws Exception {
         collectionIs(90, 20, 4, 3, 3, 5);
 
@@ -85,7 +86,7 @@ class CollectionReportPdfControllerTest {
 
     @Test
     @WithAdmin
-    void anAdministratorShouldAlsoExportIt() throws Exception {
+    void anAdministratorShouldExportItEvenWhenTheCollectionIsEmpty() throws Exception {
         collectionIs(0, 0, 0, 0, 0, 0);
 
         mockMvc.perform(get(URL)).andExpect(status().isOk());
@@ -94,5 +95,13 @@ class CollectionReportPdfControllerTest {
     @Test
     void anAnonymousRequestShouldAnswer401() throws Exception {
         mockMvc.perform(get(URL)).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithOperator
+    void anOperatorShouldAnswer403() throws Exception {
+        mockMvc.perform(get(URL)).andExpect(status().isForbidden());
+
+        then(getCollectionStatusUseCase).shouldHaveNoInteractions();
     }
 }

@@ -34,7 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
 @SpringBootTest
 @AutoConfigureMockMvc(print = MockMvcPrint.NONE)
 @Transactional
-class ReportCsvIntegrationTest {
+class ReportExportCsvIntegrationTest {
 
     private static final LocalDate TODAY = LocalDate.now(ZoneId.of("America/Sao_Paulo"));
 
@@ -97,7 +97,7 @@ class ReportCsvIntegrationTest {
             lateLoan(book, late);
         }
 
-        List<String> lines = download("/api/v1/reports/overdue-loans/csv", "OPERATOR").lines().toList();
+        List<String> lines = download("/api/v1/reports/overdue-loans/csv", "ADMIN").lines().toList();
 
         assertThat(lines).hasSize(151);
         assertThat(lines.getFirst()).startsWith("﻿Empréstimo;Leitor;Nome do leitor;");
@@ -118,7 +118,7 @@ class ReportCsvIntegrationTest {
 
     @Test
     void shouldExportOnlyTheHeaderWhenNoLoanIsLate() throws Exception {
-        assertThat(download("/api/v1/reports/overdue-loans/csv", "OPERATOR").lines().count()).isEqualTo(1);
+        assertThat(download("/api/v1/reports/overdue-loans/csv", "ADMIN").lines().count()).isEqualTo(1);
     }
 
     @Test
@@ -130,7 +130,7 @@ class ReportCsvIntegrationTest {
         lateLoan(other, 7);
 
         var csv = download("/api/v1/reports/most-borrowed-books/csv?from=" + TODAY.minusDays(60) + "&to=" + TODAY,
-                "OPERATOR");
+                "ADMIN");
 
         assertThat(csv.lines().toList()).containsExactly("﻿Livro;Título;Total de empréstimos",
                 popular + ";Dom Casmurro;2", other + ";Quincas Borba;1");
@@ -138,7 +138,7 @@ class ReportCsvIntegrationTest {
 
     @Test
     void aPeriodLongerThanAYearShouldAnswer400() throws Exception {
-        var token = "Bearer " + TestTokens.signed(encoder, properties.issuer(), "1", "OPERATOR", Instant.now(),
+        var token = "Bearer " + TestTokens.signed(encoder, properties.issuer(), "1", "ADMIN", Instant.now(),
                 Instant.now().plusSeconds(900));
 
         mockMvc.perform(get("/api/v1/reports/most-borrowed-books/csv")
@@ -153,7 +153,7 @@ class ReportCsvIntegrationTest {
         jdbcTemplate.update("insert into copy (book_id, asset_code, status) values (?, 'CSV-A', 'AVAILABLE')", book);
         jdbcTemplate.update("insert into copy (book_id, asset_code, status) values (?, 'CSV-B', 'DAMAGED')", book);
 
-        var lines = download("/api/v1/reports/collection-status/csv", "OPERATOR").lines().toList();
+        var lines = download("/api/v1/reports/collection-status/csv", "ADMIN").lines().toList();
 
         assertThat(lines.getFirst()).isEqualTo("﻿Situação;Exemplares");
         assertThat(lines).hasSize(8).contains("Disponível;" + countOf("AVAILABLE"), "Danificado;" + countOf("DAMAGED"));
@@ -171,6 +171,25 @@ class ReportCsvIntegrationTest {
         for (var url : List.of("/api/v1/reports/overdue-loans/csv", "/api/v1/reports/collection-status/csv",
                 "/api/v1/reports/most-borrowed-books/csv?from=2026-01-01&to=2026-12-31")) {
             mockMvc.perform(get(url)).andExpect(status().isUnauthorized());
+        }
+    }
+
+    @Test
+    void anOperatorShouldBeRefusedEveryExportButStillReadTheReports() throws Exception {
+        var token = "Bearer " + TestTokens.signed(encoder, properties.issuer(), "1", "OPERATOR", Instant.now(),
+                Instant.now().plusSeconds(900));
+        var period = "?from=" + TODAY.minusDays(60) + "&to=" + TODAY;
+
+        for (var url : List.of("/api/v1/reports/overdue-loans/csv", "/api/v1/reports/overdue-loans/pdf",
+                "/api/v1/reports/most-borrowed-books/csv" + period, "/api/v1/reports/most-borrowed-books/pdf" + period,
+                "/api/v1/reports/collection-status/csv", "/api/v1/reports/collection-status/pdf")) {
+            mockMvc.perform(get(url).header("Authorization", token))
+                    .andExpect(status().isForbidden())
+                    .andExpect(header().string("Content-Type", "application/problem+json"));
+        }
+        for (var url : List.of("/api/v1/reports/overdue-loans", "/api/v1/reports/most-borrowed-books" + period,
+                "/api/v1/reports/collection-status")) {
+            mockMvc.perform(get(url).header("Authorization", token)).andExpect(status().isOk());
         }
     }
 }

@@ -1,6 +1,6 @@
 # Books Manager: Histórias de Usuário
 
-> Histórias de usuário dos requisitos funcionais essenciais (prioridade M) e, a partir da Fase 4, dos itens S (reservas, perda ou dano na devolução e relatórios adicionais). Formato: **Como** *[papel]*, **quero** *[ação]*, **para** *[benefício]*. IDs entre parênteses referem `docs/requisitos.md`.
+> Histórias de usuário dos requisitos funcionais essenciais (prioridade M) e, a partir da Fase 4, dos itens S (reservas, perda ou dano na devolução e relatórios adicionais) e, na Fase 5, da exportação dos relatórios. Formato: **Como** *[papel]*, **quero** *[ação]*, **para** *[benefício]*. IDs entre parênteses referem `docs/requisitos.md`.
 >
 > Os IDs das histórias são estáveis e não seguem a ordem de leitura: histórias novas recebem o próximo número livre e entram na seção do seu módulo, sem renumerar as existentes (que já são citadas em issues e commits).
 
@@ -174,6 +174,9 @@
 
 **HU37 —** Como administrador ou operador, quero ver a situação do acervo, para saber quantos exemplares há e em que estado estão.
 - Critério de aceite: o relatório mostra o total de exemplares ativos e quantos há em cada status (disponível, emprestado, reservado, danificado e extraviado; um status sem exemplares aparece com zero), e os exemplares inativos à parte (RF25, RN14).
+
+**HU39 —** Como administrador, quero exportar os relatórios de empréstimos em atraso, de livros mais emprestados e da situação do acervo em CSV e em PDF, para abrir numa planilha, imprimir ou guardar.
+- Critério de aceite: cada relatório sai em CSV (UTF-8 com BOM, separado por `;`, com acentos corretos numa planilha em português) e em PDF (com a data e a hora da emissão, os filtros usados e o cabeçalho repetido em cada página), com as mesmas linhas e a mesma ordem do relatório na tela, até 10.000 linhas; texto que começa com `=`, `+`, `-` ou `@` não vira fórmula no CSV; o operador não exporta (403), mas continua vendo os relatórios na tela (RF29, RN17).
 
 ## Referências
 
