@@ -11,7 +11,7 @@ Prioridade pelo método MoSCoW: **M** (deve, essencial na v1.0), **S** (deveria,
 | ID | Requisito | Prioridade |
 | --- | --- | --- |
 | RF01 | Cadastrar, listar, consultar, editar, inativar e reativar livros (ISBN, título, editora, ano e categoria). O ISBN não pode ser alterado depois do cadastro. | M |
-| RF02 | Cadastrar, listar, consultar, editar, inativar e reativar autores e associá-los aos livros (relação N:N). | M |
+| RF02 | Cadastrar, listar, consultar, editar, inativar e reativar autores e associá-los aos livros (relação N:N). Um nome que outro autor ativo já tem exige a confirmação do homônimo (RN19). | M |
 | RF03 | Cadastrar, listar, consultar, editar, inativar e reativar categorias. | M |
 | RF04 | Cadastrar, listar, consultar, inativar e reativar exemplares de um livro, com código de patrimônio único e status, e alterar o status (disponível, emprestado, reservado, danificado, extraviado). | M |
 | RF05 | Pesquisar livros por título, autor, ISBN e categoria, informando quantos exemplares estão disponíveis, com paginação e ordenação. | M |
@@ -89,6 +89,7 @@ As regras ficam na camada de domínio, ou em políticas parametrizáveis, e nunc
 | RN16 | A política de penalidade e seus valores são definidos pela biblioteca, em configuração, e nunca fixados no código. A alteração vale apenas para atrasos futuros. |
 | RN17 | A exportação de relatórios (CSV e PDF, RF29) é restrita ao administrador; o operador, que consulta os relatórios na tela (RF23, RF24 e RF25), recebe 403 ao tentar exportar. Decidido em 24/10/2026. |
 | RN18 | A trilha de auditoria (RF27) é consultada **somente pelo administrador**; o operador recebe 403. Os registros só são acrescentados pelas próprias operações, na mesma transação (uma operação desfeita não deixa registro): nenhuma rota da API cria, altera ou apaga um registro, e o banco recusa a alteração. Nenhum registro traz senha, hash, token ou dado pessoal além do necessário (LGPD). Os registros são guardados por 2 anos, e a limpeza é manual (guia de implantação). Como toda recusa de login é registrada, o proxy limita as tentativas de login por endereço (RNF13), para que quem não está autenticado não encha a trilha. Decidido em 24/10/2026. |
+| RN19 | O nome de um autor ativo não se repete por engano: cadastrar ou renomear um autor para o nome (sem diferenciar maiúsculas) de **outro autor ativo** é recusado (422, com o `existingAuthorId` do autor que já existe), a menos que se confirme que é um homônimo (`allowDuplicate=true`). Autor inativo não conta, e manter o próprio nome (ou só mudar a caixa) não é duplicidade. Decidido em 24/10/2026. |
 
 > As decisões da Fase 4 (reservas, expiração, retirada do exemplar reservado, perda ou dano na devolução e implantação mínima), tomadas em 17/10/2026, estão em `docs/projeto.md`, seção "Decisões tomadas", e ajustam RF15, RN03, RN07, RN11 e RN12 acima.
 

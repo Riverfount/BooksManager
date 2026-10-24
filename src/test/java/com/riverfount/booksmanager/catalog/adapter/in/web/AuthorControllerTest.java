@@ -443,4 +443,82 @@ class AuthorControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
     }
+
+    // a name already taken by an active author (RF02)
+
+    @Test
+    @WithOperator
+    void aDuplicateNameShouldBe422WithTheExistingAuthorId() throws Exception {
+        given(registerAuthorUseCase.register(any()))
+                .willThrow(new com.riverfount.booksmanager.catalog.domain.DuplicateAuthorNameException(
+                        "Machado de Assis", 7L));
+
+        mockMvc.perform(post("/api/v1/authors")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Machado de Assis\"}"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")))
+                .andExpect(jsonPath("$.existingAuthorId").value(7))
+                .andExpect(jsonPath("$.detail").value(containsString("allowDuplicate")));
+    }
+
+    @Test
+    @WithOperator
+    void aDuplicateNameOnUpdateShouldBe422WithTheExistingAuthorId() throws Exception {
+        given(updateAuthorUseCase.update(any()))
+                .willThrow(new com.riverfount.booksmanager.catalog.domain.DuplicateAuthorNameException(
+                        "Machado de Assis", 7L));
+
+        mockMvc.perform(patch("/api/v1/authors/2")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Machado de Assis\"}"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.existingAuthorId").value(7));
+    }
+
+    @Test
+    @WithOperator
+    void allowDuplicateShouldReachTheRegistration() throws Exception {
+        given(registerAuthorUseCase.register(any())).willReturn(Author.reconstitute(2L, "Machado de Assis", true));
+
+        mockMvc.perform(post("/api/v1/authors")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Machado de Assis\",\"allowDuplicate\":true}"))
+                .andExpect(status().isCreated());
+
+        then(registerAuthorUseCase).should().register(
+                new com.riverfount.booksmanager.catalog.application.port.in.RegisterAuthorCommand("Machado de Assis", true));
+    }
+
+    @Test
+    @WithOperator
+    void withoutAllowDuplicateTheRegistrationShouldNotConfirmAHomonym() throws Exception {
+        given(registerAuthorUseCase.register(any())).willReturn(Author.reconstitute(2L, "Machado de Assis", true));
+
+        mockMvc.perform(post("/api/v1/authors")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Machado de Assis\"}"))
+                .andExpect(status().isCreated());
+
+        then(registerAuthorUseCase).should().register(
+                new com.riverfount.booksmanager.catalog.application.port.in.RegisterAuthorCommand("Machado de Assis", false));
+    }
+
+    @Test
+    @WithOperator
+    void allowDuplicateShouldReachTheUpdate() throws Exception {
+        given(updateAuthorUseCase.update(any())).willReturn(Author.reconstitute(2L, "Machado de Assis", true));
+
+        mockMvc.perform(patch("/api/v1/authors/2")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Machado de Assis\",\"allowDuplicate\":true}"))
+                .andExpect(status().isOk());
+
+        then(updateAuthorUseCase).should().update(new UpdateAuthorCommand(2L, "Machado de Assis", true));
+    }
 }

@@ -44,6 +44,7 @@
 
 **HU16 —** Como operador, quero cadastrar e editar autores, para associá-los aos livros do acervo.
 - Critério de aceite: o nome do autor é obrigatório (RF02).
+- Critério de aceite: cadastrar ou renomear um autor para o nome de outro autor ativo é recusado, e a resposta informa quem já existe; o operador pode confirmar que é um homônimo e repetir (RN19).
 - Critério de aceite: a edição altera apenas os dados do autor; os livros associados continuam associados (RF02).
 
 **HU17 —** Como operador, quero listar e consultar os autores, para encontrar o autor certo ao cadastrar um livro.
