@@ -35,7 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 @SpringBootTest
 @AutoConfigureMockMvc(print = MockMvcPrint.NONE)
 @Transactional
-class ReportPdfIntegrationTest {
+class ReportExportPdfIntegrationTest {
 
     private static final LocalDate TODAY = LocalDate.now(ZoneId.of("America/Sao_Paulo"));
 
@@ -111,7 +111,7 @@ class ReportPdfIntegrationTest {
             lateLoan(book, late);
         }
 
-        var pdf = download("/api/v1/reports/overdue-loans/pdf", "OPERATOR");
+        var pdf = download("/api/v1/reports/overdue-loans/pdf", "ADMIN");
 
         assertThat(pdf.pages()).isGreaterThan(1);
         pdf.text().forEach(page -> assertThat(page).contains("Nome do leitor").contains("Dias de atraso"));
@@ -136,7 +136,7 @@ class ReportPdfIntegrationTest {
         lateLoan(popular, 6);
 
         var pdf = download("/api/v1/reports/most-borrowed-books/pdf?from=" + TODAY.minusDays(60) + "&to=" + TODAY,
-                "OPERATOR");
+                "ADMIN");
 
         assertThat(pdf.text().getFirst()).contains("Livros mais emprestados").contains("Período: ")
                 .contains("Dom Casmurro").contains("Total: 1 livros, 2 empréstimos");
@@ -147,7 +147,7 @@ class ReportPdfIntegrationTest {
         jdbcTemplate.update("insert into copy (book_id, asset_code, status) values (?, 'PDF-A', 'AVAILABLE')",
                 book("Dom Casmurro"));
 
-        var pdf = download("/api/v1/reports/collection-status/pdf", "OPERATOR");
+        var pdf = download("/api/v1/reports/collection-status/pdf", "ADMIN");
 
         assertThat(pdf.text().getFirst()).contains("Situação do acervo").contains("Disponível")
                 .contains("Total de exemplares ativos: ");

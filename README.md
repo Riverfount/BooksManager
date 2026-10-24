@@ -149,7 +149,7 @@ Todos os recursos do catálogo seguem o mesmo contrato, sob o prefixo **/api/v1*
 | Inativar | `DELETE /{recurso}/{id}` | 204, nunca exclui fisicamente |
 
 ### Endpoints de empréstimos, multas e relatórios
-Todos aceitam os perfis `ADMIN` e `OPERATOR` (a configuração da biblioteca é só do `ADMIN`) e as listagens são paginadas, com até 100 itens por página (`size` acima disso é 400):
+Todos aceitam os perfis `ADMIN` e `OPERATOR` (a configuração da biblioteca e a exportação dos relatórios em CSV e PDF são só do `ADMIN`; o `OPERATOR` recebe 403) e as listagens são paginadas, com até 100 itens por página (`size` acima disso é 400):
 
 | Operação | Requisição | Resposta |
 |---|---|---|
@@ -170,8 +170,8 @@ Todos aceitam os perfis `ADMIN` e `OPERATOR` (a configuração da biblioteca é 
 | Relatório de atrasos | `GET /api/v1/reports/overdue-loans` | 200, do maior para o menor atraso |
 | Livros mais emprestados | `GET /api/v1/reports/most-borrowed-books?from=&to=` | 200 paginada, do mais para o menos emprestado, com o livro (id e título) e o total; período obrigatório (AAAA-MM-DD, extremos incluídos, até 366 dias), senão 400 (RF24) |
 | Situação do acervo | `GET /api/v1/reports/collection-status` | 200 com `totalCopies` (exemplares ativos), `activeByStatus` (`AVAILABLE`, `BORROWED`, `RESERVED`, `DAMAGED` e `LOST`, sempre os cinco, com zero quando vazio) e `inactiveCopies` à parte; a soma por status bate com o total (RF25) |
-| Exportar relatórios em CSV | `GET /api/v1/reports/overdue-loans/csv`, `/most-borrowed-books/csv?from=&to=` e `/collection-status/csv` | 200 com o arquivo (`text/csv`, UTF-8 com BOM, separado por `;`, cabeçalho em português), todas as linhas do relatório na mesma ordem, no máximo 10.000 (acima disso, 422); 400 sem o período dos mais emprestados (RF29) |
-| Exportar relatórios em PDF | `GET /api/v1/reports/overdue-loans/pdf`, `/most-borrowed-books/pdf?from=&to=` e `/collection-status/pdf` | 200 com o arquivo (`application/pdf`, A4 paisagem): título, data e hora da emissão (`America/Sao_Paulo`), filtros usados, tabela com o cabeçalho repetido em cada página e o total no fim; mesmas linhas, ordem e teto de 10.000 do CSV (acima disso, 422); 400 sem o período dos mais emprestados (RF29) |
+| Exportar relatórios em CSV (só `ADMIN`) | `GET /api/v1/reports/overdue-loans/csv`, `/most-borrowed-books/csv?from=&to=` e `/collection-status/csv` | 200 com o arquivo (`text/csv`, UTF-8 com BOM, separado por `;`, cabeçalho em português), todas as linhas do relatório na mesma ordem, no máximo 10.000 (acima disso, 422); 400 sem o período dos mais emprestados (RF29) |
+| Exportar relatórios em PDF (só `ADMIN`) | `GET /api/v1/reports/overdue-loans/pdf`, `/most-borrowed-books/pdf?from=&to=` e `/collection-status/pdf` | 200 com o arquivo (`application/pdf`, A4 paisagem): título, data e hora da emissão (`America/Sao_Paulo`), filtros usados, tabela com o cabeçalho repetido em cada página e o total no fim; mesmas linhas, ordem e teto de 10.000 do CSV (acima disso, 422); 400 sem o período dos mais emprestados (RF29) |
 | Resumo do painel | `GET /api/v1/reports/dashboard` | 200 com `totalCopies`, `activeLoans`, `overdueLoans`, `suspendedReaders` (leitores, não suspensões) e `copiesByCategory` |
 | Configuração da biblioteca | `GET` e `PATCH /api/v1/library-configuration` | 200 (só `ADMIN`) |
 | Prazo e limites de empréstimo | `GET /api/v1/library-configuration/rules` | 200 com `loanPeriodDays`, `loanLimit`, `renewalLimit` e `reservationPickupDays`; `ADMIN` e `OPERATOR`, só leitura |
