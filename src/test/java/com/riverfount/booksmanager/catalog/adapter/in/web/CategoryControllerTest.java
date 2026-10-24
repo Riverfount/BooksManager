@@ -22,6 +22,7 @@ import com.riverfount.booksmanager.security.configuration.MethodSecurityConfigur
 import com.riverfount.booksmanager.WithOperator;
 import com.riverfount.booksmanager.WithAdmin;
 import com.riverfount.booksmanager.catalog.application.port.in.DeactivateCategoryUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.ReactivateCategoryUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.GetCategoryUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ListCategoriesQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.ListCategoriesUseCase;
@@ -67,6 +68,9 @@ class CategoryControllerTest {
 
     @MockitoBean
     private DeactivateCategoryUseCase deactivateCategoryUseCase;
+
+    @MockitoBean
+    private ReactivateCategoryUseCase reactivateCategoryUseCase;
 
     @Test
     @WithOperator
@@ -429,5 +433,47 @@ class CategoryControllerTest {
     @WithOperator
     void anOperatorMayCallTheRoutes() throws Exception {
         mockMvc.perform(delete("/api/v1/categories/1").with(csrf())).andExpect(status().isNoContent());
+    }
+
+    // reactivation (RN14): only the administrator
+
+    @Test
+    @WithAdmin
+    void anAdministratorShouldReactivateAndGetTheResource() throws Exception {
+        given(reactivateCategoryUseCase.reactivate(1L)).willReturn(com.riverfount.booksmanager.catalog.domain.Category.reconstitute(1L, "Romance", true));
+
+        mockMvc.perform(post("/api/v1/categories/1/reactivate").with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.active").value(true))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.name").exists());
+
+        then(reactivateCategoryUseCase).should().reactivate(1L);
+    }
+
+    @Test
+    @WithOperator
+    void anOperatorShouldNotReactivateAndGet403() throws Exception {
+        mockMvc.perform(post("/api/v1/categories/1/reactivate").with(csrf()))
+                .andExpect(status().isForbidden());
+
+        then(reactivateCategoryUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    void withoutATokenReactivatingShouldBe401() throws Exception {
+        mockMvc.perform(post("/api/v1/categories/1/reactivate").with(csrf()))
+                .andExpect(status().isUnauthorized());
+
+        then(reactivateCategoryUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @WithAdmin
+    void reactivatingSomethingThatDoesNotExistShouldBe404() throws Exception {
+        willThrow(new ResourceNotFoundException("categoria não encontrada: 99")).given(reactivateCategoryUseCase).reactivate(99L);
+
+        mockMvc.perform(post("/api/v1/categories/99/reactivate").with(csrf()))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
     }
 }

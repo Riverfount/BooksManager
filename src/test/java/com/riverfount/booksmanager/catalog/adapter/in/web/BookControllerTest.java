@@ -23,6 +23,7 @@ import com.riverfount.booksmanager.WithOperator;
 import com.riverfount.booksmanager.WithAdmin;
 import com.riverfount.booksmanager.catalog.application.port.in.BookWithAvailability;
 import com.riverfount.booksmanager.catalog.application.port.in.DeactivateBookUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.ReactivateBookUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.GetBookUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ListBooksQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.BookLookupResult;
@@ -79,6 +80,9 @@ class BookControllerTest {
 
     @MockitoBean
     private DeactivateBookUseCase deactivateBookUseCase;
+
+    @MockitoBean
+    private ReactivateBookUseCase reactivateBookUseCase;
 
     @MockitoBean
     private LookupBookByIsbnUseCase lookupBookByIsbnUseCase;
@@ -662,5 +666,59 @@ class BookControllerTest {
     void shouldRequireAuthenticationForTheLookup() throws Exception {
         mockMvc.perform(get("/api/v1/books/lookup").param("isbn", "9788533302273"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    // reactivation (RN14): only the administrator
+
+    @Test
+    @WithAdmin
+    void anAdministratorShouldReactivateAndGetTheResource() throws Exception {
+        given(reactivateBookUseCase.reactivate(1L)).willReturn(sampleBook());
+
+        mockMvc.perform(post("/api/v1/books/1/reactivate").with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.active").value(true))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.title").exists());
+
+        then(reactivateBookUseCase).should().reactivate(1L);
+    }
+
+    @Test
+    @WithOperator
+    void anOperatorShouldNotReactivateAndGet403() throws Exception {
+        mockMvc.perform(post("/api/v1/books/1/reactivate").with(csrf()))
+                .andExpect(status().isForbidden());
+
+        then(reactivateBookUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    void withoutATokenReactivatingShouldBe401() throws Exception {
+        mockMvc.perform(post("/api/v1/books/1/reactivate").with(csrf()))
+                .andExpect(status().isUnauthorized());
+
+        then(reactivateBookUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @WithAdmin
+    void reactivatingSomethingThatDoesNotExistShouldBe404() throws Exception {
+        willThrow(new ResourceNotFoundException("livro não encontrado: 99")).given(reactivateBookUseCase).reactivate(99L);
+
+        mockMvc.perform(post("/api/v1/books/99/reactivate").with(csrf()))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+    }
+
+    @Test
+    @WithAdmin
+    void aRefusedReactivationShouldBe422WithTheReason() throws Exception {
+        willThrow(new com.riverfount.booksmanager.shared.domain.BusinessRuleException("o livro não pode ser reativado (categoria inativa: Romance): reative antes"))
+                .given(reactivateBookUseCase).reactivate(1L);
+
+        mockMvc.perform(post("/api/v1/books/1/reactivate").with(csrf()))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.detail").value("o livro não pode ser reativado (categoria inativa: Romance): reative antes"));
     }
 }

@@ -1,6 +1,7 @@
 package com.riverfount.booksmanager.catalog.adapter.in.web;
 
 import com.riverfount.booksmanager.catalog.application.port.in.DeactivateCategoryUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.ReactivateCategoryUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.GetCategoryUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ListCategoriesQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.ListCategoriesUseCase;
@@ -8,6 +9,7 @@ import com.riverfount.booksmanager.catalog.application.port.in.RegisterCategoryC
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterCategoryUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateCategoryCommand;
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateCategoryUseCase;
+import com.riverfount.booksmanager.shared.adapter.in.web.AdminOnly;
 import com.riverfount.booksmanager.shared.adapter.in.web.AdminOrOperator;
 import com.riverfount.booksmanager.shared.adapter.in.web.PageResponse;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
@@ -46,15 +48,17 @@ class CategoryController {
     private final ListCategoriesUseCase listCategoriesUseCase;
     private final UpdateCategoryUseCase updateCategoryUseCase;
     private final DeactivateCategoryUseCase deactivateCategoryUseCase;
+    private final ReactivateCategoryUseCase reactivateCategoryUseCase;
 
     CategoryController(RegisterCategoryUseCase registerCategoryUseCase,
             GetCategoryUseCase getCategoryUseCase, ListCategoriesUseCase listCategoriesUseCase,
-            UpdateCategoryUseCase updateCategoryUseCase, DeactivateCategoryUseCase deactivateCategoryUseCase) {
+            UpdateCategoryUseCase updateCategoryUseCase, DeactivateCategoryUseCase deactivateCategoryUseCase, ReactivateCategoryUseCase reactivateCategoryUseCase) {
         this.registerCategoryUseCase = registerCategoryUseCase;
         this.getCategoryUseCase = getCategoryUseCase;
         this.listCategoriesUseCase = listCategoriesUseCase;
         this.updateCategoryUseCase = updateCategoryUseCase;
         this.deactivateCategoryUseCase = deactivateCategoryUseCase;
+        this.reactivateCategoryUseCase = reactivateCategoryUseCase;
     }
 
     @PostMapping
@@ -154,5 +158,19 @@ class CategoryController {
     })
     void deactivate(@PathVariable Long id) {
         deactivateCategoryUseCase.deactivate(id);
+    }
+
+    @PostMapping("/{id}/reactivate")
+    @AdminOnly
+    @Operation(summary = "Reativar categoria",
+            description = "Reativa uma categoria inativada (RN14), só para o administrador. Reativar uma categoria já ativa não tem efeito e devolve a categoria.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Reativar reativado"),
+            @ApiResponse(responseCode = "404", description = "Categoria não encontrada",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    CategoryResponse reactivate(@PathVariable Long id) {
+        return CategoryResponse.from(reactivateCategoryUseCase.reactivate(id));
     }
 }

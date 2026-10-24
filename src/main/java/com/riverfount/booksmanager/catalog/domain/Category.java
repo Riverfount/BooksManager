@@ -50,6 +50,11 @@ public class Category {
         this.active = false;
     }
 
+    /** Brings an inactivated category back (RN14); reactivating an active one changes nothing. */
+    public void reactivate() {
+        this.active = true;
+    }
+
     private static void validateName(String name) {
         if (name == null || name.isBlank()) {
             throw new BusinessRuleException("o nome da categoria é obrigatório");

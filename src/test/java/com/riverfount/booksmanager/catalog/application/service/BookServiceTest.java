@@ -603,4 +603,85 @@ class BookServiceTest {
         book.deactivate();
         bookRepository.save(book);
     }
+
+    // reactivating a book (RN14)
+
+    @Test
+    void shouldReactivateAnInactiveBookAndAnswerWithItsDetails() {
+        var book = register("9788533302273", "Dom Casmurro", 1899);
+        service.deactivate(book.getId());
+
+        var reactivated = service.reactivate(book.getId());
+
+        assertThat(reactivated.book().isActive()).isTrue();
+        assertThat(reactivated.category().getName()).isEqualTo("Ficção");
+        assertThat(reactivated.authors()).extracting(Author::getName).containsExactly("Machado de Assis");
+        assertThat(bookRepository.findById(book.getId()).orElseThrow().isActive()).isTrue();
+    }
+
+    @Test
+    void shouldNotTouchTheCopiesWhenReactivatingABook() {
+        var book = register("9788533302273", "Dom Casmurro", 1899);
+        copyRepository.save(Copy.create(book.getId(), "PAT-1"));
+        service.deactivate(book.getId());
+
+        var reactivated = service.reactivate(book.getId());
+
+        assertThat(reactivated.totalCopies()).isEqualTo(1L);
+        assertThat(reactivated.availableCopies()).isEqualTo(1L);
+    }
+
+    @Test
+    void shouldNotReactivateABookWhoseCategoryIsInactiveAndKeepItInactive() {
+        var book = register("9788533302273", "Dom Casmurro", 1899);
+        service.deactivate(book.getId());
+        var category = categoryRepository.findById(categoryId).orElseThrow();
+        category.deactivate();
+        categoryRepository.save(category);
+
+        assertThatThrownBy(() -> service.reactivate(book.getId())).isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("categoria inativa: Ficção");
+
+        assertThat(bookRepository.findById(book.getId()).orElseThrow().isActive()).isFalse();
+    }
+
+    @Test
+    void shouldNotReactivateABookWithAnInactiveAuthor() {
+        var book = register("9788533302273", "Dom Casmurro", 1899);
+        service.deactivate(book.getId());
+        var author = authorRepository.findById(authorId).orElseThrow();
+        author.deactivate();
+        authorRepository.save(author);
+
+        assertThatThrownBy(() -> service.reactivate(book.getId())).isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("autor inativo: Machado de Assis");
+
+        assertThat(bookRepository.findById(book.getId()).orElseThrow().isActive()).isFalse();
+    }
+
+    @Test
+    void shouldReactivateOnceTheCategoryAndTheAuthorsAreActiveAgain() {
+        var book = register("9788533302273", "Dom Casmurro", 1899);
+        service.deactivate(book.getId());
+        var category = categoryRepository.findById(categoryId).orElseThrow();
+        category.deactivate();
+        categoryRepository.save(category);
+        assertThatThrownBy(() -> service.reactivate(book.getId())).isInstanceOf(BusinessRuleException.class);
+        category.reactivate();
+        categoryRepository.save(category);
+
+        assertThat(service.reactivate(book.getId()).book().isActive()).isTrue();
+    }
+
+    @Test
+    void shouldBeIdempotentWhenReactivatingAnActiveBook() {
+        var book = register("9788533302273", "Dom Casmurro", 1899);
+
+        assertThat(service.reactivate(book.getId()).book().isActive()).isTrue();
+    }
+
+    @Test
+    void shouldFailWhenReactivatingABookThatDoesNotExist() {
+        assertThatThrownBy(() -> service.reactivate(999L)).isInstanceOf(ResourceNotFoundException.class);
+    }
 }

@@ -347,4 +347,72 @@ class BookTest {
         book.addAuthor(30L);
         assertThat(authorIds).doesNotContain(30L);
     }
+
+    // reactivating a book (RN14): its category and its authors have to be active
+
+    private static Book inactiveBook() {
+        return Book.reconstitute(1L, ISBN, "Dom Casmurro", "Editora X", 1899, 5L, Set.of(10L, 20L), false);
+    }
+
+    @Test
+    void shouldReactivateAnInactiveBookWhoseCategoryAndAuthorsAreActive() {
+        var book = inactiveBook();
+
+        book.reactivate(Category.reconstitute(5L, "Romance", true),
+                java.util.List.of(Author.reconstitute(10L, "Machado de Assis", true),
+                        Author.reconstitute(20L, "Outro Autor", true)));
+
+        assertThat(book.isActive()).isTrue();
+        assertThat(book.getTitle()).isEqualTo("Dom Casmurro");
+        assertThat(book.getAuthorIds()).containsExactlyInAnyOrder(10L, 20L);
+    }
+
+    @Test
+    void shouldNotReactivateABookWhoseCategoryIsInactiveNamingIt() {
+        var book = inactiveBook();
+
+        assertThatThrownBy(() -> book.reactivate(Category.reconstitute(5L, "Romance", false),
+                java.util.List.of(Author.reconstitute(10L, "Machado de Assis", true))))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("categoria inativa: Romance");
+
+        assertThat(book.isActive()).isFalse();
+    }
+
+    @Test
+    void shouldNotReactivateABookWithAnInactiveAuthorNamingEveryOne() {
+        var book = inactiveBook();
+
+        assertThatThrownBy(() -> book.reactivate(Category.reconstitute(5L, "Romance", true),
+                java.util.List.of(Author.reconstitute(10L, "Machado de Assis", false),
+                        Author.reconstitute(20L, "Outro Autor", false))))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("autor inativo: Machado de Assis")
+                .hasMessageContaining("autor inativo: Outro Autor");
+
+        assertThat(book.isActive()).isFalse();
+    }
+
+    @Test
+    void shouldReportTheInactiveCategoryAndAuthorsTogether() {
+        var book = inactiveBook();
+
+        assertThatThrownBy(() -> book.reactivate(Category.reconstitute(5L, "Romance", false),
+                java.util.List.of(Author.reconstitute(10L, "Machado de Assis", false),
+                        Author.reconstitute(20L, "Outro Autor", true))))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("categoria inativa: Romance")
+                .hasMessageContaining("autor inativo: Machado de Assis")
+                .hasMessageNotContaining("Outro Autor");
+    }
+
+    @Test
+    void reactivatingAnActiveBookShouldChangeNothingEvenIfItsCategoryIsInactive() {
+        var book = Book.create(ISBN, "Dom Casmurro", "Editora X", 1899, 5L, Set.of(10L), FIXED_CLOCK);
+
+        book.reactivate(Category.reconstitute(5L, "Romance", false),
+                java.util.List.of(Author.reconstitute(10L, "Machado de Assis", false)));
+
+        assertThat(book.isActive()).isTrue();
+    }
 }

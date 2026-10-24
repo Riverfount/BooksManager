@@ -22,6 +22,7 @@ import com.riverfount.booksmanager.security.configuration.MethodSecurityConfigur
 import com.riverfount.booksmanager.WithOperator;
 import com.riverfount.booksmanager.WithAdmin;
 import com.riverfount.booksmanager.catalog.application.port.in.DeactivateCopyUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.ReactivateCopyUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.GetCopyUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ListCopiesQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.ListCopiesUseCase;
@@ -68,6 +69,9 @@ class CopyControllerTest {
 
     @MockitoBean
     private DeactivateCopyUseCase deactivateCopyUseCase;
+
+    @MockitoBean
+    private ReactivateCopyUseCase reactivateCopyUseCase;
 
     @Test
     @WithOperator
@@ -420,5 +424,59 @@ class CopyControllerTest {
     @WithOperator
     void anOperatorMayCallTheRoutes() throws Exception {
         mockMvc.perform(delete("/api/v1/copies/1").with(csrf())).andExpect(status().isNoContent());
+    }
+
+    // reactivation (RN14): only the administrator
+
+    @Test
+    @WithAdmin
+    void anAdministratorShouldReactivateAndGetTheResource() throws Exception {
+        given(reactivateCopyUseCase.reactivate(1L)).willReturn(com.riverfount.booksmanager.catalog.domain.Copy.reconstitute(1L, 2L, "PAT-1", com.riverfount.booksmanager.catalog.domain.CopyStatus.AVAILABLE, true, 0L));
+
+        mockMvc.perform(post("/api/v1/copies/1/reactivate").with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.active").value(true))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.assetCode").exists());
+
+        then(reactivateCopyUseCase).should().reactivate(1L);
+    }
+
+    @Test
+    @WithOperator
+    void anOperatorShouldNotReactivateAndGet403() throws Exception {
+        mockMvc.perform(post("/api/v1/copies/1/reactivate").with(csrf()))
+                .andExpect(status().isForbidden());
+
+        then(reactivateCopyUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    void withoutATokenReactivatingShouldBe401() throws Exception {
+        mockMvc.perform(post("/api/v1/copies/1/reactivate").with(csrf()))
+                .andExpect(status().isUnauthorized());
+
+        then(reactivateCopyUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @WithAdmin
+    void reactivatingSomethingThatDoesNotExistShouldBe404() throws Exception {
+        willThrow(new ResourceNotFoundException("exemplar não encontrado: 99")).given(reactivateCopyUseCase).reactivate(99L);
+
+        mockMvc.perform(post("/api/v1/copies/99/reactivate").with(csrf()))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+    }
+
+    @Test
+    @WithAdmin
+    void aRefusedReactivationShouldBe422WithTheReason() throws Exception {
+        willThrow(new com.riverfount.booksmanager.shared.domain.BusinessRuleException("o exemplar não pode ser reativado: o livro está inativo"))
+                .given(reactivateCopyUseCase).reactivate(1L);
+
+        mockMvc.perform(post("/api/v1/copies/1/reactivate").with(csrf()))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.detail").value("o exemplar não pode ser reativado: o livro está inativo"));
     }
 }

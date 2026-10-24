@@ -1,6 +1,7 @@
 package com.riverfount.booksmanager.catalog.adapter.in.web;
 
 import com.riverfount.booksmanager.catalog.application.port.in.DeactivateCopyUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.ReactivateCopyUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.GetCopyUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ListCopiesQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.ListCopiesUseCase;
@@ -9,6 +10,7 @@ import com.riverfount.booksmanager.catalog.application.port.in.RegisterCopyUseCa
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateCopyCommand;
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateCopyUseCase;
 import com.riverfount.booksmanager.catalog.domain.CopyStatus;
+import com.riverfount.booksmanager.shared.adapter.in.web.AdminOnly;
 import com.riverfount.booksmanager.shared.adapter.in.web.AdminOrOperator;
 import com.riverfount.booksmanager.shared.adapter.in.web.PageResponse;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
@@ -47,15 +49,17 @@ class CopyController {
     private final ListCopiesUseCase listCopiesUseCase;
     private final UpdateCopyUseCase updateCopyUseCase;
     private final DeactivateCopyUseCase deactivateCopyUseCase;
+    private final ReactivateCopyUseCase reactivateCopyUseCase;
 
     CopyController(RegisterCopyUseCase registerCopyUseCase, GetCopyUseCase getCopyUseCase,
             ListCopiesUseCase listCopiesUseCase, UpdateCopyUseCase updateCopyUseCase,
-            DeactivateCopyUseCase deactivateCopyUseCase) {
+            DeactivateCopyUseCase deactivateCopyUseCase, ReactivateCopyUseCase reactivateCopyUseCase) {
         this.registerCopyUseCase = registerCopyUseCase;
         this.getCopyUseCase = getCopyUseCase;
         this.listCopiesUseCase = listCopiesUseCase;
         this.updateCopyUseCase = updateCopyUseCase;
         this.deactivateCopyUseCase = deactivateCopyUseCase;
+        this.reactivateCopyUseCase = reactivateCopyUseCase;
     }
 
     @PostMapping
@@ -176,5 +180,23 @@ class CopyController {
     })
     void deactivate(@PathVariable Long id) {
         deactivateCopyUseCase.deactivate(id);
+    }
+
+    @PostMapping("/{id}/reactivate")
+    @AdminOnly
+    @Operation(summary = "Reativar exemplar",
+            description = "Reativa um exemplar inativado (RN14), só para o administrador, mantendo o status que ele tinha. Só é possível se o livro do exemplar está ativo (422 se não). Reativar um exemplar já ativo não tem efeito e devolve o exemplar.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Reativar reativado"),
+            @ApiResponse(responseCode = "404", description = "Exemplar não encontrado",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "422",
+                    description = "O livro do exemplar está inativo: reative o livro antes",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    CopyResponse reactivate(@PathVariable Long id) {
+        return CopyResponse.from(reactivateCopyUseCase.reactivate(id));
     }
 }

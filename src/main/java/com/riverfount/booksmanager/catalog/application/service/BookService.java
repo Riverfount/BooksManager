@@ -6,6 +6,7 @@ import com.riverfount.booksmanager.catalog.application.port.in.GetBookUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ListBooksQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.ListBooksUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterBookCommand;
+import com.riverfount.booksmanager.catalog.application.port.in.ReactivateBookUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterBookUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateBookCommand;
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateBookUseCase;
@@ -41,7 +42,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 class BookService implements RegisterBookUseCase, GetBookUseCase, ListBooksUseCase, UpdateBookUseCase,
-        DeactivateBookUseCase {
+        DeactivateBookUseCase, ReactivateBookUseCase {
 
     private final BookRepository bookRepository;
     private final CategoryRepository categoryRepository;
@@ -123,6 +124,20 @@ class BookService implements RegisterBookUseCase, GetBookUseCase, ListBooksUseCa
                 .orElseThrow(() -> new ResourceNotFoundException("livro não encontrado: " + id));
         book.deactivate();
         bookRepository.save(book);
+    }
+
+    @Override
+    public BookWithAvailability reactivate(Long id) {
+        var book = bookRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("livro não encontrado: " + id));
+        if (!book.isActive()) {
+            // the facts the domain decides on: the category and the authors the book is tied to
+            var category = categoryRepository.findById(book.getCategoryId()).orElseThrow(
+                    () -> new IllegalStateException("the category of the book " + id + " does not exist"));
+            book.reactivate(category, authorRepository.findAllByIds(book.getAuthorIds()));
+            bookRepository.save(book);
+        }
+        return withDetails(List.of(book)).get(0);
     }
 
     /**
