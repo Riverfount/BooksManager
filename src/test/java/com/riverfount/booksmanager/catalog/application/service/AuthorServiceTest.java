@@ -222,7 +222,7 @@ class AuthorServiceTest {
         var registered = service.register(new RegisterAuthorCommand("Machado de Assis"));
         service.deactivate(registered.getId());
 
-        var reactivated = service.reactivate(registered.getId());
+        var reactivated = service.reactivate(registered.getId(), false);
 
         assertThat(reactivated.isActive()).isTrue();
         assertThat(repository.findById(registered.getId()).orElseThrow().isActive()).isTrue();
@@ -233,12 +233,12 @@ class AuthorServiceTest {
     void shouldBeIdempotentWhenReactivatingAnActiveAuthor() {
         var registered = service.register(new RegisterAuthorCommand("Machado de Assis"));
 
-        assertThat(service.reactivate(registered.getId()).isActive()).isTrue();
+        assertThat(service.reactivate(registered.getId(), false).isActive()).isTrue();
     }
 
     @Test
     void shouldFailWhenReactivatingAnAuthorThatDoesNotExist() {
-        assertThatThrownBy(() -> service.reactivate(999L)).isInstanceOf(ResourceNotFoundException.class);
+        assertThatThrownBy(() -> service.reactivate(999L, false)).isInstanceOf(ResourceNotFoundException.class);
     }
 
     // a name already taken by an active author (RF02): refused unless the homonym is confirmed
@@ -315,5 +315,51 @@ class AuthorServiceTest {
 
         assertThat(service.update(new UpdateAuthorCommand(other.getId(), null)).getName())
                 .isEqualTo("Clarice Lispector");
+    }
+
+    // reactivating an author whose name another active author has (RN19)
+
+    @Test
+    void shouldRefuseReactivatingAnAuthorWhoseNameAnotherActiveAuthorHasNamingIt() {
+        var old = service.register(new RegisterAuthorCommand("Machado de Assis"));
+        service.deactivate(old.getId());
+        var current = service.register(new RegisterAuthorCommand("machado DE assis"));
+
+        assertThatThrownBy(() -> service.reactivate(old.getId(), false))
+                .isInstanceOf(DuplicateAuthorNameException.class)
+                .satisfies(e -> assertThat(((DuplicateAuthorNameException) e).getExistingAuthorId())
+                        .isEqualTo(current.getId()));
+
+        assertThat(repository.findById(old.getId()).orElseThrow().isActive()).isFalse();
+    }
+
+    @Test
+    void shouldReactivateAHomonymWhenConfirmed() {
+        var old = service.register(new RegisterAuthorCommand("Machado de Assis"));
+        service.deactivate(old.getId());
+        service.register(new RegisterAuthorCommand("Machado de Assis"));
+
+        var reactivated = service.reactivate(old.getId(), true);
+
+        assertThat(reactivated.isActive()).isTrue();
+        assertThat(repository.findAll(null, true, PageQuery.of(0, 10, "id")).items()).hasSize(2);
+    }
+
+    @Test
+    void anInactiveAuthorWithTheSameNameShouldNotBlockTheReactivation() {
+        var first = service.register(new RegisterAuthorCommand("Machado de Assis"));
+        service.deactivate(first.getId());
+        var second = service.register(new RegisterAuthorCommand("Machado de Assis"));
+        service.deactivate(second.getId());
+
+        assertThat(service.reactivate(first.getId(), false).isActive()).isTrue();
+    }
+
+    @Test
+    void reactivatingAnAuthorWhoIsAlreadyActiveShouldNotCheckTheNameEvenWithAHomonym() {
+        var first = service.register(new RegisterAuthorCommand("Machado de Assis"));
+        service.register(new RegisterAuthorCommand("Machado de Assis", true));
+
+        assertThat(service.reactivate(first.getId(), false).isActive()).isTrue();
     }
 }

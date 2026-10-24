@@ -407,14 +407,14 @@ class AuthorControllerTest {
     @Test
     @WithAdmin
     void anAdministratorShouldReactivateAndGetTheResource() throws Exception {
-        given(reactivateAuthorUseCase.reactivate(1L)).willReturn(com.riverfount.booksmanager.catalog.domain.Author.reconstitute(1L, "Machado de Assis", true));
+        given(reactivateAuthorUseCase.reactivate(1L, false)).willReturn(com.riverfount.booksmanager.catalog.domain.Author.reconstitute(1L, "Machado de Assis", true));
 
         mockMvc.perform(post("/api/v1/authors/1/reactivate").with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.active").value(true))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.name").exists());
 
-        then(reactivateAuthorUseCase).should().reactivate(1L);
+        then(reactivateAuthorUseCase).should().reactivate(1L, false);
     }
 
     @Test
@@ -437,7 +437,7 @@ class AuthorControllerTest {
     @Test
     @WithAdmin
     void reactivatingSomethingThatDoesNotExistShouldBe404() throws Exception {
-        willThrow(new ResourceNotFoundException("autor não encontrado: 99")).given(reactivateAuthorUseCase).reactivate(99L);
+        willThrow(new ResourceNotFoundException("autor não encontrado: 99")).given(reactivateAuthorUseCase).reactivate(99L, false);
 
         mockMvc.perform(post("/api/v1/authors/99/reactivate").with(csrf()))
                 .andExpect(status().isNotFound())
@@ -520,5 +520,60 @@ class AuthorControllerTest {
                 .andExpect(status().isOk());
 
         then(updateAuthorUseCase).should().update(new UpdateAuthorCommand(2L, "Machado de Assis", true));
+    }
+
+    @Test
+    @WithAdmin
+    void allowDuplicateInTheBodyShouldReachTheReactivation() throws Exception {
+        given(reactivateAuthorUseCase.reactivate(1L, true))
+                .willReturn(com.riverfount.booksmanager.catalog.domain.Author.reconstitute(1L, "Machado de Assis", true));
+
+        mockMvc.perform(post("/api/v1/authors/1/reactivate")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"allowDuplicate\":true}"))
+                .andExpect(status().isOk());
+
+        then(reactivateAuthorUseCase).should().reactivate(1L, true);
+    }
+
+    @Test
+    @WithAdmin
+    void anEmptyJsonBodyShouldNotConfirmAHomonym() throws Exception {
+        given(reactivateAuthorUseCase.reactivate(1L, false))
+                .willReturn(com.riverfount.booksmanager.catalog.domain.Author.reconstitute(1L, "Machado de Assis", true));
+
+        mockMvc.perform(post("/api/v1/authors/1/reactivate")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk());
+
+        then(reactivateAuthorUseCase).should().reactivate(1L, false);
+    }
+
+    @Test
+    @WithAdmin
+    void aReactivationRefusedForADuplicateNameShouldBe422WithTheExistingAuthorId() throws Exception {
+        willThrow(new com.riverfount.booksmanager.catalog.domain.DuplicateAuthorNameException("Machado de Assis", 7L))
+                .given(reactivateAuthorUseCase).reactivate(1L, false);
+
+        mockMvc.perform(post("/api/v1/authors/1/reactivate").with(csrf()))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")))
+                .andExpect(jsonPath("$.existingAuthorId").value(7))
+                .andExpect(jsonPath("$.detail").value(containsString("allowDuplicate")));
+    }
+
+    @Test
+    @WithAdmin
+    void aBrokenBodyOnTheReactivationShouldBeA400() throws Exception {
+        mockMvc.perform(post("/api/v1/authors/1/reactivate")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"allowDuplicate\":"))
+                .andExpect(status().isBadRequest());
+
+        then(reactivateAuthorUseCase).shouldHaveNoInteractions();
     }
 }

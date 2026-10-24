@@ -165,7 +165,7 @@ class CategoryController {
     @Operation(summary = "Reativar categoria",
             description = "Reativa uma categoria inativada (RN14), só para o administrador. Reativar uma categoria já ativa não tem efeito e devolve a categoria.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Reativar reativado"),
+            @ApiResponse(responseCode = "200", description = "Categoria reativada"),
             @ApiResponse(responseCode = "404", description = "Categoria não encontrada",
                     content = @Content(mediaType = "application/problem+json",
                             schema = @Schema(implementation = ProblemDetail.class)))

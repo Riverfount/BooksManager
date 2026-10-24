@@ -193,6 +193,7 @@
 - Critério de aceite: o livro só é reativado se a categoria e todos os autores dele estão ativos; a recusa diz quais estão inativos (RN14).
 - Critério de aceite: o exemplar só é reativado se o livro dele está ativo, e volta com o status que tinha; reativar o livro não reativa os exemplares (RN14).
 - Critério de aceite: o registro reativado volta às listagens padrão e, no caso do livro, pode ser emprestado e reservado de novo (RN14); reativar o que já está ativo não tem efeito.
+- Critério de aceite: o autor só é reativado se nenhum outro autor ativo tem o mesmo nome; a recusa informa quem já existe, e o administrador pode confirmar que é um homônimo e repetir (RN19).
 
 ## Referências
 

@@ -176,15 +176,29 @@ class AuthorController {
     @PostMapping("/{id}/reactivate")
     @AdminOnly
     @Operation(summary = "Reativar autor",
-            description = "Reativa um autor inativado (RN14), só para o administrador. Reativar um autor já ativo não tem efeito e devolve o autor.")
+            description = "Reativa um autor inativado (RN14), só para o administrador. Se outro autor ativo já tem o "
+                    + "mesmo nome (sem diferenciar maiúsculas), a reativação é recusada com 422 e o "
+                    + "`existingAuthorId`, como o cadastro (RN19); para confirmar o homônimo, envie o corpo "
+                    + "opcional `{\"allowDuplicate\": true}`. Reativar um autor já ativo não tem efeito e devolve o "
+                    + "autor.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Reativar reativado"),
+            @ApiResponse(responseCode = "200", description = "Autor reativado"),
+            @ApiResponse(responseCode = "400", description = "Corpo ilegível",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class))),
             @ApiResponse(responseCode = "404", description = "Autor não encontrado",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "422",
+                    description = "Outro autor ativo já tem o nome; a resposta traz o `existingAuthorId` (repita "
+                            + "com `allowDuplicate: true` para confirmar o homônimo)",
                     content = @Content(mediaType = "application/problem+json",
                             schema = @Schema(implementation = ProblemDetail.class)))
     })
-    AuthorResponse reactivate(@PathVariable Long id) {
-        return AuthorResponse.from(reactivateAuthorUseCase.reactivate(id));
+    AuthorResponse reactivate(@PathVariable Long id,
+            @RequestBody(required = false) ReactivateAuthorRequest request) {
+        var confirmed = request != null && Boolean.TRUE.equals(request.allowDuplicate());
+        return AuthorResponse.from(reactivateAuthorUseCase.reactivate(id, confirmed));
     }
 
     /**
