@@ -37,6 +37,26 @@ class OpenApiRequiredFieldsTest {
     }
 
     @Test
+    void theReactivationRoutesShouldDescribeTheirSuccessInPlainWords() throws Exception {
+        apiDocs.andExpect(jsonPath("$.paths['/api/v1/books/{id}/reactivate'].post.responses['200'].description")
+                        .value("Livro reativado"))
+                .andExpect(jsonPath("$.paths['/api/v1/authors/{id}/reactivate'].post.responses['200'].description")
+                        .value("Autor reativado"))
+                .andExpect(jsonPath("$.paths['/api/v1/categories/{id}/reactivate'].post.responses['200'].description")
+                        .value("Categoria reativada"))
+                .andExpect(jsonPath("$.paths['/api/v1/copies/{id}/reactivate'].post.responses['200'].description")
+                        .value("Exemplar reativado"));
+    }
+
+    @Test
+    void theAuthorReactivationBodyShouldBeOptional() throws Exception {
+        // the body is described, and it is not listed as required (springdoc leaves out "required: false")
+        apiDocs.andExpect(jsonPath("$.paths['/api/v1/authors/{id}/reactivate'].post.requestBody").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/authors/{id}/reactivate'].post.requestBody.required")
+                        .doesNotExist());
+    }
+
+    @Test
     void theProblemDetailShouldDescribeTheListOfInvalidFields() throws Exception {
         apiDocs.andExpect(jsonPath("$.components.schemas.ProblemDetail.properties.errors.type").value("array"))
                 .andExpect(jsonPath("$.components.schemas.ProblemDetail.properties.errors.items.properties.field.type")

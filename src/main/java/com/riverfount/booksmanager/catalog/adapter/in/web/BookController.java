@@ -218,7 +218,7 @@ class BookController {
     @Operation(summary = "Reativar livro",
             description = "Reativa um livro inativado (RN14), só para o administrador. O livro só volta se a categoria e todos os autores dele estão ativos; a recusa (422) diz quais estão inativos. Os exemplares não são alterados. Reativar um livro já ativo não tem efeito e devolve o livro.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Reativar reativado"),
+            @ApiResponse(responseCode = "200", description = "Livro reativado"),
             @ApiResponse(responseCode = "404", description = "Livro não encontrado",
                     content = @Content(mediaType = "application/problem+json",
                             schema = @Schema(implementation = ProblemDetail.class))),

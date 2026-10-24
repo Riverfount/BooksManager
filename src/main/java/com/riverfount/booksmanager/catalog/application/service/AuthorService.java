@@ -75,8 +75,13 @@ class AuthorService implements RegisterAuthorUseCase, GetAuthorUseCase, ListAuth
     }
 
     @Override
-    public Author reactivate(Long id) {
+    public Author reactivate(Long id, boolean allowDuplicate) {
         var author = loadExisting(id);
+        if (!author.isActive()) {
+            // an author that is already active is not checked: nothing changes for it
+            Author.validateNameNotTaken(author.getName(), activeAuthorWithName(author.getName(), author.getId()),
+                    allowDuplicate);
+        }
         author.reactivate();
         return authorRepository.save(author);
     }

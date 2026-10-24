@@ -187,7 +187,7 @@ class CopyController {
     @Operation(summary = "Reativar exemplar",
             description = "Reativa um exemplar inativado (RN14), só para o administrador, mantendo o status que ele tinha. Só é possível se o livro do exemplar está ativo (422 se não). Reativar um exemplar já ativo não tem efeito e devolve o exemplar.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Reativar reativado"),
+            @ApiResponse(responseCode = "200", description = "Exemplar reativado"),
             @ApiResponse(responseCode = "404", description = "Exemplar não encontrado",
                     content = @Content(mediaType = "application/problem+json",
                             schema = @Schema(implementation = ProblemDetail.class))),

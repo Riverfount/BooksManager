@@ -74,9 +74,9 @@ class ReactivationIntegrationTest {
     void cleanUp() {
         jdbcTemplate.update("delete from loan where copy_id in (select id from copy where asset_code like 'REA-%')");
         jdbcTemplate.update("delete from copy where asset_code like 'REA-%'");
-        jdbcTemplate.update("delete from book_author where author_id in (select id from author where name like 'Reactivation%')");
+        jdbcTemplate.update("delete from book_author where author_id in (select id from author where name ilike 'Reactivation%')");
         jdbcTemplate.update("delete from book where isbn = '9780000000323'");
-        jdbcTemplate.update("delete from author where name like 'Reactivation%'");
+        jdbcTemplate.update("delete from author where name ilike 'Reactivation%'");
         jdbcTemplate.update("delete from category where name like 'Reactivation%'");
         jdbcTemplate.update("delete from reader where document like 'REA-DOC-%'");
     }
@@ -216,5 +216,42 @@ class ReactivationIntegrationTest {
         reactivate("ADMIN", "authors", 999_999L).andExpect(status().isNotFound());
         reactivate("ADMIN", "books", 999_999L).andExpect(status().isNotFound());
         reactivate("ADMIN", "copies", 999_999L).andExpect(status().isNotFound());
+    }
+
+    // reactivating an author whose name another active author has (RN19)
+
+    private ResultActions reactivateAuthor(long id, String body) throws Exception {
+        var request = post("/api/v1/authors/" + id + "/reactivate")
+                .header("Authorization", "Bearer " + TestTokens.valid(encoder, properties, "ADMIN"))
+                .header("X-Requested-With", "XMLHttpRequest");
+        if (body != null) {
+            request.contentType(MediaType.APPLICATION_JSON).content(body);
+        }
+        return mockMvc.perform(request);
+    }
+
+    @Test
+    void reactivatingAnAuthorWhoseNameAnotherActiveAuthorHasShouldBe422WithTheExistingIdUnlessConfirmed()
+            throws Exception {
+        var otherId = jdbcTemplate.queryForObject(
+                "insert into author (name) values ('REACTIVATION AUTHOR') returning id", Long.class);
+
+        reactivateAuthor(authorId, null).andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.existingAuthorId").value(otherId))
+                .andExpect(jsonPath("$.detail").value(containsString("allowDuplicate")));
+        reactivateAuthor(authorId, "{\"allowDuplicate\":false}").andExpect(status().isUnprocessableContent());
+        assertThat(active("author", authorId)).isFalse();
+
+        reactivateAuthor(authorId, "{\"allowDuplicate\":true}").andExpect(status().isOk())
+                .andExpect(jsonPath("$.active").value(true));
+        assertThat(active("author", authorId)).isTrue();
+    }
+
+    @Test
+    void anInactiveAuthorWithTheSameNameShouldNotBlockAndAnActiveOneIsNotChecked() throws Exception {
+        jdbcTemplate.update("insert into author (name, active) values ('Reactivation author', false)");
+
+        reactivateAuthor(authorId, null).andExpect(status().isOk());
+        reactivateAuthor(authorId, null).andExpect(status().isOk());
     }
 }
