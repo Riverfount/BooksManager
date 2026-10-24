@@ -47,6 +47,9 @@ class ReportControllerTest {
     private ListOverdueLoansUseCase listOverdueLoansUseCase;
 
     @MockitoBean
+    private java.time.Clock clock;
+
+    @MockitoBean
     private ListMostBorrowedBooksUseCase listMostBorrowedBooksUseCase;
 
     private static OverdueLoan late(long id, long daysLate) {
