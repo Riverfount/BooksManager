@@ -11,7 +11,7 @@ internet ──► Nginx (portas 80 e 443) ──► API (porta 8080, só na red
 | Serviço | O que faz |
 |---|---|
 | `nginx` | Termina o TLS (HTTPS), redireciona a porta 80 para a 443, manda os cabeçalhos HSTS e `X-Forwarded-*` e repassa tudo para a API. É o **único** que publica portas. |
-| `app` | A API (imagem construída pelo `Dockerfile`, perfil `prod`). Não é alcançável de fora. |
+| `app` | A API (a imagem publicada no registro, ou construída pelo `Dockerfile`; perfil `prod`). Não é alcançável de fora. |
 | `postgres` | O banco (PostgreSQL 17), com os dados em um volume do Docker. Não é alcançável de fora. |
 | `certbot` | Só para emitir e renovar o certificado do Let's Encrypt. Não sobe com o `up` (veja a seção 4). |
 
@@ -47,17 +47,24 @@ Os arquivos: `compose.prod.yaml` (a pilha), `deploy/nginx/nginx.conf.template` (
    | `APP_ADMIN_LOGIN` e `APP_ADMIN_PASSWORD` | O primeiro administrador. É criado na subida **só se não houver nenhum usuário**; depois que ele existe, a senha pode sair do arquivo. |
    | `LETSENCRYPT_DIR` | Onde está o certificado (veja a seção 4). |
 
-   `POSTGRES_DB`, `POSTGRES_USER` e `IMAGE_TAG` têm valores que servem como estão.
+   `POSTGRES_DB` e `POSTGRES_USER` têm valores que servem como estão.
+
+   **A imagem da API:** `APP_IMAGE` e `IMAGE_TAG` dizem qual imagem roda. O modelo já aponta para o registro (`ghcr.io/riverfount/booksmanager`); troque `IMAGE_TAG` pela **versão publicada** que você quer (por exemplo `1.0.0`; veja a seção 6.1 para ver o que existe). Para construir a imagem no próprio servidor, em vez de puxá-la, deixe `APP_IMAGE` vazio, escolha qualquer `IMAGE_TAG` e suba com `--build` (passo 4).
 
    **E-mail (opcional, RF28):** por padrão nada é enviado. Para ligar os avisos, preencha `APP_MAIL_ENABLED=true`, `APP_MAIL_HOST` (o SMTP do seu provedor) e `APP_MAIL_FROM` (o remetente); `APP_MAIL_PORT` (587), `APP_MAIL_STARTTLS` (`true`), `APP_MAIL_USERNAME` e `APP_MAIL_PASSWORD` (só se o servidor pedir). A porta 465 (TLS direto) não é suportada: use 587 com STARTTLS. Um servidor de e-mail fora do ar não derruba nada: o envio é feito depois do commit, com tempos curtos, e a falha só vai para o log (RNF19). O health check não olha o e-mail.
 
 3. **Providencie o certificado** (seção 4). O Nginx **não sobe** sem ele.
 
-4. **Suba a pilha** (a primeira vez constrói a imagem, o que leva alguns minutos):
+4. **Suba a pilha.** Puxe a imagem do registro (ela é pública, não precisa de login) e suba:
 
    ```
-   docker compose --env-file .env.prod -f compose.prod.yaml up -d --build
+   docker compose --env-file .env.prod -f compose.prod.yaml pull app
+   docker compose --env-file .env.prod -f compose.prod.yaml up -d
    ```
+
+   O `pull` vem antes de propósito: se a versão de `IMAGE_TAG` não existe no registro (um erro de digitação, por exemplo), ele **falha com uma mensagem clara**. Sem ele, o `up` não encontra a imagem e, em silêncio, **a constrói no servidor** com esse nome, e você acredita estar rodando uma versão publicada que não é.
+
+   Para **construir a imagem no servidor** de propósito (com `APP_IMAGE` vazio, o que leva alguns minutos), pule o `pull` e use `up -d --build`.
 
    Para não repetir as opções, vale um atalho no shell do servidor: `alias dcp='docker compose --env-file .env.prod -f compose.prod.yaml'`. Os exemplos abaixo escrevem o comando inteiro.
 
@@ -151,22 +158,22 @@ Se algo não subir, `docker compose --env-file .env.prod -f compose.prod.yaml lo
 
 ## 6. Atualização e volta atrás
 
-A etiqueta da imagem (`IMAGE_TAG`) é a versão que está rodando, e voltar atrás é voltar a uma etiqueta anterior. **Faça um backup antes de cada atualização** (seção 7): as migrações do banco só andam para a frente.
+A etiqueta da imagem (`IMAGE_TAG`) é a versão que está rodando, e voltar atrás é voltar a uma etiqueta anterior, **sem reconstruir nada**: cada versão publicada continua no registro. **Faça um backup antes de cada atualização** (seção 7): as migrações do banco só andam para a frente.
 
-**Atualizar:**
+**Atualizar** (a versão já está publicada, seção 6.1):
 
 ```
 cd /opt/booksmanager
 
 # 1. backup (seção 7)
 
-# 2. o código novo e uma etiqueta nova (o hash do commit)
+# 2. os arquivos de implantação (o Compose e o Nginx) e a versão nova
 git pull
-export TAG=$(git rev-parse --short HEAD)
-sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=$TAG/" .env.prod
+sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=<versao-nova>/" .env.prod
 
-# 3. constrói a imagem nova e troca só o que mudou (a aplicação reinicia, o banco e o Nginx não)
-docker compose --env-file .env.prod -f compose.prod.yaml up -d --build
+# 3. puxa a imagem e troca só o que mudou (a aplicação reinicia, o banco e o Nginx não)
+docker compose --env-file .env.prod -f compose.prod.yaml pull app
+docker compose --env-file .env.prod -f compose.prod.yaml up -d
 
 # 4. conferência (seção 5)
 ```
@@ -176,15 +183,45 @@ A aplicação executa as migrações novas do Flyway sozinha na subida.
 **Voltar atrás** (a versão nova deu problema):
 
 ```
-# as imagens que existem no servidor
-docker images booksmanager --format '{{.Tag}}  (criada {{.CreatedSince}})'
+# as versões que já passaram por este servidor
+docker images --format '{{.Tag}}  (criada {{.CreatedSince}})' "$(grep '^APP_IMAGE=' .env.prod | cut -d= -f2)"
 
-# volta para a etiqueta anterior, sem reconstruir
-sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=<etiqueta-anterior>/" .env.prod
+# volta para a versão anterior; o pull traz a imagem do registro se ela não está mais no servidor
+sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=<versao-anterior>/" .env.prod
+docker compose --env-file .env.prod -f compose.prod.yaml pull app
 docker compose --env-file .env.prod -f compose.prod.yaml up -d
 ```
 
+**Construindo no servidor** (com `APP_IMAGE` vazio): em vez do `pull`, use `git pull`, uma etiqueta nova (por exemplo o hash do commit, `git rev-parse --short HEAD`) em `IMAGE_TAG` e `up -d --build`. Voltar atrás é voltar a uma etiqueta que ainda existe no servidor (`docker images booksmanager`).
+
 > **Se a versão nova já tinha aplicado uma migração**, a versão antiga pode não funcionar com o banco novo. Nesse caso, volte a etiqueta **e** restaure o backup feito antes da atualização (seção 7.4): o que foi gravado depois do backup se perde. Por isso o backup antes de atualizar não é opcional.
+
+### 6.1 Publicar uma versão (quem mantém o projeto)
+
+A imagem é publicada pelo workflow `.github/workflows/publish-image.yml` quando se envia uma **tag de versão** para o GitHub. Nada é publicado a partir de um branch ou de uma pull request.
+
+```
+git switch main && git pull
+git tag v1.0.0          # ou v1.0.0-rc.1, para uma pré-versão
+git push origin v1.0.0
+```
+
+O workflow:
+
+1. roda o mesmo `./mvnw verify` do CI; se falhar, **nada é publicado**;
+2. confere que a tag tem o formato `v1.2.3` (ou `v1.2.3-rc.1`) e que o commit dela **já está na `main`**;
+3. constrói a imagem, faz uma varredura de vulnerabilidades (Trivy), que **só avisa** no log e não impede a publicação;
+4. publica em `ghcr.io/riverfount/booksmanager` com duas etiquetas: a **versão** (`1.0.0`, a tag sem o `v`) e o **hash do commit** (`sha-1a2b3c4`). Não existe `latest`: quem implanta sempre nomeia uma versão.
+
+Ele usa só o `GITHUB_TOKEN` do próprio workflow, com a permissão de gravar pacotes apenas no job que publica; nenhum segredo foi acrescentado ao repositório, e a imagem não leva nenhum (a configuração vem do ambiente, como na seção 3).
+
+**Na primeira publicação**, o GitHub cria o pacote como **privado**. Para o servidor puxar sem login, torne-o público uma vez: no GitHub, *Packages* → `booksmanager` → *Package settings* → *Change visibility* → *Public*. Isso não tem como ser feito pelo workflow. Depois, confira de qualquer máquina, sem login:
+
+```
+docker pull ghcr.io/riverfount/booksmanager:1.0.0
+```
+
+> Se preferir manter o pacote privado, o servidor precisa de um `docker login ghcr.io` com um token de leitura de pacotes (`read:packages`), guardado só nele.
 
 ## 7. Backup e restauração (`pg_dump`)
 
@@ -289,6 +326,5 @@ Toda tentativa de login recusada é registrada, e a API ainda **não limita a ta
 
 ## 10. O que este guia ainda não cobre
 
-- A **publicação da imagem** em um registro (o CI só a constrói): hoje a imagem é construída no próprio servidor.
 - A **automação do backup** (script, cópia para fora, alerta): só documentada aqui (prioridade C).
 - O **front-end**, que é outro repositório.
