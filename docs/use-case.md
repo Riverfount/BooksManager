@@ -1,6 +1,6 @@
 # Books Manager: Histórias de Usuário
 
-> Histórias de usuário dos requisitos funcionais essenciais (prioridade M) e, a partir da Fase 4, dos itens S (reservas, perda ou dano na devolução e relatórios adicionais) e, na Fase 5, da exportação dos relatórios. Formato: **Como** *[papel]*, **quero** *[ação]*, **para** *[benefício]*. IDs entre parênteses referem `docs/requisitos.md`.
+> Histórias de usuário dos requisitos funcionais essenciais (prioridade M) e, a partir da Fase 4, dos itens S (reservas, perda ou dano na devolução e relatórios adicionais) e, na Fase 5, da exportação dos relatórios e da trilha de auditoria. Formato: **Como** *[papel]*, **quero** *[ação]*, **para** *[benefício]*. IDs entre parênteses referem `docs/requisitos.md`.
 >
 > Os IDs das histórias são estáveis e não seguem a ordem de leitura: histórias novas recebem o próximo número livre e entram na seção do seu módulo, sem renumerar as existentes (que já são citadas em issues e commits).
 
@@ -177,6 +177,9 @@
 
 **HU39 —** Como administrador, quero exportar os relatórios de empréstimos em atraso, de livros mais emprestados e da situação do acervo em CSV e em PDF, para abrir numa planilha, imprimir ou guardar.
 - Critério de aceite: cada relatório sai em CSV (UTF-8 com BOM, separado por `;`, com acentos corretos numa planilha em português) e em PDF (com a data e a hora da emissão, os filtros usados e o cabeçalho repetido em cada página), com as mesmas linhas e a mesma ordem do relatório na tela, até 10.000 linhas; texto que começa com `=`, `+`, `-` ou `@` não vira fórmula no CSV; o operador não exporta (403), mas continua vendo os relatórios na tela (RF29, RN17).
+
+**HU40 —** Como administrador, quero consultar a trilha de auditoria das operações sensíveis, para responder a "quem abonou esta multa" ou "quem mudou a política de penalidade".
+- Critério de aceite: cada operação sensível (login com sucesso, falha e bloqueio; criar, editar, inativar e desbloquear usuário e redefinir senha; bloquear, desbloquear e inativar leitor; pagar e abonar multa; encerrar suspensão antes do prazo; alterar a configuração da biblioteca) deixa um registro com quem fez, quando, o quê e em quê; a consulta é paginada, do mais recente para o mais antigo, com filtros por usuário, ação, alvo e período; uma operação desfeita não deixa registro; nenhum registro traz senha, hash ou token, e o login digitado de quem não é usuário nunca é guardado; só o administrador consulta, o operador recebe 403 (RF27, RN18).
 
 ## Referências
 

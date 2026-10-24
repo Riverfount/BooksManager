@@ -3,6 +3,7 @@ package com.riverfount.booksmanager.user.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.riverfount.booksmanager.audit.application.RecordedAudit;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.InvalidCredentialsException;
 import com.riverfount.booksmanager.user.application.port.in.AuthenticateUserCommand;
@@ -92,7 +93,8 @@ class UserServiceTest {
             revokedFor.add(userId);
             return 1;
         };
-        service = new UserService(repository, hasher, clock, new LoginLockoutProperties(3, BLOCK), revoker);
+        service = new UserService(repository, hasher, clock, new LoginLockoutProperties(3, BLOCK), revoker,
+                new RecordedAudit());
     }
 
     // initial administrator (RF08, RNF10)
@@ -516,7 +518,7 @@ class UserServiceTest {
     @Test
     void shouldHonorAnotherLimitAndDuration() {
         var strict = new UserService(repository, hasher, clock, new LoginLockoutProperties(1, java.time.Duration.ofHours(1)),
-                userId -> 0);
+                userId -> 0, new RecordedAudit());
         registerUser("maria", Role.OPERATOR);
 
         messageOf(() -> strict.authenticate(new AuthenticateUserCommand("maria", WRONG)));

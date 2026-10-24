@@ -3,6 +3,7 @@ package com.riverfount.booksmanager.loan.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.riverfount.booksmanager.audit.application.RecordedAudit;
 import com.riverfount.booksmanager.loan.application.port.in.WaiveFineCommand;
 import com.riverfount.booksmanager.loan.domain.Fine;
 import com.riverfount.booksmanager.loan.domain.FineStatus;
@@ -24,7 +25,7 @@ class FineServiceTest {
     @BeforeEach
     void setUp() {
         fineRepository = new InMemoryFineRepository();
-        service = new FineService(fineRepository);
+        service = new FineService(fineRepository, new RecordedAudit());
     }
 
     private Long pendingFine() {
