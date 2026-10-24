@@ -7,6 +7,7 @@ import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.user.application.port.in.ListReadersQuery;
 import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
+import com.riverfount.booksmanager.audit.application.RecordedAudit;
 import com.riverfount.booksmanager.user.application.port.in.RegisterReaderCommand;
 import com.riverfount.booksmanager.user.application.port.in.UpdateReaderCommand;
 import java.time.Clock;
@@ -28,7 +29,7 @@ class ReaderServiceTest {
     @BeforeEach
     void setUp() {
         repository = new InMemoryReaderRepository();
-        service = new ReaderService(repository, FIXED_CLOCK);
+        service = new ReaderService(repository, FIXED_CLOCK, new RecordedAudit());
     }
 
     private static RegisterReaderCommand adult(String document) {

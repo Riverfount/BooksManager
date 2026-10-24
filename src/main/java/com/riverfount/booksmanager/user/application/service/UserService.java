@@ -1,5 +1,9 @@
 package com.riverfount.booksmanager.user.application.service;
 
+import com.riverfount.booksmanager.audit.application.port.in.AuditEvent;
+import com.riverfount.booksmanager.audit.application.port.in.RecordAuditEventUseCase;
+import com.riverfount.booksmanager.audit.domain.AuditAction;
+import com.riverfount.booksmanager.audit.domain.AuditTarget;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.InvalidCredentialsException;
 import com.riverfount.booksmanager.security.application.port.in.RevokeRefreshTokensUseCase;
@@ -32,6 +36,9 @@ import com.riverfount.booksmanager.user.domain.Role;
 import com.riverfount.booksmanager.user.domain.User;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -39,7 +46,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Orchestrates the system user use cases: checks what the domain needs,
- * hashes the password through the port and persists. Never logs a password.
+ * hashes the password through the port and persists. Never logs a password. Each sensitive operation, and every
+ * login, is reported to the audit trail (RF27) in the same transaction, after the domain accepted it; what is
+ * reported never includes a password, a hash or a token.
  */
 @Service
 @Transactional
@@ -52,15 +61,17 @@ class UserService implements CreateInitialAdminUseCase, AuthenticateUserUseCase,
     private final Clock clock;
     private final LoginLockoutProperties lockout;
     private final RevokeRefreshTokensUseCase refreshTokens;
+    private final RecordAuditEventUseCase audit;
     private volatile String fakeHash;
 
     UserService(UserRepository userRepository, PasswordHasher passwordHasher, Clock clock,
-            LoginLockoutProperties lockout, RevokeRefreshTokensUseCase refreshTokens) {
+            LoginLockoutProperties lockout, RevokeRefreshTokensUseCase refreshTokens, RecordAuditEventUseCase audit) {
         this.userRepository = userRepository;
         this.passwordHasher = passwordHasher;
         this.clock = clock;
         this.lockout = lockout;
         this.refreshTokens = refreshTokens;
+        this.audit = audit;
     }
 
     @Override
@@ -72,7 +83,10 @@ class UserService implements CreateInitialAdminUseCase, AuthenticateUserUseCase,
             return InitialAdminResult.NOT_CONFIGURED;
         }
         PasswordPolicy.validate(command.password());
-        userRepository.save(User.create(command.login(), passwordHasher.hash(command.password()), Role.ADMIN));
+        var admin = userRepository.save(User.create(command.login(), passwordHasher.hash(command.password()), Role.ADMIN));
+        // nobody is authenticated at startup, so the entry has no actor
+        audit.record(new AuditEvent(AuditAction.USER_CREATED, AuditTarget.USER, admin.getId(),
+                "administrador inicial criado na subida"));
         return InitialAdminResult.CREATED;
     }
 
@@ -88,7 +102,10 @@ class UserService implements CreateInitialAdminUseCase, AuthenticateUserUseCase,
         var user = User.create(command.login(), passwordHasher.hash(command.password()), command.role(),
                 command.displayName());
         User.validateUniqueLogin(user.getLogin(), userRepository.existsByLogin(user.getLogin()));
-        return userRepository.save(user);
+        var saved = userRepository.save(user);
+        audit.record(new AuditEvent(AuditAction.USER_CREATED, AuditTarget.USER, saved.getId(),
+                "login: " + saved.getLogin() + ", perfil: " + saved.getRole()));
+        return saved;
     }
 
     /**
@@ -114,13 +131,36 @@ class UserService implements CreateInitialAdminUseCase, AuthenticateUserUseCase,
             if (user.registerSuccessfulLogin()) {
                 userRepository.save(user);
             }
+            audit.recordAs(user.getId(), new AuditEvent(AuditAction.LOGIN_SUCCESS, AuditTarget.USER, user.getId(), null));
             return new AuthenticatedUser(user.getId(), user.getRole());
         }
-        if (user != null && !passwordMatches
-                && user.registerFailedLogin(now, lockout.maxFailedAttempts(), lockout.blockDuration())) {
+        var changed = user != null && !passwordMatches
+                && user.registerFailedLogin(now, lockout.maxFailedAttempts(), lockout.blockDuration());
+        if (changed) {
             userRepository.save(user);
         }
+        auditRefusedLogin(user, passwordMatches, changed, now);
         throw new InvalidCredentialsException();
+    }
+
+    /**
+     * Every refusal is reported, whatever the reason, so the trail does not tell apart (by what is recorded or by
+     * how long it takes) a login that exists from one that does not. The login that was typed is never stored: a
+     * password typed in the wrong field would end up in the trail. A refusal that blocked the user is reported twice,
+     * the failure and the lockout.
+     */
+    private void auditRefusedLogin(User user, boolean passwordMatches, boolean changed, Instant now) {
+        if (user == null) {
+            audit.recordAs(null, new AuditEvent(AuditAction.LOGIN_FAILURE, null, null, "login desconhecido"));
+            return;
+        }
+        var reason = !passwordMatches ? "senha incorreta" : !user.isActive() ? "usuário inativo" : "usuário bloqueado";
+        audit.recordAs(user.getId(), new AuditEvent(AuditAction.LOGIN_FAILURE, AuditTarget.USER, user.getId(), reason));
+        if (changed && user.isBlocked(now)) {
+            audit.recordAs(user.getId(), new AuditEvent(AuditAction.LOGIN_LOCKOUT, AuditTarget.USER, user.getId(),
+                    "bloqueado até " + user.getBlockedUntil().truncatedTo(ChronoUnit.SECONDS) + " após " + lockout.maxFailedAttempts()
+                            + " tentativas erradas"));
+        }
     }
 
     @Override
@@ -144,14 +184,28 @@ class UserService implements CreateInitialAdminUseCase, AuthenticateUserUseCase,
     public User update(UpdateUserCommand command) {
         var administrators = userRepository.findActiveByRoleForUpdate(Role.ADMIN);
         var user = loadForUpdate(command.id());
+        var changes = new ArrayList<String>();
         if (command.role() != null) {
+            var previous = user.getRole();
             var others = administrators.stream().filter(admin -> !admin.getId().equals(user.getId())).count();
             user.changeRoleKeepingAnAdministrator(command.role(), others);
+            if (previous != user.getRole()) {
+                changes.add("perfil: " + previous + " → " + user.getRole());
+            }
         }
         if (command.displayName() != null) {
+            var previous = user.getDisplayName();
             user.changeDisplayName(command.displayName());
+            if (!Objects.equals(previous, user.getDisplayName())) {
+                changes.add("nome de exibição alterado");
+            }
         }
-        return userRepository.save(user);
+        var saved = userRepository.save(user);
+        if (!changes.isEmpty()) {
+            audit.record(new AuditEvent(AuditAction.USER_UPDATED, AuditTarget.USER, saved.getId(),
+                    String.join("; ", changes)));
+        }
+        return saved;
     }
 
     /**
@@ -172,6 +226,7 @@ class UserService implements CreateInitialAdminUseCase, AuthenticateUserUseCase,
         var others = administrators.stream().filter(admin -> !admin.getId().equals(user.getId())).count();
         if (user.deactivateKeepingAnAdministrator(others)) {
             userRepository.save(user);
+            audit.record(new AuditEvent(AuditAction.USER_DEACTIVATED, AuditTarget.USER, user.getId(), null));
         }
         refreshTokens.revokeAllOf(user.getId());
     }
@@ -189,6 +244,8 @@ class UserService implements CreateInitialAdminUseCase, AuthenticateUserUseCase,
         user.changePasswordHash(passwordHasher.hash(command.password()));
         userRepository.save(user);
         refreshTokens.revokeAllOf(user.getId());
+        // only the fact is reported: never the new password nor its hash
+        audit.record(new AuditEvent(AuditAction.USER_PASSWORD_RESET, AuditTarget.USER, user.getId(), null));
     }
 
     @Override
@@ -196,6 +253,7 @@ class UserService implements CreateInitialAdminUseCase, AuthenticateUserUseCase,
         var user = loadForUpdate(id);
         if (user.unblock()) {
             userRepository.save(user);
+            audit.record(new AuditEvent(AuditAction.USER_UNBLOCKED, AuditTarget.USER, user.getId(), null));
         }
     }
 

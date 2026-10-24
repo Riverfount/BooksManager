@@ -54,6 +54,19 @@ class ArchitectureTest {
             .should().dependOnClassesThat().resideInAPackage("com.riverfount.booksmanager.loan..")
             .allowEmptyShould(true);
 
+    /**
+     * The audit module is a leaf: the other modules report to it through its public ports, and it asks them nothing
+     * directly. What it needs to know about a user (the login) it asks through its own outbound port, which the user
+     * module implements (user.adapter.out.audit), so the dependency stays one way and the beans cannot form a cycle.
+     */
+    @ArchTest
+    static final ArchRule auditShouldNotDependOnTheOtherModules = noClasses()
+            .that().resideInAPackage("com.riverfount.booksmanager.audit..")
+            .should().dependOnClassesThat().resideInAnyPackage("com.riverfount.booksmanager.catalog..",
+                    "com.riverfount.booksmanager.loan..", "com.riverfount.booksmanager.user..",
+                    "com.riverfount.booksmanager.security..")
+            .allowEmptyShould(true);
+
     /** A new controller that does not decide who may call it fails the build (see AccessRules). */
     @ArchTest
     static final ArchRule everyControllerDeclaresItsAccess = AccessRules.everyControllerDeclaresItsAccess();

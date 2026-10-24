@@ -263,6 +263,19 @@ Depois, confira a saúde (seção 5). Se o servidor inteiro foi perdido: refaça
 
 A rotina que expira as reservas vencidas já roda sozinha (às 03:00 de São Paulo e uma vez quando a aplicação sobe); o log da API registra quantas expirou.
 
+### 8.1 A trilha de auditoria (retenção)
+
+A API grava, na tabela `audit_log`, quem fez cada operação sensível (login, usuários, bloqueio e inativação de leitor, multas, suspensões e a configuração da biblioteca). Só o administrador a consulta (`GET /api/v1/audit-log`), e nenhuma rota da API apaga um registro: o banco recusa até a alteração de uma linha.
+
+A política é **guardar por 2 anos**, e a aplicação não apaga nada sozinha. Para limpar os registros mais antigos, uma vez por ano, por exemplo (faça um backup antes, seção 7):
+
+```bash
+docker compose --env-file .env.prod -f compose.prod.yaml exec -T postgres sh -c \
+  'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "delete from audit_log where occurred_at < now() - interval '"'"'2 years'"'"'"'
+```
+
+Toda tentativa de login recusada é registrada, e a API ainda **não limita a taxa de requisições**, então alguém sem login pode encher a tabela com tentativas. Limite o `/api/v1/auth/login` no Nginx (a diretiva `limit_req_zone` com `limit_req` nesse `location`) antes de abrir a API para a internet, e confira o tamanho da tabela de vez em quando (`select count(*), pg_size_pretty(pg_total_relation_size('audit_log')) from audit_log`).
+
 ## 9. Problemas comuns
 
 | Sintoma | Causa provável |

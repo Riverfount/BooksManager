@@ -3,6 +3,7 @@ package com.riverfount.booksmanager.loan.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.riverfount.booksmanager.audit.application.RecordedAudit;
 import com.riverfount.booksmanager.loan.application.port.in.UpdateLibraryConfigurationCommand;
 import com.riverfount.booksmanager.loan.domain.PenaltyPolicy;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
@@ -19,7 +20,7 @@ class LibraryConfigurationServiceTest {
     @BeforeEach
     void setUp() {
         repository = new InMemoryLibraryConfigurationRepository();
-        service = new LibraryConfigurationService(repository);
+        service = new LibraryConfigurationService(repository, new RecordedAudit());
     }
 
     private static UpdateLibraryConfigurationCommand command(PenaltyPolicy policy, String dailyFine, String fineCap,

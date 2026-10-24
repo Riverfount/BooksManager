@@ -1,5 +1,9 @@
 package com.riverfount.booksmanager.user.application.service;
 
+import com.riverfount.booksmanager.audit.application.port.in.AuditEvent;
+import com.riverfount.booksmanager.audit.application.port.in.RecordAuditEventUseCase;
+import com.riverfount.booksmanager.audit.domain.AuditAction;
+import com.riverfount.booksmanager.audit.domain.AuditTarget;
 import com.riverfount.booksmanager.user.application.port.in.BlockReaderUseCase;
 import com.riverfount.booksmanager.user.application.port.in.DeactivateReaderUseCase;
 import com.riverfount.booksmanager.user.application.port.in.GetReaderUseCase;
@@ -35,10 +39,12 @@ class ReaderService implements RegisterReaderUseCase, GetReaderUseCase, ListRead
 
     private final ReaderRepository readerRepository;
     private final Clock clock;
+    private final RecordAuditEventUseCase audit;
 
-    ReaderService(ReaderRepository readerRepository, Clock clock) {
+    ReaderService(ReaderRepository readerRepository, Clock clock, RecordAuditEventUseCase audit) {
         this.readerRepository = readerRepository;
         this.clock = clock;
+        this.audit = audit;
     }
 
     @Override
@@ -84,22 +90,34 @@ class ReaderService implements RegisterReaderUseCase, GetReaderUseCase, ListRead
     @Override
     public void deactivate(Long id) {
         var reader = loadExisting(id);
+        var wasActive = reader.isActive();
         reader.deactivate();
         readerRepository.save(reader);
+        if (wasActive) {
+            audit.record(new AuditEvent(AuditAction.READER_DEACTIVATED, AuditTarget.READER, id, null));
+        }
     }
 
     @Override
     public void block(Long id) {
         var reader = loadExisting(id);
+        var wasBlocked = reader.isBlocked();
         reader.block();
         readerRepository.save(reader);
+        if (!wasBlocked) {
+            audit.record(new AuditEvent(AuditAction.READER_BLOCKED, AuditTarget.READER, id, null));
+        }
     }
 
     @Override
     public void unblock(Long id) {
         var reader = loadExisting(id);
+        var wasBlocked = reader.isBlocked();
         reader.unblock();
         readerRepository.save(reader);
+        if (wasBlocked) {
+            audit.record(new AuditEvent(AuditAction.READER_UNBLOCKED, AuditTarget.READER, id, null));
+        }
     }
 
     private Reader loadExisting(Long id) {

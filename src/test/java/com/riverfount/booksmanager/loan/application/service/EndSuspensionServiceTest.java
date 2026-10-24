@@ -3,6 +3,7 @@ package com.riverfount.booksmanager.loan.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.riverfount.booksmanager.audit.application.RecordedAudit;
 import com.riverfount.booksmanager.loan.application.port.in.EndSuspensionCommand;
 import com.riverfount.booksmanager.loan.application.port.out.SuspensionFilter;
 import com.riverfount.booksmanager.loan.domain.Suspension;
@@ -34,7 +35,7 @@ class EndSuspensionServiceTest {
     @BeforeEach
     void setUp() {
         suspensionRepository = new InMemorySuspensionRepository();
-        service = new EndSuspensionService(suspensionRepository, CLOCK);
+        service = new EndSuspensionService(suspensionRepository, CLOCK, new RecordedAudit());
     }
 
     /** A suspension that started {@code daysAgo} days ago and lasts {@code days} days. */
@@ -147,7 +148,7 @@ class EndSuspensionServiceTest {
     void shouldUseTheDayOfTheClockInTheLibraryTimezone() {
         // 01:00 UTC of the 11th is still the 10th in São Paulo
         var lateNight = Clock.fixed(Instant.parse("2026-11-11T01:00:00Z"), ZONE);
-        var lateService = new EndSuspensionService(suspensionRepository, lateNight);
+        var lateService = new EndSuspensionService(suspensionRepository, lateNight, new RecordedAudit());
         var id = suspension(1, 10);
 
         lateService.end(new EndSuspensionCommand(id, "Pardoned"));
