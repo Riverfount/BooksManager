@@ -37,6 +37,17 @@ class OpenApiRequiredFieldsTest {
     }
 
     @Test
+    void theProblemDetailShouldDescribeTheListOfInvalidFields() throws Exception {
+        apiDocs.andExpect(jsonPath("$.components.schemas.ProblemDetail.properties.errors.type").value("array"))
+                .andExpect(jsonPath("$.components.schemas.ProblemDetail.properties.errors.items.properties.field.type")
+                        .value("string"))
+                .andExpect(jsonPath("$.components.schemas.ProblemDetail.properties.errors.items.properties.message.type")
+                        .value("string"))
+                .andExpect(jsonPath("$.components.schemas.ProblemDetail.properties.errors.items.required[0]")
+                        .value("message"));
+    }
+
+    @Test
     void bookResponseShouldRequireEverythingExceptWhatCanBeNull() throws Exception {
         apiDocs.andExpect(requiredOf("BookResponse", "id", "isbn", "title", "categoryId", "authorIds",
                 "active", "availableCopies", "totalCopies", "category", "authors"));
