@@ -325,4 +325,44 @@ class CopyServiceTest {
         copy.deactivate(false);
         copyRepository.save(copy);
     }
+
+    @Test
+    void shouldReactivateAnInactiveCopyOfAnActiveBookKeepingItsStatus() {
+        var copy = service.register(new RegisterCopyCommand(bookId, "PAT-1"));
+        service.deactivate(copy.getId());
+
+        var reactivated = service.reactivate(copy.getId());
+
+        assertThat(reactivated.isActive()).isTrue();
+        var stored = copyRepository.findById(copy.getId()).orElseThrow();
+        assertThat(stored.isActive()).isTrue();
+        assertThat(stored.getStatus()).isEqualTo(copy.getStatus());
+        assertThat(stored.getAssetCode()).isEqualTo("PAT-1");
+    }
+
+    @Test
+    void shouldNotReactivateACopyWhoseBookIsInactive() {
+        var copy = service.register(new RegisterCopyCommand(bookId, "PAT-1"));
+        service.deactivate(copy.getId());
+        var book = bookRepository.findById(bookId).orElseThrow();
+        book.deactivate();
+        bookRepository.save(book);
+
+        assertThatThrownBy(() -> service.reactivate(copy.getId())).isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("livro está inativo");
+
+        assertThat(copyRepository.findById(copy.getId()).orElseThrow().isActive()).isFalse();
+    }
+
+    @Test
+    void shouldBeIdempotentWhenReactivatingAnActiveCopy() {
+        var copy = service.register(new RegisterCopyCommand(bookId, "PAT-1"));
+
+        assertThat(service.reactivate(copy.getId()).isActive()).isTrue();
+    }
+
+    @Test
+    void shouldFailWhenReactivatingACopyThatDoesNotExist() {
+        assertThatThrownBy(() -> service.reactivate(999L)).isInstanceOf(ResourceNotFoundException.class);
+    }
 }

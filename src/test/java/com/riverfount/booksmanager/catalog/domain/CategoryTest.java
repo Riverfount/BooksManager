@@ -108,4 +108,23 @@ class CategoryTest {
         assertThat(category.isActive()).isFalse();
         assertThat(category.getName()).isEqualTo("Ficção");
     }
+
+    @Test
+    void shouldReactivateAnInactiveCategory() {
+        var category = Category.reconstitute(1L, "Romance", false);
+
+        category.reactivate();
+
+        assertThat(category.isActive()).isTrue();
+        assertThat(category.getName()).isEqualTo("Romance");
+    }
+
+    @Test
+    void reactivatingAnActiveCategoryShouldChangeNothing() {
+        var category = Category.create("Romance");
+
+        category.reactivate();
+
+        assertThat(category.isActive()).isTrue();
+    }
 }

@@ -456,4 +456,35 @@ class CopyTest {
         assertThatThrownBy(() -> copy.changeStatus(CopyStatus.RESERVED)).isInstanceOf(BusinessRuleException.class);
         assertThat(copy.getStatus()).isEqualTo(CopyStatus.AVAILABLE);
     }
+
+    // reactivating a copy: its book has to be active (a copy of an inactive book is not registered either)
+
+    @Test
+    void shouldReactivateAnInactiveCopyOfAnActiveBookKeepingItsStatus() {
+        var copy = Copy.reconstitute(1L, 1L, "PAT-1", CopyStatus.DAMAGED, false, 3L);
+
+        copy.reactivate(true);
+
+        assertThat(copy.isActive()).isTrue();
+        assertThat(copy.getStatus()).isEqualTo(CopyStatus.DAMAGED);
+    }
+
+    @Test
+    void shouldNotReactivateACopyWhoseBookIsInactive() {
+        var copy = Copy.reconstitute(1L, 1L, "PAT-1", CopyStatus.AVAILABLE, false, 0L);
+
+        assertThatThrownBy(() -> copy.reactivate(false)).isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("livro está inativo");
+
+        assertThat(copy.isActive()).isFalse();
+    }
+
+    @Test
+    void reactivatingAnActiveCopyShouldChangeNothingEvenIfItsBookIsInactive() {
+        var copy = Copy.reconstitute(1L, 1L, "PAT-1", CopyStatus.AVAILABLE, true, 0L);
+
+        copy.reactivate(false);
+
+        assertThat(copy.isActive()).isTrue();
+    }
 }

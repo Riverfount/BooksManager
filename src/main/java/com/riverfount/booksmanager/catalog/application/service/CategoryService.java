@@ -5,6 +5,7 @@ import com.riverfount.booksmanager.catalog.application.port.in.GetCategoryUseCas
 import com.riverfount.booksmanager.catalog.application.port.in.ListCategoriesQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.ListCategoriesUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterCategoryCommand;
+import com.riverfount.booksmanager.catalog.application.port.in.ReactivateCategoryUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterCategoryUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateCategoryCommand;
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateCategoryUseCase;
@@ -25,7 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 class CategoryService implements RegisterCategoryUseCase, GetCategoryUseCase, ListCategoriesUseCase,
-        UpdateCategoryUseCase, DeactivateCategoryUseCase {
+        UpdateCategoryUseCase, DeactivateCategoryUseCase, ReactivateCategoryUseCase {
 
     private final CategoryRepository categoryRepository;
 
@@ -69,6 +70,13 @@ class CategoryService implements RegisterCategoryUseCase, GetCategoryUseCase, Li
         var category = loadExisting(id);
         category.deactivate();
         categoryRepository.save(category);
+    }
+
+    @Override
+    public Category reactivate(Long id) {
+        var category = loadExisting(id);
+        category.reactivate();
+        return categoryRepository.save(category);
     }
 
     private Category loadExisting(Long id) {

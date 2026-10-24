@@ -5,6 +5,7 @@ import com.riverfount.booksmanager.catalog.application.port.in.GetCopyUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ListCopiesQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.ListCopiesUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterCopyCommand;
+import com.riverfount.booksmanager.catalog.application.port.in.ReactivateCopyUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterCopyUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateCopyCommand;
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateCopyUseCase;
@@ -29,7 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 class CopyService implements RegisterCopyUseCase, GetCopyUseCase, ListCopiesUseCase,
-        UpdateCopyUseCase, DeactivateCopyUseCase {
+        UpdateCopyUseCase, DeactivateCopyUseCase, ReactivateCopyUseCase {
 
     private final CopyRepository copyRepository;
     private final BookRepository bookRepository;
@@ -83,6 +84,14 @@ class CopyService implements RegisterCopyUseCase, GetCopyUseCase, ListCopiesUseC
                 .orElseThrow(() -> new ResourceNotFoundException("exemplar não encontrado: " + id));
         copy.deactivate(activeLoanChecker.hasActiveLoan(copy.getId()));
         copyRepository.save(copy);
+    }
+
+    @Override
+    public Copy reactivate(Long id) {
+        var copy = copyRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("exemplar não encontrado: " + id));
+        copy.reactivate(bookRepository.existsActiveById(copy.getBookId()));
+        return copyRepository.save(copy);
     }
 
     private void validateBookExistsAndIsActive(Long bookId) {

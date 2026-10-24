@@ -22,6 +22,7 @@ import com.riverfount.booksmanager.security.configuration.MethodSecurityConfigur
 import com.riverfount.booksmanager.WithOperator;
 import com.riverfount.booksmanager.WithAdmin;
 import com.riverfount.booksmanager.catalog.application.port.in.DeactivateAuthorUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.ReactivateAuthorUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.GetAuthorUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ListAuthorsQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.ListAuthorsUseCase;
@@ -66,6 +67,9 @@ class AuthorControllerTest {
 
     @MockitoBean
     private DeactivateAuthorUseCase deactivateAuthorUseCase;
+
+    @MockitoBean
+    private ReactivateAuthorUseCase reactivateAuthorUseCase;
 
     @Test
     @WithOperator
@@ -396,5 +400,47 @@ class AuthorControllerTest {
     @WithOperator
     void anOperatorMayCallTheRoutes() throws Exception {
         mockMvc.perform(delete("/api/v1/authors/1").with(csrf())).andExpect(status().isNoContent());
+    }
+
+    // reactivation (RN14): only the administrator
+
+    @Test
+    @WithAdmin
+    void anAdministratorShouldReactivateAndGetTheResource() throws Exception {
+        given(reactivateAuthorUseCase.reactivate(1L)).willReturn(com.riverfount.booksmanager.catalog.domain.Author.reconstitute(1L, "Machado de Assis", true));
+
+        mockMvc.perform(post("/api/v1/authors/1/reactivate").with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.active").value(true))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.name").exists());
+
+        then(reactivateAuthorUseCase).should().reactivate(1L);
+    }
+
+    @Test
+    @WithOperator
+    void anOperatorShouldNotReactivateAndGet403() throws Exception {
+        mockMvc.perform(post("/api/v1/authors/1/reactivate").with(csrf()))
+                .andExpect(status().isForbidden());
+
+        then(reactivateAuthorUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    void withoutATokenReactivatingShouldBe401() throws Exception {
+        mockMvc.perform(post("/api/v1/authors/1/reactivate").with(csrf()))
+                .andExpect(status().isUnauthorized());
+
+        then(reactivateAuthorUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @WithAdmin
+    void reactivatingSomethingThatDoesNotExistShouldBe404() throws Exception {
+        willThrow(new ResourceNotFoundException("autor não encontrado: 99")).given(reactivateAuthorUseCase).reactivate(99L);
+
+        mockMvc.perform(post("/api/v1/authors/99/reactivate").with(csrf()))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
     }
 }

@@ -10,10 +10,10 @@ Prioridade pelo método MoSCoW: **M** (deve, essencial na v1.0), **S** (deveria,
 
 | ID | Requisito | Prioridade |
 | --- | --- | --- |
-| RF01 | Cadastrar, listar, consultar, editar e inativar livros (ISBN, título, editora, ano e categoria). O ISBN não pode ser alterado depois do cadastro. | M |
-| RF02 | Cadastrar, listar, consultar, editar e inativar autores e associá-los aos livros (relação N:N). | M |
-| RF03 | Cadastrar, listar, consultar, editar e inativar categorias. | M |
-| RF04 | Cadastrar, listar, consultar e inativar exemplares de um livro, com código de patrimônio único e status, e alterar o status (disponível, emprestado, reservado, danificado, extraviado). | M |
+| RF01 | Cadastrar, listar, consultar, editar, inativar e reativar livros (ISBN, título, editora, ano e categoria). O ISBN não pode ser alterado depois do cadastro. | M |
+| RF02 | Cadastrar, listar, consultar, editar, inativar e reativar autores e associá-los aos livros (relação N:N). | M |
+| RF03 | Cadastrar, listar, consultar, editar, inativar e reativar categorias. | M |
+| RF04 | Cadastrar, listar, consultar, inativar e reativar exemplares de um livro, com código de patrimônio único e status, e alterar o status (disponível, emprestado, reservado, danificado, extraviado). | M |
 | RF05 | Pesquisar livros por título, autor, ISBN e categoria, informando quantos exemplares estão disponíveis, com paginação e ordenação. | M |
 | RF06 | Importar os dados de um livro automaticamente a partir do ISBN, por meio de API externa. | C |
 
@@ -84,7 +84,7 @@ As regras ficam na camada de domínio, ou em políticas parametrizáveis, e nunc
 | RN11 | Leitor inativo, bloqueado ou suspenso não pode fazer empréstimos nem reservas. Para reservar, vale o mesmo que para emprestar (RN05): também não reserva quem tem multa pendente ou empréstimo em atraso. Ficam de fora só a disponibilidade do exemplar e o limite de empréstimos. Livro inativo também não é reservado (RN14). |
 | RN12 | O leitor não pode reservar livro que já tem emprestado ou que tenha exemplar disponível, nem reservar o mesmo livro duas vezes. O total de reservas ativas do leitor é limitado pelo mesmo valor do limite de empréstimos da configuração (RN04), contado à parte dos empréstimos. |
 | RN13 | A reserva tem prazo de retirada de 3 dias (configurável) a contar da data em que o exemplar fica disponível para o leitor. |
-| RN14 | Livros, autores, categorias e leitores com histórico de empréstimos são inativados, nunca excluídos fisicamente. Inativar um livro não altera seus exemplares, mas **os exemplares de um livro inativo não são emprestados nem o livro é reservado**: o empréstimo (inclusive a retirada de um exemplar reservado) e a reserva são recusados com o motivo "o livro está inativo", junto dos demais motivos. **A renovação de um empréstimo em curso também é recusada** ("o livro está inativo e o empréstimo não pode ser renovado"), mas a devolução continua funcionando, e o exemplar devolvido de um livro inativo não é guardado para a fila. As reservas que já estavam na fila ficam como estão, para a equipe cancelar ou para a rotina expirar. Decidido em 24/10/2026. |
+| RN14 | Livros, autores, categorias e leitores com histórico de empréstimos são inativados, nunca excluídos fisicamente. Inativar um livro não altera seus exemplares, mas **os exemplares de um livro inativo não são emprestados nem o livro é reservado**: o empréstimo (inclusive a retirada de um exemplar reservado) e a reserva são recusados com o motivo "o livro está inativo", junto dos demais motivos. **A renovação de um empréstimo em curso também é recusada** ("o livro está inativo e o empréstimo não pode ser renovado"), mas a devolução continua funcionando, e o exemplar devolvido de um livro inativo não é guardado para a fila. As reservas que já estavam na fila ficam como estão, para a equipe cancelar ou para a rotina expirar. **Livros, autores, categorias e exemplares inativados podem ser reativados, só pelo administrador** (o operador inativa, mas não desfaz): o livro só volta se a categoria e todos os autores dele estão ativos (a recusa diz quais estão inativos), e o exemplar só volta se o livro está ativo; reativar o livro não reativa os exemplares, e reativar o que já está ativo não tem efeito. Decidido em 24/10/2026. |
 | RN15 | A suspensão começa na devolução em atraso e termina automaticamente na data calculada. O operador pode encerrá-la antes, com justificativa registrada. |
 | RN16 | A política de penalidade e seus valores são definidos pela biblioteca, em configuração, e nunca fixados no código. A alteração vale apenas para atrasos futuros. |
 | RN17 | A exportação de relatórios (CSV e PDF, RF29) é restrita ao administrador; o operador, que consulta os relatórios na tela (RF23, RF24 e RF25), recebe 403 ao tentar exportar. Decidido em 24/10/2026. |
@@ -114,7 +114,7 @@ Mesma escala de prioridade dos requisitos funcionais.
 | ID | Requisito | Prioridade |
 | --- | --- | --- |
 | RNF07 | Armazenar senhas com hash forte (BCrypt), nunca em texto puro. | M |
-| RNF08 | Exigir autenticação na API e autorizar o acesso por perfil em cada endpoint (administrador e operador). A exportação de relatórios (RF29) é só do administrador (RN17), assim como a consulta à trilha de auditoria (RF27, RN18). | M |
+| RNF08 | Exigir autenticação na API e autorizar o acesso por perfil em cada endpoint (administrador e operador). A exportação de relatórios (RF29) é só do administrador (RN17), assim como a consulta à trilha de auditoria (RF27, RN18) e a reativação de livros, autores, categorias e exemplares (RN14). | M |
 | RNF09 | Validar toda entrada de dados (Bean Validation) e proteger contra as vulnerabilidades do OWASP Top 10, incluindo XSS e CSRF, e restringir o CORS à origem do front-end. | M |
 | RNF10 | Manter segredos (senhas de banco e chaves) fora do código-fonte, em variáveis de ambiente. | M |
 | RNF11 | Coletar apenas os dados pessoais mínimos dos leitores (nome, documento, e-mail, telefone opcional, data de nascimento e, para menores de 18 anos, o responsável), em respeito à LGPD. | M |

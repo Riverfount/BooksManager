@@ -3,6 +3,8 @@ package com.riverfount.booksmanager.catalog.domain;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import java.time.Clock;
 import java.time.Year;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
@@ -113,6 +115,38 @@ public class Book {
 
     public void deactivate() {
         this.active = false;
+    }
+
+    /**
+     * Brings an inactivated book back (RN14). The book is only reactivated when its category and all its authors
+     * are active: reactivating is a decision about the collection, and an active book tied to an inactive
+     * category or author would contradict the rule that those are not used for books (HU18, HU21). Whoever calls
+     * brings the facts; every inactive one is named, so the operator reactivates them in one go. Reactivating an
+     * active book changes nothing, whatever its category and authors are.
+     *
+     * @param category the category of the book
+     * @param authors the authors of the book
+     */
+    public void reactivate(Category category, Collection<Author> authors) {
+        Objects.requireNonNull(category, "category não pode ser nulo");
+        Objects.requireNonNull(authors, "authors não pode ser nulo");
+        if (active) {
+            return;
+        }
+        var problems = new ArrayList<String>();
+        if (!category.isActive()) {
+            problems.add("categoria inativa: " + category.getName());
+        }
+        for (var author : authors) {
+            if (!author.isActive()) {
+                problems.add("autor inativo: " + author.getName());
+            }
+        }
+        if (!problems.isEmpty()) {
+            throw new BusinessRuleException("o livro não pode ser reativado (" + String.join("; ", problems)
+                    + "): reative antes");
+        }
+        this.active = true;
     }
 
     private static void validateIsbn(Isbn isbn) {

@@ -176,6 +176,23 @@ public class Copy {
         this.active = false;
     }
 
+    /**
+     * Brings an inactivated copy back (RN14), keeping its status. A copy is only registered for an active
+     * book, so it is only reactivated when its book is active; whoever calls brings that fact. Reactivating
+     * an active copy changes nothing.
+     *
+     * @param bookActive whether the book of the copy is active
+     */
+    public void reactivate(boolean bookActive) {
+        if (active) {
+            return;
+        }
+        if (!bookActive) {
+            throw new BusinessRuleException("o exemplar não pode ser reativado: o livro está inativo");
+        }
+        this.active = true;
+    }
+
     private static void validateBookId(Long bookId) {
         if (bookId == null) {
             throw new BusinessRuleException("o id do livro é obrigatório");

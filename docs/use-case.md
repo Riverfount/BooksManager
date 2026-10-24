@@ -186,6 +186,12 @@
 **HU40 —** Como administrador, quero consultar a trilha de auditoria das operações sensíveis, para responder a "quem abonou esta multa" ou "quem mudou a política de penalidade".
 - Critério de aceite: cada operação sensível (login com sucesso, falha e bloqueio; criar, editar, inativar e desbloquear usuário e redefinir senha; bloquear, desbloquear e inativar leitor; pagar e abonar multa; encerrar suspensão antes do prazo; alterar a configuração da biblioteca) deixa um registro com quem fez, quando, o quê e em quê; a consulta é paginada, do mais recente para o mais antigo, com filtros por usuário, ação, alvo e período; uma operação desfeita não deixa registro; nenhum registro traz senha, hash ou token, e o login digitado de quem não é usuário nunca é guardado; só o administrador consulta, o operador recebe 403 (RF27, RN18).
 
+**HU41 —** Como administrador, quero reativar um livro, autor, categoria ou exemplar que foi inativado, para desfazer uma inativação feita por engano ou voltar a usar o registro com o histórico.
+- Critério de aceite: só o administrador reativa; o operador recebe 403 (RNF08, RN14).
+- Critério de aceite: o livro só é reativado se a categoria e todos os autores dele estão ativos; a recusa diz quais estão inativos (RN14).
+- Critério de aceite: o exemplar só é reativado se o livro dele está ativo, e volta com o status que tinha; reativar o livro não reativa os exemplares (RN14).
+- Critério de aceite: o registro reativado volta às listagens padrão e, no caso do livro, pode ser emprestado e reservado de novo (RN14); reativar o que já está ativo não tem efeito.
+
 ## Referências
 
 Requisitos e regras de negócio: `docs/requisitos.md`. Entidades envolvidas: `docs/diagramas.md`.
