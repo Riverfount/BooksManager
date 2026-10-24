@@ -88,7 +88,7 @@ As regras ficam na camada de domínio, ou em políticas parametrizáveis, e nunc
 | RN15 | A suspensão começa na devolução em atraso e termina automaticamente na data calculada. O operador pode encerrá-la antes, com justificativa registrada. |
 | RN16 | A política de penalidade e seus valores são definidos pela biblioteca, em configuração, e nunca fixados no código. A alteração vale apenas para atrasos futuros. |
 | RN17 | A exportação de relatórios (CSV e PDF, RF29) é restrita ao administrador; o operador, que consulta os relatórios na tela (RF23, RF24 e RF25), recebe 403 ao tentar exportar. Decidido em 24/10/2026. |
-| RN18 | A trilha de auditoria (RF27) é consultada **somente pelo administrador**; o operador recebe 403. Os registros só são acrescentados pelas próprias operações, na mesma transação (uma operação desfeita não deixa registro): nenhuma rota da API cria, altera ou apaga um registro, e o banco recusa a alteração. Nenhum registro traz senha, hash, token ou dado pessoal além do necessário (LGPD). Os registros são guardados por 2 anos, e a limpeza é manual (guia de implantação). Decidido em 24/10/2026. |
+| RN18 | A trilha de auditoria (RF27) é consultada **somente pelo administrador**; o operador recebe 403. Os registros só são acrescentados pelas próprias operações, na mesma transação (uma operação desfeita não deixa registro): nenhuma rota da API cria, altera ou apaga um registro, e o banco recusa a alteração. Nenhum registro traz senha, hash, token ou dado pessoal além do necessário (LGPD). Os registros são guardados por 2 anos, e a limpeza é manual (guia de implantação). Como toda recusa de login é registrada, o proxy limita as tentativas de login por endereço (RNF13), para que quem não está autenticado não encha a trilha. Decidido em 24/10/2026. |
 
 > As decisões da Fase 4 (reservas, expiração, retirada do exemplar reservado, perda ou dano na devolução e implantação mínima), tomadas em 17/10/2026, estão em `docs/projeto.md`, seção "Decisões tomadas", e ajustam RF15, RN03, RN07, RN11 e RN12 acima.
 
@@ -119,7 +119,7 @@ Mesma escala de prioridade dos requisitos funcionais.
 | RNF10 | Manter segredos (senhas de banco e chaves) fora do código-fonte, em variáveis de ambiente. | M |
 | RNF11 | Coletar apenas os dados pessoais mínimos dos leitores (nome, documento, e-mail, telefone opcional, data de nascimento e, para menores de 18 anos, o responsável), em respeito à LGPD. | M |
 | RNF12 | Servir a aplicação exclusivamente via HTTPS em produção. | S |
-| RNF13 | Limitar tentativas de login e bloquear temporariamente após falhas repetidas. | C |
+| RNF13 | Limitar tentativas de login em duas camadas: a aplicação bloqueia temporariamente a conta após falhas repetidas, e o proxy (Nginx) limita o `POST /api/v1/auth/login` a 5 tentativas por minuto por endereço, com rajada de 5, e responde 429 acima disso. O limite do proxy protege também a trilha de auditoria (RN18), que registra toda recusa de login. Decidido em 24/10/2026. | C |
 
 ### Desempenho e confiabilidade
 

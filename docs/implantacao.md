@@ -311,7 +311,18 @@ docker compose --env-file .env.prod -f compose.prod.yaml exec -T postgres sh -c 
   'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "delete from audit_log where occurred_at < now() - interval '"'"'2 years'"'"'"'
 ```
 
-Toda tentativa de login recusada é registrada, e a API ainda **não limita a taxa de requisições**, então alguém sem login pode encher a tabela com tentativas. Limite o `/api/v1/auth/login` no Nginx (a diretiva `limit_req_zone` com `limit_req` nesse `location`) antes de abrir a API para a internet, e confira o tamanho da tabela de vez em quando (`select count(*), pg_size_pretty(pg_total_relation_size('audit_log')) from audit_log`).
+Toda tentativa de login recusada é registrada, e a API não limita a taxa de requisições por conta própria, então alguém sem login poderia encher a tabela com tentativas. Quem limita é o **Nginx** (seção 8.2): 5 tentativas por minuto por endereço, com rajada de 5. Confira o tamanho da tabela de vez em quando (`select count(*), pg_size_pretty(pg_total_relation_size('audit_log')) from audit_log`).
+
+### 8.2 O limite de tentativas de login (Nginx)
+
+O `deploy/nginx/nginx.conf.template` limita o `POST /api/v1/auth/login` a **5 tentativas por minuto por endereço de origem, com uma rajada de 5** (RNF13, RF27). Quem erra a senha algumas vezes não é barrado; um programa que tenta senhas em série passa a gerar poucas linhas por minuto na trilha. Passou do limite, a resposta é **429** (`application/problem+json`, com `Retry-After: 12`), e o log do Nginx registra `limiting requests` (nível `warn`). Só o login é contado: as demais rotas, inclusive o `/auth/refresh`, não têm limite.
+
+Isto complementa o bloqueio da conta (que protege cada usuário) e não o substitui.
+
+- **Atrás de uma CDN ou de outro proxy**, o endereço que o Nginx vê é o dele, e todos os usuários passariam a dividir o mesmo limite. Nesse caso, configure `set_real_ip_from` (a faixa do proxy) e `real_ip_header` antes de ligar o limite.
+- **Muitos usuários atrás do mesmo endereço** (a rede de uma escola, por exemplo) dividem o limite. Se isso incomodar, aumente `rate` e `burst` no template.
+- **Ajustar:** os valores estão no `map`/`limit_req_zone` (`rate=5r/m`) e no `limit_req` (`burst=5`) do template; depois, `docker compose ... restart nginx`.
+- **Conferir** (a pilha precisa estar no ar): `for i in $(seq 1 15); do curl -sk -o /dev/null -w '%{http_code} ' -X POST https://<DOMAIN>/api/v1/auth/login; done` deve mostrar uns 6 códigos 401 e depois 429; passados alguns segundos, o 401 volta.
 
 ## 9. Problemas comuns
 
