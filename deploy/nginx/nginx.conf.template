@@ -1,6 +1,18 @@
 # Nginx in front of the API (RNF12). The image replaces ${DOMAIN} when it starts (the other $ variables are
 # Nginx's own and stay as they are). The certificate is read from the path of certbot's layout.
 
+# Limit of the login attempts (RNF13, RF27). Every refused login is written to the audit trail, and the API has no rate
+# limit of its own, so without this anyone could fill the table. The key is the client address, and only for
+# POST /api/v1/auth/login: for any other request it is empty, and a request with an empty key is not counted. The
+# limit is then set once, on the single "location /", with no copy of the proxy settings. $uri is the path already
+# decoded and normalized by Nginx, so "//api/v1/auth/login" and "%2e" tricks do not go around it. 5 per minute with a
+# burst of 5: a person who mistypes the password a few times is not stopped; a script is.
+map "$request_method $uri" $login_limit_key {
+    default                      "";
+    "POST /api/v1/auth/login"    $binary_remote_addr;
+}
+limit_req_zone $login_limit_key zone=login:10m rate=5r/m;
+
 # Port 80: nothing is served in clear text, everything goes to https.
 server {
     listen 80;
@@ -33,13 +45,33 @@ server {
     add_header X-Frame-Options "DENY" always;
     add_header Referrer-Policy "no-referrer" always;
 
+    # What goes over the limit gets 429 (not the 503 of the default) and the log says "warn", not "error".
+    limit_req_status 429;
+    limit_req_log_level warn;
+
     # The API takes small JSON bodies.
     client_max_body_size 1m;
 
     # Do not say which version of Nginx this is.
     server_tokens off;
 
+    # The answer to a login over the limit: the same format as the errors of the API (ProblemDetail, RFC 9457). An
+    # "add_header" in a location replaces the ones of the server block, so the security headers are repeated here.
+    error_page 429 = @too_many_requests;
+    location @too_many_requests {
+        default_type application/problem+json;
+        add_header Retry-After 12 always;
+        add_header Strict-Transport-Security "max-age=31536000" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header Referrer-Policy "no-referrer" always;
+        return 429 '{"type":"about:blank","title":"Too Many Requests","status":429,"detail":"Muitas tentativas de login. Aguarde alguns segundos e tente de novo."}';
+    }
+
     location / {
+        # Only the login is counted (see the map above).
+        limit_req zone=login burst=5 nodelay;
+
         proxy_pass http://app:8080;
         proxy_http_version 1.1;
 

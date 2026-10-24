@@ -46,6 +46,18 @@ jobs:
       - name: Validate the production Compose file
         run: POSTGRES_PASSWORD=ci APP_JWT_SECRET=ci docker compose --env-file .env.prod-sample -f compose.prod.yaml config --quiet
 
+      # RNF13: the Nginx configuration (with the limit of the login attempts) must stay valid. Only checked here, never
+      # started: a throwaway certificate and a fake "app" host are enough for `nginx -t`.
+      - name: Validate the Nginx configuration
+        run: |
+          certs=$(mktemp -d)
+          mkdir -p "$certs/live/ci"
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=ci \
+            -keyout "$certs/live/ci/privkey.pem" -out "$certs/live/ci/fullchain.pem"
+          docker run --rm --add-host app:127.0.0.1 -e DOMAIN=ci \
+            -v "$PWD/deploy/nginx/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro" \
+            -v "$certs:/etc/letsencrypt:ro" nginx:1.28-alpine nginx -t
+
       # Shows the numbers on the run page, also when the coverage check fails.
       - name: Coverage summary
         if: always()
