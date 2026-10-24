@@ -29,9 +29,11 @@ services:
       - backend
 
   app:
+    # The image is the one published in the registry (APP_IMAGE and IMAGE_TAG, see .env.prod-sample); "build" is the
+    # alternative, to build it on the server. The tag is the version that runs, so going back is going back to a
+    # previous tag.
     build: .
-    # The tag of the image is the version that runs, so going back is going back to a previous tag.
-    image: booksmanager:${IMAGE_TAG:-latest}
+    image: ${APP_IMAGE:-booksmanager}:${IMAGE_TAG:-latest}
     restart: unless-stopped
     depends_on:
       postgres:
