@@ -69,8 +69,8 @@ class BookController {
             description = "Cadastra um novo livro. A categoria e os autores informados precisam existir e "
                     + "estar ativos. O ISBN-10 é guardado como o ISBN-13 do mesmo livro (a resposta traz o "
                     + "ISBN-13), então cadastrar um livro pelo ISBN-10 e outra vez pelo ISBN-13 é recusado "
-                    + "como duplicado (RN01). A editora aceita até 255 caracteres e o ano de publicação vai "
-                    + "de 1450 até o ano atual.")
+                    + "como duplicado (RN01). A editora (até 255 caracteres) e o ano de publicação (de 1450 "
+                    + "até o ano atual) são obrigatórios (RF01).")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Livro cadastrado"),
             @ApiResponse(responseCode = "400", description = "Requisição inválida",
@@ -172,7 +172,9 @@ class BookController {
 
     @PatchMapping("/{id}")
     @Operation(summary = "Editar livro",
-            description = "Altera só os campos enviados; os omitidos mantêm o valor atual. O ISBN é imutável "
+            description = "Altera só os campos enviados; os omitidos mantêm o valor atual. A editora e o ano podem "
+                    + "ser trocados, mas não esvaziados (editora em branco é recusada); um livro anterior à "
+                    + "exigência, sem editora ou ano, continua editável e pode ser completado. O ISBN é imutável "
                     + "(RN01): se vier no corpo, é ignorado. Categoria e autores só precisam estar ativos "
                     + "quando são novos para o livro; os que ele já tinha continuam aceitos mesmo "
                     + "inativados depois. O conjunto de autores enviado substitui o atual.")

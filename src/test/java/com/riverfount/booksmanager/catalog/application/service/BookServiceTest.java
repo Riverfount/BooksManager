@@ -684,4 +684,39 @@ class BookServiceTest {
     void shouldFailWhenReactivatingABookThatDoesNotExist() {
         assertThatThrownBy(() -> service.reactivate(999L)).isInstanceOf(ResourceNotFoundException.class);
     }
+
+    // every book has a publisher and a publication year (RF01)
+
+    @Test
+    void shouldNotRegisterWithoutPublisherOrPublicationYear() {
+        assertThatThrownBy(() -> service.register(new RegisterBookCommand("9788533302273", "Dom Casmurro", null,
+                1899, categoryId, Set.of(authorId)))).isInstanceOf(BusinessRuleException.class);
+        assertThatThrownBy(() -> service.register(new RegisterBookCommand("9788533302273", "Dom Casmurro",
+                "Editora X", null, categoryId, Set.of(authorId)))).isInstanceOf(BusinessRuleException.class);
+    }
+
+    @Test
+    void shouldNotUpdateTheBookToABlankPublisher() {
+        var book = register("9788533302273", "Dom Casmurro", 1899);
+
+        assertThatThrownBy(() -> service.update(new UpdateBookCommand(book.getId(), null, " ", null, null, null)))
+                .isInstanceOf(BusinessRuleException.class);
+
+        assertThat(bookRepository.findById(book.getId()).orElseThrow().getPublisher()).isEqualTo("Editora X");
+    }
+
+    @Test
+    void aBookWithoutPublisherAndYearFromBeforeTheRuleShouldStayEditableAndBeCompletedByTheUpdate() {
+        var legacy = bookRepository.save(Book.reconstitute(null, new Isbn("9788533302273"), "Dom Casmurro", null,
+                null, categoryId, Set.of(authorId), true));
+
+        var renamed = service.update(new UpdateBookCommand(legacy.getId(), "Dom Casmurro (revisado)", null, null,
+                null, null));
+        assertThat(renamed.book().getPublisher()).isNull();
+        assertThat(renamed.book().getPublicationYear()).isNull();
+
+        var completed = service.update(new UpdateBookCommand(legacy.getId(), null, "Garnier", 1899, null, null));
+        assertThat(completed.book().getPublisher()).isEqualTo("Garnier");
+        assertThat(completed.book().getPublicationYear()).isEqualTo(1899);
+    }
 }

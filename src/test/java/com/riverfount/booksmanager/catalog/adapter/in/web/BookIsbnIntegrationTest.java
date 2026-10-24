@@ -104,9 +104,9 @@ class BookIsbnIntegrationTest {
 
     @Test
     void theIsbn13OfABookRegisteredWithTheIsbn10ShouldBeRefusedAsADuplicate() throws Exception {
-        register(ISBN10, null, null).andExpect(status().isCreated());
+        register(ISBN10, "Garnier", 1899).andExpect(status().isCreated());
 
-        register(ISBN13, null, null).andExpect(status().isUnprocessableEntity())
+        register(ISBN13, "Garnier", 1899).andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.detail").value(containsString(ISBN13)));
 
         assertThat(storedIsbns()).isEqualTo(ISBN13);
@@ -114,16 +114,16 @@ class BookIsbnIntegrationTest {
 
     @Test
     void theIsbn10OfABookRegisteredWithTheIsbn13ShouldBeRefusedAsADuplicate() throws Exception {
-        register(ISBN13, null, null).andExpect(status().isCreated());
+        register(ISBN13, "Garnier", 1899).andExpect(status().isCreated());
 
-        register(ISBN10, null, null).andExpect(status().isUnprocessableEntity());
+        register(ISBN10, "Garnier", 1899).andExpect(status().isUnprocessableEntity());
 
         assertThat(storedIsbns()).isEqualTo(ISBN13);
     }
 
     @Test
     void theLookupOfTheIsbn10ShouldReportTheBookRegisteredWithTheIsbn13() throws Exception {
-        register(ISBN13, null, null).andExpect(status().isCreated());
+        register(ISBN13, "Garnier", 1899).andExpect(status().isCreated());
 
         send(get("/api/v1/books/lookup").param("isbn", ISBN10)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.outcome").value("ALREADY_REGISTERED"))
@@ -132,28 +132,28 @@ class BookIsbnIntegrationTest {
 
     @Test
     void aPublisherOver255CharactersShouldBeA400AndRegisterNothing() throws Exception {
-        register(ISBN13, "e".repeat(256), null).andExpect(status().isBadRequest());
+        register(ISBN13, "e".repeat(256), 1899).andExpect(status().isBadRequest());
 
         assertThat(storedIsbns()).isEmpty();
     }
 
     @Test
     void aPublisherOf255CharactersShouldBeAccepted() throws Exception {
-        register(ISBN13, "e".repeat(255), null).andExpect(status().isCreated());
+        register(ISBN13, "e".repeat(255), 1899).andExpect(status().isCreated());
     }
 
     @Test
     void aPublicationYearBelow1450ShouldBeA400() throws Exception {
-        register(ISBN13, null, 1449).andExpect(status().isBadRequest());
-        register(ISBN13, null, 0).andExpect(status().isBadRequest());
-        register(ISBN13, null, -5).andExpect(status().isBadRequest());
+        register(ISBN13, "Garnier", 1449).andExpect(status().isBadRequest());
+        register(ISBN13, "Garnier", 0).andExpect(status().isBadRequest());
+        register(ISBN13, "Garnier", -5).andExpect(status().isBadRequest());
 
         assertThat(storedIsbns()).isEmpty();
     }
 
     @Test
     void aPublicationYearOf1450ShouldBeAccepted() throws Exception {
-        register(ISBN13, null, 1450).andExpect(status().isCreated());
+        register(ISBN13, "Garnier", 1450).andExpect(status().isCreated());
     }
 
     @Test
@@ -169,5 +169,44 @@ class BookIsbnIntegrationTest {
                 .isEqualTo("Garnier");
         assertThat(jdbcTemplate.queryForObject("select publication_year from book where id = ?", Integer.class, id))
                 .isEqualTo(1899);
+    }
+
+    @Test
+    void registeringWithoutPublisherOrYearShouldBeA400AndRegisterNothing() throws Exception {
+        register(ISBN13, null, 1899).andExpect(status().isBadRequest());
+        register(ISBN13, "   ", 1899).andExpect(status().isBadRequest());
+        register(ISBN13, "Garnier", null).andExpect(status().isBadRequest());
+
+        assertThat(storedIsbns()).isEmpty();
+    }
+
+    @Test
+    void updatingToABlankPublisherShouldBeA400AndChangeNothing() throws Exception {
+        register(ISBN13, "Garnier", 1899).andExpect(status().isCreated());
+        var id = jdbcTemplate.queryForObject("select id from book where isbn = ?", Long.class, ISBN13);
+
+        send(patch("/api/v1/books/" + id).content("{\"publisher\":\"   \"}")).andExpect(status().isBadRequest());
+        send(patch("/api/v1/books/" + id).content("{\"publisher\":\"\"}")).andExpect(status().isBadRequest());
+
+        assertThat(jdbcTemplate.queryForObject("select publisher from book where id = ?", String.class, id))
+                .isEqualTo("Garnier");
+    }
+
+    @Test
+    void aBookFromBeforeTheRuleWithoutPublisherAndYearShouldStayEditableAndBeCompleted() throws Exception {
+        var id = jdbcTemplate.queryForObject("""
+                insert into book (isbn, title, category_id) values (?, 'Book isbn test legacy', ?) returning id
+                """, Long.class, ISBN13, categoryId);
+        jdbcTemplate.update("insert into book_author (book_id, author_id) values (?, ?)", id, authorId);
+
+        send(patch("/api/v1/books/" + id).content("{\"title\":\"Book isbn test legacy 2\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.publisher").doesNotExist());
+        assertThat(jdbcTemplate.queryForObject("select publisher from book where id = ?", String.class, id)).isNull();
+
+        send(patch("/api/v1/books/" + id).content("{\"publisher\":\"Garnier\",\"publicationYear\":1899}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.publisher").value("Garnier"))
+                .andExpect(jsonPath("$.publicationYear").value(1899));
     }
 }

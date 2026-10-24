@@ -125,7 +125,7 @@ class BookLookupServiceTest {
 
     @Test
     void shouldReportAnIsbnAlreadyRegisteredWithoutAskingTheSource() {
-        var saved = books.save(Book.create(new Isbn(DOM_CASMURRO), "Dom Casmurro", null, null, 1L, Set.of(10L),
+        var saved = books.save(Book.create(new Isbn(DOM_CASMURRO), "Dom Casmurro", "Editora X", 1899, 1L, Set.of(10L),
                 Clock.fixed(Instant.parse("2026-10-10T00:00:00Z"), ZoneOffset.UTC)));
 
         var result = service.lookup(DOM_CASMURRO);
@@ -138,7 +138,7 @@ class BookLookupServiceTest {
 
     @Test
     void shouldReportAsRegisteredTheIsbn10OfABookRegisteredWithTheIsbn13() {
-        var saved = books.save(Book.create(new Isbn("9788533302273"), "Dom Casmurro", null, null, 1L, Set.of(10L),
+        var saved = books.save(Book.create(new Isbn("9788533302273"), "Dom Casmurro", "Editora X", 1899, 1L, Set.of(10L),
                 Clock.fixed(Instant.parse("2026-10-10T00:00:00Z"), ZoneOffset.UTC)));
 
         var result = service.lookup("85-333-0227-4");
@@ -151,7 +151,7 @@ class BookLookupServiceTest {
 
     @Test
     void anInactiveBookKeepsItsIsbnSoItIsAlsoReported() {
-        var book = Book.create(new Isbn(DOM_CASMURRO), "Dom Casmurro", null, null, 1L, Set.of(10L),
+        var book = Book.create(new Isbn(DOM_CASMURRO), "Dom Casmurro", "Editora X", 1899, 1L, Set.of(10L),
                 Clock.fixed(Instant.parse("2026-10-10T00:00:00Z"), ZoneOffset.UTC));
         book.deactivate();
         books.save(book);

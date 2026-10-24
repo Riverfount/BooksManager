@@ -46,11 +46,61 @@ class BookTest {
                 .isInstanceOf(NullPointerException.class);
     }
 
-    @Test
-    void shouldAcceptNullPublicationYear() {
-        var book = Book.create(ISBN, "Dom Casmurro", "Editora X", null, 1L, Set.of(10L), FIXED_CLOCK);
+    // every book has a publisher and a publication year (RF01); a book that predates the rule keeps working
 
-        assertThat(book.getPublicationYear()).isNull();
+    @Test
+    void shouldNotCreateABookWithoutPublicationYear() {
+        assertThatThrownBy(() -> Book.create(ISBN, "Dom Casmurro", "Editora X", null, 1L, Set.of(10L), FIXED_CLOCK))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("ano de publicação é obrigatório");
+    }
+
+    @Test
+    void shouldNotCreateABookWithoutPublisher() {
+        assertThatThrownBy(() -> Book.create(ISBN, "Dom Casmurro", null, 1899, 1L, Set.of(10L), FIXED_CLOCK))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("editora do livro é obrigatória");
+    }
+
+    @Test
+    void shouldNotCreateABookWithABlankPublisher() {
+        assertThatThrownBy(() -> Book.create(ISBN, "Dom Casmurro", "", 1899, 1L, Set.of(10L), FIXED_CLOCK))
+                .isInstanceOf(BusinessRuleException.class);
+        assertThatThrownBy(() -> Book.create(ISBN, "Dom Casmurro", "   ", 1899, 1L, Set.of(10L), FIXED_CLOCK))
+                .isInstanceOf(BusinessRuleException.class);
+    }
+
+    @Test
+    void shouldNotUpdateTheBookToABlankPublisher() {
+        var book = Book.create(ISBN, "Dom Casmurro", "Editora X", 1899, 1L, Set.of(10L), FIXED_CLOCK);
+
+        assertThatThrownBy(() -> book.updateDetails("Dom Casmurro", "", 1899, 1L, FIXED_CLOCK))
+                .isInstanceOf(BusinessRuleException.class).hasMessageContaining("editora");
+        assertThatThrownBy(() -> book.updateDetails("Dom Casmurro", "  ", 1899, 1L, FIXED_CLOCK))
+                .isInstanceOf(BusinessRuleException.class);
+
+        assertThat(book.getPublisher()).isEqualTo("Editora X");
+    }
+
+    @Test
+    void aBookThatPredatesTheRuleWithoutPublisherAndYearShouldStayEditableKeepingThem() {
+        var legacy = Book.reconstitute(1L, ISBN, "Dom Casmurro", null, null, 1L, Set.of(10L), true);
+
+        legacy.updateDetails("Dom Casmurro (revisado)", null, null, 1L, FIXED_CLOCK);
+
+        assertThat(legacy.getTitle()).isEqualTo("Dom Casmurro (revisado)");
+        assertThat(legacy.getPublisher()).isNull();
+        assertThat(legacy.getPublicationYear()).isNull();
+    }
+
+    @Test
+    void aBookThatPredatesTheRuleCanBeCompletedByTheUpdate() {
+        var legacy = Book.reconstitute(1L, ISBN, "Dom Casmurro", null, null, 1L, Set.of(10L), true);
+
+        legacy.updateDetails("Dom Casmurro", "Garnier", 1899, 1L, FIXED_CLOCK);
+
+        assertThat(legacy.getPublisher()).isEqualTo("Garnier");
+        assertThat(legacy.getPublicationYear()).isEqualTo(1899);
     }
 
     @Test

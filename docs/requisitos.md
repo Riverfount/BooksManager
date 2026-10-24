@@ -10,7 +10,7 @@ Prioridade pelo método MoSCoW: **M** (deve, essencial na v1.0), **S** (deveria,
 
 | ID | Requisito | Prioridade |
 | --- | --- | --- |
-| RF01 | Cadastrar, listar, consultar, editar, inativar e reativar livros (ISBN, título, editora, ano e categoria). O ISBN não pode ser alterado depois do cadastro. | M |
+| RF01 | Cadastrar, listar, consultar, editar, inativar e reativar livros (ISBN, título, editora, ano e categoria). O ISBN não pode ser alterado depois do cadastro. **Todo livro novo tem editora e ano de publicação** (obrigatórios no cadastro); a edição pode trocá-los, mas não esvaziá-los. Os livros cadastrados antes dessa exigência, sem editora ou sem ano, continuam válidos e podem ser completados. Decidido em 24/10/2026. | M |
 | RF02 | Cadastrar, listar, consultar, editar, inativar e reativar autores e associá-los aos livros (relação N:N). Um nome que outro autor ativo já tem exige a confirmação do homônimo (RN19). | M |
 | RF03 | Cadastrar, listar, consultar, editar, inativar e reativar categorias. | M |
 | RF04 | Cadastrar, listar, consultar, inativar e reativar exemplares de um livro, com código de patrimônio único e status, e alterar o status (disponível, emprestado, reservado, danificado, extraviado). | M |

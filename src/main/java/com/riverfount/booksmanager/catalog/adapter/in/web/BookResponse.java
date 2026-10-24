@@ -15,9 +15,9 @@ record BookResponse(
         String isbn,
         @Schema(requiredMode = REQUIRED, description = "Título do livro", example = "Dom Casmurro")
         String title,
-        @Schema(description = "Editora", example = "Garnier")
+        @Schema(description = "Editora (só vem vazia em livro cadastrado antes de ela ser obrigatória)", example = "Garnier")
         String publisher,
-        @Schema(description = "Ano de publicação", example = "1899")
+        @Schema(description = "Ano de publicação (só vem vazio em livro cadastrado antes de ele ser obrigatório)", example = "1899")
         Integer publicationYear,
         @Schema(requiredMode = REQUIRED, description = "Id da categoria", example = "1")
         Long categoryId,
