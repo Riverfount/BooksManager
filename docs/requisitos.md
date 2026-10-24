@@ -106,7 +106,7 @@ Mesma escala de prioridade dos requisitos funcionais.
 | RNF01 | Seguir a arquitetura hexagonal: o domínio é Java puro, sem dependência de Spring, JPA ou qualquer framework, e isso é verificado por testes do ArchUnit no build. | M |
 | RNF02 | Organizar o sistema como monólito modular, com fronteiras claras entre os módulos e comunicação apenas por portas públicas. | M |
 | RNF03 | Versionar o esquema do banco com migrações do Flyway, sem alterações manuais no banco. | M |
-| RNF04 | Padronizar os erros da API com ProblemDetail (RFC 9457) e exibir mensagens claras ao usuário na interface. | M |
+| RNF04 | Padronizar os erros da API com ProblemDetail (RFC 9457) e exibir mensagens claras ao usuário na interface. O 400 de uma requisição inválida (campo ausente, fora do limite, de tipo errado ou ilegível) traz em português **quais campos falharam e por quê**, numa lista `errors` de `{field, message}` (`field` com o caminho completo, como `guardian.email` ou `ids[1]`), para a interface marcar cada campo; o status continua 400, e o 422 segue sendo das regras de negócio. Decidido em 24/10/2026. | M |
 | RNF05 | Manter cobertura de testes de pelo menos 80% no domínio e na camada de aplicação. | S |
 | RNF06 | Executar build e testes automaticamente a cada push, com um pipeline de integração contínua (GitHub Actions). | M |
 

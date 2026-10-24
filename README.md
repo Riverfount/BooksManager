@@ -186,7 +186,7 @@ O que vale saber:
 - Um exemplar com empréstimo ativo não pode ser inativado (`DELETE /api/v1/copies/{id}` devolve 422 até a devolução).
 - Dois pedidos simultâneos sobre o mesmo registro deixam só um: o outro recebe 409 (tente novamente) ou 422.
 
-Os erros seguem o formato ProblemDetail (400, 404, 409 e 422). Os detalhes do contrato estão em [`docs/projeto.md`](docs/projeto.md), seção "Interface e API", e cada endpoint está descrito no Swagger.
+Os erros seguem o formato ProblemDetail (400, 404, 409 e 422). O **400** de uma requisição inválida (campo ausente, fora do limite, de tipo errado, data malformada, JSON quebrado ou parâmetro de tipo errado) traz `detail: "A requisição tem campos inválidos."` e a lista `errors`, de `{field, message}` com o caminho completo do campo (`guardian.email`, `authorIds[0]`) e a mensagem em português, em ordem de campo; um JSON que não dá para ler, sem campo identificável, devolve só o `detail` ("O corpo da requisição não é um JSON válido." ou "... é obrigatório."). O 422 é só das regras de negócio. Os detalhes do contrato estão em [`docs/projeto.md`](docs/projeto.md), seção "Interface e API", e cada endpoint está descrito no Swagger.
 
 ### Testes
 - `make test` (ou `./mvnw test`) roda todos os testes; `make verify` (ou `./mvnw verify`) faz o build completo, inclusive com os testes de arquitetura.

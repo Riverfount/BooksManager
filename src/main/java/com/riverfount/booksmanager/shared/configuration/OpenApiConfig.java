@@ -4,9 +4,12 @@ import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
+import io.swagger.v3.oas.models.media.ArraySchema;
 import io.swagger.v3.oas.models.media.Content;
 import io.swagger.v3.oas.models.media.MediaType;
+import io.swagger.v3.oas.models.media.ObjectSchema;
 import io.swagger.v3.oas.models.media.Schema;
+import io.swagger.v3.oas.models.media.StringSchema;
 import io.swagger.v3.oas.models.responses.ApiResponse;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
@@ -68,6 +71,35 @@ public class OpenApiConfig {
             addIfAbsent(operation, "401", "Não autenticado: token ausente, expirado ou inválido");
             addIfAbsent(operation, "403", "Sem permissão: o perfil do token não pode chamar esta rota");
         }));
+    }
+
+    /**
+     * Describes the {@code errors} property that the 400 of an invalid request adds to the ProblemDetail (RNF04): the
+     * list of the fields that failed, each with its path and a message in Portuguese. The property is added by the
+     * exception handler at run time, so springdoc, which reads the class, does not know it.
+     */
+    @Bean
+    OpenApiCustomizer invalidFieldsCustomizer() {
+        return openApi -> {
+            if (openApi.getComponents() == null || openApi.getComponents().getSchemas() == null) {
+                return;
+            }
+            var problem = openApi.getComponents().getSchemas().get("ProblemDetail");
+            if (problem == null) {
+                return;
+            }
+            var item = new ObjectSchema()
+                    .description("Um campo inválido da requisição")
+                    .addProperty("field", new StringSchema()
+                            .description("Caminho do campo na requisição, como o cliente o enviou; ausente quando o "
+                                    + "erro é sobre o objeto inteiro")
+                            .example("guardian.email"))
+                    .addProperty("message", new StringSchema()
+                            .description("O que está errado, em português").example("o e-mail é obrigatório"))
+                    .addRequiredItem("message");
+            problem.addProperty("errors", new ArraySchema().items(item)
+                    .description("Só nos 400 de requisição inválida: os campos que falharam, em ordem de campo"));
+        };
     }
 
     private static void addIfAbsent(Operation operation, String status, String description) {
