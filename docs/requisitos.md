@@ -71,7 +71,7 @@ As regras ficam na camada de domínio, ou em políticas parametrizáveis, e nunc
 
 | ID | Regra |
 | --- | --- |
-| RN01 | O ISBN deve ser único por livro e válido (dígito verificador de ISBN-10 ou ISBN-13). |
+| RN01 | O ISBN deve ser único por livro e válido (dígito verificador de ISBN-10 ou ISBN-13). O ISBN-10 e o ISBN-13 do mesmo livro são o mesmo ISBN: o sistema aceita os dois na entrada e guarda sempre o ISBN-13 (prefixo 978 e novo dígito verificador), de modo que cadastrar um livro pelo ISBN-10 e de novo pelo ISBN-13 é recusado como duplicado. Decidido em 24/10/2026. |
 | RN02 | O código de patrimônio deve ser único por exemplar. |
 | RN03 | Só é permitido emprestar exemplares com status DISPONÍVEL. Exceção: o exemplar RESERVADO pode ser retirado pelo leitor dono da reserva, dentro do prazo de retirada (inclusive o último dia); para qualquer outro leitor o empréstimo é recusado ("exemplar reservado para outro leitor"). |
 | RN04 | Um leitor pode ter no máximo 3 empréstimos ativos ao mesmo tempo (valor configurável). |

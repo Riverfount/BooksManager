@@ -133,6 +133,64 @@ class BookControllerTest {
 
     @Test
     @WithOperator
+    void shouldReturn400ForPublisherLongerThan255() throws Exception {
+        var publisher = "e".repeat(256);
+
+        mockMvc.perform(post("/api/v1/books")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"isbn\":\"9788533302273\",\"title\":\"Dom Casmurro\",\"publisher\":\"" + publisher
+                                + "\",\"categoryId\":1,\"authorIds\":[10]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+
+        then(registerBookUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @WithOperator
+    void shouldReturn400ForPublicationYearBelow1450() throws Exception {
+        mockMvc.perform(post("/api/v1/books")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"isbn":"9788533302273","title":"Dom Casmurro","publicationYear":1449,
+                                 "categoryId":1,"authorIds":[10]}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+
+        then(registerBookUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @WithOperator
+    void shouldReturn400WhenUpdatingWithPublisherLongerThan255() throws Exception {
+        mockMvc.perform(patch("/api/v1/books/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"publisher\":\"" + "e".repeat(256) + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+
+        then(updateBookUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @WithOperator
+    void shouldReturn400WhenUpdatingWithPublicationYearBelow1450() throws Exception {
+        mockMvc.perform(patch("/api/v1/books/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"publicationYear\":0}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
+
+        then(updateBookUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @WithOperator
     void shouldReturn400ForEmptyAuthorIds() throws Exception {
         mockMvc.perform(post("/api/v1/books")
                         .with(csrf())

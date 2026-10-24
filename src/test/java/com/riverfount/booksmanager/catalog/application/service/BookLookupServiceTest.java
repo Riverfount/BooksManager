@@ -137,6 +137,19 @@ class BookLookupServiceTest {
     }
 
     @Test
+    void shouldReportAsRegisteredTheIsbn10OfABookRegisteredWithTheIsbn13() {
+        var saved = books.save(Book.create(new Isbn("9788533302273"), "Dom Casmurro", null, null, 1L, Set.of(10L),
+                Clock.fixed(Instant.parse("2026-10-10T00:00:00Z"), ZoneOffset.UTC)));
+
+        var result = service.lookup("85-333-0227-4");
+
+        assertThat(result.outcome()).isEqualTo(Outcome.ALREADY_REGISTERED);
+        assertThat(result.registeredBookId()).isEqualTo(saved.getId());
+        assertThat(result.isbn()).isEqualTo("9788533302273");
+        then(bookLookup).should(never()).findByIsbn(any());
+    }
+
+    @Test
     void anInactiveBookKeepsItsIsbnSoItIsAlsoReported() {
         var book = Book.create(new Isbn(DOM_CASMURRO), "Dom Casmurro", null, null, 1L, Set.of(10L),
                 Clock.fixed(Instant.parse("2026-10-10T00:00:00Z"), ZoneOffset.UTC));

@@ -16,6 +16,9 @@ import java.util.Set;
 public class Book {
 
     public static final int MAX_TITLE_LENGTH = 255;
+    public static final int MAX_PUBLISHER_LENGTH = 255;
+    /** The oldest year accepted: the press of movable type (Gutenberg), the start of the printed book. */
+    public static final int MIN_PUBLICATION_YEAR = 1450;
 
     private final Long id;
     private Isbn isbn;
@@ -44,6 +47,7 @@ public class Book {
         validateTitle(title);
         validateCategory(categoryId);
         validateAuthors(authorIds);
+        validatePublisher(publisher);
         validatePublicationYear(publicationYear, clock);
         return new Book(null, isbn, title, publisher, publicationYear, categoryId, authorIds, true);
     }
@@ -69,6 +73,7 @@ public class Book {
             Clock clock) {
         validateTitle(title);
         validateCategory(categoryId);
+        validatePublisher(publisher);
         validatePublicationYear(publicationYear, clock);
         this.title = title;
         this.publisher = publisher;
@@ -141,8 +146,22 @@ public class Book {
         }
     }
 
+    private static void validatePublisher(String publisher) {
+        if (publisher != null && publisher.length() > MAX_PUBLISHER_LENGTH) {
+            throw new BusinessRuleException(
+                    "a editora do livro deve ter até " + MAX_PUBLISHER_LENGTH + " caracteres");
+        }
+    }
+
     private static void validatePublicationYear(Integer publicationYear, Clock clock) {
-        if (publicationYear != null && publicationYear > Year.now(clock).getValue()) {
+        if (publicationYear == null) {
+            return;
+        }
+        if (publicationYear < MIN_PUBLICATION_YEAR) {
+            throw new BusinessRuleException(
+                    "o ano de publicação não pode ser anterior a " + MIN_PUBLICATION_YEAR);
+        }
+        if (publicationYear > Year.now(clock).getValue()) {
             throw new BusinessRuleException("o ano de publicação não pode ser futuro");
         }
     }

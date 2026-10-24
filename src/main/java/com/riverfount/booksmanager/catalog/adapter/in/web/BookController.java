@@ -63,7 +63,10 @@ class BookController {
     @PostMapping
     @Operation(summary = "Cadastrar livro",
             description = "Cadastra um novo livro. A categoria e os autores informados precisam existir e "
-                    + "estar ativos.")
+                    + "estar ativos. O ISBN-10 é guardado como o ISBN-13 do mesmo livro (a resposta traz o "
+                    + "ISBN-13), então cadastrar um livro pelo ISBN-10 e outra vez pelo ISBN-13 é recusado "
+                    + "como duplicado (RN01). A editora aceita até 255 caracteres e o ano de publicação vai "
+                    + "de 1450 até o ano atual.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Livro cadastrado"),
             @ApiResponse(responseCode = "400", description = "Requisição inválida",
@@ -89,7 +92,8 @@ class BookController {
     @Operation(summary = "Listar e pesquisar livros",
             description = "Lista os livros de forma paginada (máximo de 100 por página). Por padrão, só os "
                     + "ativos e em ordem de título. Os filtros `title`, `author` e `isbn` casam por trecho, "
-                    + "sem diferenciar maiúsculas (no ISBN, hífens e espaços são ignorados), a `categoryId` "
+                    + "sem diferenciar maiúsculas (no ISBN, hífens e espaços são ignorados, e o ISBN é o "
+                    + "ISBN-13 guardado), a `categoryId` "
                     + "casa pelo id, e os filtros informados valem em conjunto (RF05). Cada livro traz "
                     + "`availableCopies`, a quantidade de exemplares ativos e disponíveis. Tamanho de página "
                     + "acima de 100 é rejeitado com 400.")
@@ -105,7 +109,7 @@ class BookController {
             @RequestParam(required = false) String title,
             @Parameter(description = "Trecho do nome de um dos autores", example = "machado")
             @RequestParam(required = false) String author,
-            @Parameter(description = "Trecho do ISBN, com ou sem hífens", example = "978-85-3330")
+            @Parameter(description = "Trecho do ISBN-13 guardado, com ou sem hífens", example = "978-85-3330")
             @RequestParam(required = false) String isbn,
             @Parameter(description = "Id da categoria", example = "1")
             @RequestParam(required = false) Long categoryId,
@@ -128,8 +132,9 @@ class BookController {
                     + "sugestão para pré-preencher o cadastro (RF06); não grava nada, quem cadastra o livro é o "
                     + "`POST /api/v1/books`. Cada autor sugerido traz `existingAuthorId` quando o acervo já tem "
                     + "um autor ativo com esse nome (sem diferenciar maiúsculas), para não duplicar o cadastro. "
-                    + "Se já existe um livro com o ISBN, responde `ALREADY_REGISTERED` com o `registeredBookId` e "
-                    + "não consulta a fonte. Fonte desligada, lenta, fora do ar ou sem o ISBN responde 200 com "
+                    + "Se já existe um livro com o ISBN (o ISBN-10 e o ISBN-13 do mesmo livro são o mesmo "
+                    + "ISBN), responde `ALREADY_REGISTERED` com o `registeredBookId` e não consulta a fonte. "
+                    + "O `isbn` da resposta é sempre o ISBN-13. Fonte desligada, lenta, fora do ar ou sem o ISBN responde 200 com "
                     + "`NOT_FOUND` e uma mensagem: o cadastro manual segue funcionando (RNF19).")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Sugestão, ISBN já cadastrado ou nada encontrado"),

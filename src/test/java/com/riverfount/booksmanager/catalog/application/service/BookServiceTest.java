@@ -118,6 +118,34 @@ class BookServiceTest {
     }
 
     @Test
+    void shouldNotRegisterTheIsbn10OfABookRegisteredWithTheIsbn13() {
+        service.register(new RegisterBookCommand("9788533302273", "Dom Casmurro", "Editora X", 1899, categoryId,
+                Set.of(authorId)));
+
+        assertThatThrownBy(() -> service.register(new RegisterBookCommand("85-333-0227-4", "Outro Livro",
+                "Editora Y", 1900, categoryId, Set.of(authorId))))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("9788533302273");
+    }
+
+    @Test
+    void shouldNotRegisterTheIsbn13OfABookRegisteredWithTheIsbn10() {
+        service.register(new RegisterBookCommand("8533302274", "Dom Casmurro", "Editora X", 1899, categoryId,
+                Set.of(authorId)));
+
+        assertThatThrownBy(() -> service.register(new RegisterBookCommand("978-85-333-0227-3", "Outro Livro",
+                "Editora Y", 1900, categoryId, Set.of(authorId))))
+                .isInstanceOf(BusinessRuleException.class);
+    }
+
+    @Test
+    void shouldKeepTheIsbn13OfABookRegisteredWithTheIsbn10() {
+        var book = register("8533302274", "Dom Casmurro", 1899);
+
+        assertThat(book.getIsbn().value()).isEqualTo("9788533302273");
+    }
+
+    @Test
     void shouldNotRegisterWithFuturePublicationYear() {
         assertThatThrownBy(() -> service.register(new RegisterBookCommand("9788533302273", "Dom Casmurro",
                 "Editora X", 2027, categoryId, Set.of(authorId))))
