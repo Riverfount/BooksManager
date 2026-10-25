@@ -13,6 +13,16 @@ interface AuthorJpaRepository extends JpaRepository<AuthorJpaEntity, Long> {
 
     Page<AuthorJpaEntity> findByActive(boolean active, Pageable pageable);
 
-    // Spring Data escapes LIKE wildcards (% and _) in the "containing" value
-    Page<AuthorJpaEntity> findByActiveAndNameContainingIgnoreCase(boolean active, String name, Pageable pageable);
+    /**
+     * Listing by name (RF05), without accents (the unaccent extension, on both sides). The pattern comes already
+     * lowercased and wrapped (see {@link LikePatterns}), with '!' as the escape character so '%' and '_' stay literal.
+     */
+    @org.springframework.data.jpa.repository.Query("""
+            select a from AuthorJpaEntity a
+            where a.active = :active
+              and cast(function('unaccent', lower(a.name)) as string) like cast(function('unaccent', cast(:name as string)) as string) escape '!'
+            """)
+    Page<AuthorJpaEntity> searchByName(
+            @org.springframework.data.repository.query.Param("name") String name,
+            @org.springframework.data.repository.query.Param("active") boolean active, Pageable pageable);
 }

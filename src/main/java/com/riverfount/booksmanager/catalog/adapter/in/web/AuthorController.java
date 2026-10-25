@@ -102,7 +102,7 @@ class AuthorController {
                             schema = @Schema(implementation = ProblemDetail.class)))
     })
     PageResponse<AuthorResponse> list(
-            @Parameter(description = "Trecho do nome, sem diferenciar maiúsculas", example = "assis")
+            @Parameter(description = "Trecho do nome, sem diferenciar maiúsculas nem acentos", example = "assis")
             @RequestParam(required = false) String name,
             @Parameter(description = "Listar ativos (true) ou inativos (false)")
             @RequestParam(defaultValue = "true") boolean active,

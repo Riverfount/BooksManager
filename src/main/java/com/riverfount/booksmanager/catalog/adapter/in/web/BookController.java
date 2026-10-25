@@ -96,7 +96,8 @@ class BookController {
     @Operation(summary = "Listar e pesquisar livros",
             description = "Lista os livros de forma paginada (máximo de 100 por página). Por padrão, só os "
                     + "ativos e em ordem de título. Os filtros `title`, `author` e `isbn` casam por trecho, "
-                    + "sem diferenciar maiúsculas (no ISBN, hífens e espaços são ignorados, e o ISBN é o "
+                    + "sem diferenciar maiúsculas (o título e o autor também ignoram acentos: `jose` acha "
+                    + "`José`; no ISBN, hífens e espaços são ignorados, e o ISBN é o "
                     + "ISBN-13 guardado), a `categoryId` "
                     + "casa pelo id, e os filtros informados valem em conjunto (RF05). Cada livro traz "
                     + "`availableCopies`, a quantidade de exemplares ativos e disponíveis. Tamanho de página "
@@ -109,9 +110,9 @@ class BookController {
                             schema = @Schema(implementation = ProblemDetail.class)))
     })
     PageResponse<BookResponse> list(
-            @Parameter(description = "Trecho do título", example = "casmurro")
+            @Parameter(description = "Trecho do título, sem diferenciar maiúsculas nem acentos", example = "casmurro")
             @RequestParam(required = false) String title,
-            @Parameter(description = "Trecho do nome de um dos autores", example = "machado")
+            @Parameter(description = "Trecho do nome de um dos autores, sem diferenciar maiúsculas nem acentos", example = "machado")
             @RequestParam(required = false) String author,
             @Parameter(description = "Trecho do ISBN-13 guardado, com ou sem hífens", example = "978-85-3330")
             @RequestParam(required = false) String isbn,

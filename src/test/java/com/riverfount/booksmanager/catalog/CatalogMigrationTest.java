@@ -28,6 +28,15 @@ class CatalogMigrationTest {
     }
 
     @Test
+    void shouldHaveTheUnaccentExtensionForTheSearchWithoutAccents() {
+        // V15__enable_unaccent.sql (RF05)
+        assertThat(jdbcTemplate.queryForObject("select count(*) from pg_extension where extname = 'unaccent'",
+                Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("select unaccent('José García Márquez, canção')", String.class))
+                .isEqualTo("Jose Garcia Marquez, cancao");
+    }
+
+    @Test
     void shouldHaveTheMigrationRegisteredSuccessfully() {
         var success = jdbcTemplate.queryForObject(
                 "select success from flyway_schema_history where script = 'V1__create_catalog.sql'",
