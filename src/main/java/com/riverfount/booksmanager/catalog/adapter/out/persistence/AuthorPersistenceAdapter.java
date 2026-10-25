@@ -21,9 +21,10 @@ class AuthorPersistenceAdapter implements AuthorRepository {
 
     @Override
     public Author save(Author author) {
-        var entity = new AuthorJpaEntity(author.getId(), author.getName(), author.isActive());
-        var saved = jpaRepository.save(entity);
-        return toDomain(saved);
+        var entity = author.getId() == null ? new AuthorJpaEntity(null, author.getName(), author.isActive())
+                : update(author);
+        // saveAndFlush, not save: the optimistic lock (RNF17) fails here, synchronously
+        return toDomain(jpaRepository.saveAndFlush(entity));
     }
 
     @Override
@@ -53,6 +54,14 @@ class AuthorPersistenceAdapter implements AuthorRepository {
                 ? jpaRepository.findByActive(active, pageable)
                 : jpaRepository.findByActiveAndNameContainingIgnoreCase(active, nameContains, pageable);
         return SpringDataPages.toPageResult(result, this::toDomain);
+    }
+
+    /** Changes the entity that the use case loaded in this transaction, so its version is the one that is checked. */
+    private AuthorJpaEntity update(Author author) {
+        var entity = jpaRepository.findById(author.getId()).orElseThrow(
+                () -> new IllegalStateException("the author " + author.getId() + " does not exist"));
+        entity.update(author.getName(), author.isActive());
+        return entity;
     }
 
     private Author toDomain(AuthorJpaEntity entity) {

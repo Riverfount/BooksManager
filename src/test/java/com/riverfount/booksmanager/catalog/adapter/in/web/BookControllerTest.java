@@ -786,4 +786,21 @@ class BookControllerTest {
 
         then(updateBookUseCase).shouldHaveNoInteractions();
     }
+
+    // two requests changing the same book at the same time (RNF17)
+
+    @Test
+    @WithOperator
+    void aConcurrentUpdateOfTheSameBookShouldBeA409() throws Exception {
+        given(updateBookUseCase.update(any()))
+                .willThrow(new org.springframework.dao.OptimisticLockingFailureException("conflict"));
+
+        mockMvc.perform(patch("/api/v1/books/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Outro título\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")))
+                .andExpect(jsonPath("$.detail").value(containsString("tente novamente")));
+    }
 }

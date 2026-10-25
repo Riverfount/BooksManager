@@ -28,11 +28,10 @@ class BookPersistenceAdapter implements BookRepository {
 
     @Override
     public Book save(Book book) {
-        var entity = new BookJpaEntity(book.getId(), book.getIsbn().value(), book.getTitle(),
-                book.getPublisher(), book.getPublicationYear(), book.getCategoryId(), book.getAuthorIds(),
-                book.isActive());
+        var entity = book.getId() == null ? create(book) : update(book);
         try {
-            var saved = jpaRepository.save(entity);
+            // saveAndFlush, not save: the optimistic lock (RNF17) and the unique ISBN fail here, synchronously
+            var saved = jpaRepository.saveAndFlush(entity);
             return toDomain(saved);
         } catch (DataIntegrityViolationException e) {
             // defense against the race between the future service's
@@ -47,6 +46,20 @@ class BookPersistenceAdapter implements BookRepository {
             }
             throw e;
         }
+    }
+
+    private static BookJpaEntity create(Book book) {
+        return new BookJpaEntity(null, book.getIsbn().value(), book.getTitle(), book.getPublisher(),
+                book.getPublicationYear(), book.getCategoryId(), book.getAuthorIds(), book.isActive());
+    }
+
+    /** Changes the entity that the use case loaded in this transaction, so its version is the one that is checked. */
+    private BookJpaEntity update(Book book) {
+        var entity = jpaRepository.findById(book.getId()).orElseThrow(
+                () -> new IllegalStateException("the book " + book.getId() + " does not exist"));
+        entity.update(book.getTitle(), book.getPublisher(), book.getPublicationYear(), book.getCategoryId(),
+                book.getAuthorIds(), book.isActive());
+        return entity;
     }
 
     @Override

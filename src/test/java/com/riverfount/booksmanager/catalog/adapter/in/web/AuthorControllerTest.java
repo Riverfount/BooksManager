@@ -576,4 +576,21 @@ class AuthorControllerTest {
 
         then(reactivateAuthorUseCase).shouldHaveNoInteractions();
     }
+
+    // two requests changing the same author at the same time (RNF17)
+
+    @Test
+    @WithOperator
+    void aConcurrentUpdateOfTheSameAuthorShouldBeA409() throws Exception {
+        given(updateAuthorUseCase.update(any()))
+                .willThrow(new org.springframework.dao.OptimisticLockingFailureException("conflict"));
+
+        mockMvc.perform(patch("/api/v1/authors/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Outro nome\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")))
+                .andExpect(jsonPath("$.detail").value(containsString("tente novamente")));
+    }
 }

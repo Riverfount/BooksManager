@@ -49,6 +49,16 @@ class OpenApiRequiredFieldsTest {
     }
 
     @Test
+    void theWriteRoutesOfTheBookAndOfTheAuthorShouldDocumentTheConflict() throws Exception {
+        for (var path : new String[] {"/api/v1/books/{id}", "/api/v1/authors/{id}"}) {
+            apiDocs.andExpect(jsonPath("$.paths['" + path + "'].patch.responses['409']").exists())
+                    .andExpect(jsonPath("$.paths['" + path + "'].delete.responses['409']").exists());
+        }
+        apiDocs.andExpect(jsonPath("$.paths['/api/v1/books/{id}/reactivate'].post.responses['409']").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/authors/{id}/reactivate'].post.responses['409']").exists());
+    }
+
+    @Test
     void theAuthorReactivationBodyShouldBeOptional() throws Exception {
         // the body is described, and it is not listed as required (springdoc leaves out "required: false")
         apiDocs.andExpect(jsonPath("$.paths['/api/v1/authors/{id}/reactivate'].post.requestBody").exists())
