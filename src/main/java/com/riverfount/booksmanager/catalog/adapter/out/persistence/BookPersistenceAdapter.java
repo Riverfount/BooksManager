@@ -93,26 +93,13 @@ class BookPersistenceAdapter implements BookRepository {
 
     @Override
     public PageResult<Book> findAll(BookFilter filter, boolean active, PageQuery page) {
-        var result = jpaRepository.search(likePattern(filter.title()), likePattern(filter.author()),
-                likePatternKeepingCase(filter.isbn()), filter.categoryId(), active,
+        var result = jpaRepository.search(LikePatterns.contains(filter.title()), LikePatterns.contains(filter.author()),
+                LikePatterns.containsKeepingCase(filter.isbn()), filter.categoryId(), active,
                 SpringDataPages.toPageable(page));
         return SpringDataPages.toPageResult(result, this::toDomain);
     }
 
     /** "Contains" pattern, lowercased to match the lower() in the query; null stays null. */
-    private static String likePattern(String term) {
-        return term == null ? null : likePatternKeepingCase(term.toLowerCase(Locale.ROOT));
-    }
-
-    /** "Contains" pattern with the LIKE wildcards escaped ('!' is the escape character); null stays null. */
-    private static String likePatternKeepingCase(String term) {
-        if (term == null) {
-            return null;
-        }
-        var escaped = term.replace("!", "!!").replace("%", "!%").replace("_", "!_");
-        return "%" + escaped + "%";
-    }
-
     private Book toDomain(BookJpaEntity entity) {
         return Book.reconstitute(entity.getId(), new Isbn(entity.getIsbn()), entity.getTitle(),
                 entity.getPublisher(), entity.getPublicationYear(), entity.getCategoryId(),

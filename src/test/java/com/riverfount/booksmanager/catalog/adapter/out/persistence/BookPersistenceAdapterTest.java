@@ -456,4 +456,74 @@ class BookPersistenceAdapterTest {
     void shouldFindNoTitlesForNoIds() {
         assertThat(adapter.findTitlesByIds(Set.of())).isEmpty();
     }
+
+    // the search ignores accents (RF05): "jose" finds "José" and "José" finds "Jose"
+
+    private java.util.List<String> titlesFoundByTitle(String term) {
+        return adapter.findAll(new BookFilter(term, null, null, null), true, byTitle()).items().stream()
+                .map(Book::getTitle).toList();
+    }
+
+    private java.util.List<String> titlesFoundByAuthor(String term) {
+        return adapter.findAll(new BookFilter(null, term, null, null), true, byTitle()).items().stream()
+                .map(Book::getTitle).toList();
+    }
+
+    @Test
+    void shouldFindATitleWithAccentsWithoutTypingThem() {
+        saveBook("9788533302273", "A Árvore de José", categoryId, Set.of(authorId1));
+        saveBook("9780804429573", "Canção do exílio", categoryId, Set.of(authorId1));
+
+        assertThat(titlesFoundByTitle("arvore")).containsExactly("A Árvore de José");
+        assertThat(titlesFoundByTitle("jose")).containsExactly("A Árvore de José");
+        assertThat(titlesFoundByTitle("cancao")).containsExactly("Canção do exílio");
+        assertThat(titlesFoundByTitle("exilio")).containsExactly("Canção do exílio");
+    }
+
+    @Test
+    void shouldFindATitleWithoutAccentsTypingThem() {
+        saveBook("9788533302273", "Jose e a arvore", categoryId, Set.of(authorId1));
+
+        assertThat(titlesFoundByTitle("José")).containsExactly("Jose e a arvore");
+        assertThat(titlesFoundByTitle("ÁRVORE")).containsExactly("Jose e a arvore");
+        assertThat(titlesFoundByTitle("CANÇÃO")).isEmpty();
+    }
+
+    @Test
+    void shouldStillTellDifferentLettersApart() {
+        saveBook("9788533302273", "A Árvore de José", categoryId, Set.of(authorId1));
+
+        assertThat(titlesFoundByTitle("joze")).isEmpty();
+        assertThat(titlesFoundByTitle("arvores")).isEmpty();
+    }
+
+    @Test
+    void shouldFindByAnAuthorNameIgnoringAccents() {
+        var marquez = newAuthor("Gabriel García Márquez");
+        saveBook("9788533302273", "Cem anos de solidão", categoryId, Set.of(marquez));
+        saveBook("9780804429573", "Outro livro", categoryId, Set.of(authorId1));
+
+        assertThat(titlesFoundByAuthor("garcia marquez")).containsExactly("Cem anos de solidão");
+        assertThat(titlesFoundByAuthor("GARCÍA")).containsExactly("Cem anos de solidão");
+        assertThat(titlesFoundByAuthor("marquéz")).containsExactly("Cem anos de solidão");
+    }
+
+    @Test
+    void thePercentAndTheUnderscoreShouldStayLiteralWhenIgnoringAccents() {
+        saveBook("9788533302273", "100% Café", categoryId, Set.of(authorId1));
+        saveBook("9780804429573", "1000 Cafés", categoryId, Set.of(authorId1));
+
+        assertThat(titlesFoundByTitle("100% cafe")).containsExactly("100% Café");
+        assertThat(titlesFoundByTitle("cafe_")).isEmpty();
+    }
+
+    @Test
+    void searchingByTitleAndAuthorTogetherShouldIgnoreAccentsInBoth() {
+        var marquez = newAuthor("Gabriel García Márquez");
+        saveBook("9788533302273", "Cem anos de solidão", categoryId, Set.of(marquez));
+
+        var result = adapter.findAll(new BookFilter("solidao", "garcia", null, null), true, byTitle());
+
+        assertThat(result.items()).extracting(Book::getTitle).containsExactly("Cem anos de solidão");
+    }
 }

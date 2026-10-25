@@ -171,4 +171,50 @@ class AuthorPersistenceAdapterTest {
     void shouldFindNoAuthorsForNoNames() {
         assertThat(adapter.findActiveByNames(Set.of())).isEmpty();
     }
+
+    // the search by name ignores accents (RF05)
+
+    @Test
+    void shouldFilterByNameIgnoringAccentsInEitherDirection() {
+        adapter.save(Author.create("Gabriel García Márquez"));
+        adapter.save(Author.create("Jose Saramago"));
+        adapter.save(Author.create("Clarice Lispector"));
+
+        assertThat(adapter.findAll("garcia marquez", true, PageQuery.of(0, 20, "name")).items())
+                .extracting(Author::getName).containsExactly("Gabriel García Márquez");
+        assertThat(adapter.findAll("GARCÍA", true, PageQuery.of(0, 20, "name")).items())
+                .extracting(Author::getName).containsExactly("Gabriel García Márquez");
+        assertThat(adapter.findAll("josé", true, PageQuery.of(0, 20, "name")).items())
+                .extracting(Author::getName).containsExactly("Jose Saramago");
+        assertThat(adapter.findAll("joze", true, PageQuery.of(0, 20, "name")).items()).isEmpty();
+    }
+
+    @Test
+    void theWildcardsOfTheNameShouldStayLiteral() {
+        adapter.save(Author.create("Ana 100%"));
+        adapter.save(Author.create("Ana 1000"));
+
+        assertThat(adapter.findAll("100%", true, PageQuery.of(0, 20, "name")).items())
+                .extracting(Author::getName).containsExactly("Ana 100%");
+        assertThat(adapter.findAll("ana_", true, PageQuery.of(0, 20, "name")).items()).isEmpty();
+    }
+
+    @Test
+    void theFilterByNameShouldKeepPaginatingAndRespectTheActiveFlag() {
+        for (var i = 1; i <= 5; i++) {
+            adapter.save(Author.create("Joaquim José " + i));
+        }
+        var inactive = Author.create("Joaquim José 6");
+        inactive.deactivate();
+        adapter.save(inactive);
+
+        var firstPage = adapter.findAll("jose", true, PageQuery.of(0, 2, "name"));
+        var lastPage = adapter.findAll("jose", true, PageQuery.of(2, 2, "name"));
+
+        assertThat(firstPage.totalItems()).isEqualTo(5);
+        assertThat(firstPage.items()).extracting(Author::getName).containsExactly("Joaquim José 1", "Joaquim José 2");
+        assertThat(lastPage.items()).extracting(Author::getName).containsExactly("Joaquim José 5");
+        assertThat(adapter.findAll("jose", false, PageQuery.of(0, 20, "name")).items())
+                .extracting(Author::getName).containsExactly("Joaquim José 6");
+    }
 }

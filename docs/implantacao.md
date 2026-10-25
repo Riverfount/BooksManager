@@ -12,7 +12,7 @@ internet ──► Nginx (portas 80 e 443) ──► API (porta 8080, só na red
 |---|---|
 | `nginx` | Termina o TLS (HTTPS), redireciona a porta 80 para a 443, manda os cabeçalhos HSTS e `X-Forwarded-*` e repassa tudo para a API. É o **único** que publica portas. |
 | `app` | A API (a imagem publicada no registro, ou construída pelo `Dockerfile`; perfil `prod`). Não é alcançável de fora. |
-| `postgres` | O banco (PostgreSQL 17), com os dados em um volume do Docker. Não é alcançável de fora. |
+| `postgres` | O banco (PostgreSQL 17), com os dados em um volume do Docker. Não é alcançável de fora. A busca sem acentos usa a extensão `unaccent`, criada pela migração V15; a imagem oficial `postgres:17` já a traz. Se usar um banco gerenciado, confira que ele permite `create extension unaccent` (é uma extensão "confiável" desde o PostgreSQL 13). |
 | `certbot` | Só para emitir e renovar o certificado do Let's Encrypt. Não sobe com o `up` (veja a seção 4). |
 
 Os arquivos: `compose.prod.yaml` (a pilha), `deploy/nginx/nginx.conf.template` (o Nginx) e `.env.prod-sample` (o modelo das variáveis). Nenhum deles tem segredo.

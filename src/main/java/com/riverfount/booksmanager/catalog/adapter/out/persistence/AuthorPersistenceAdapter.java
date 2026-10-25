@@ -52,7 +52,7 @@ class AuthorPersistenceAdapter implements AuthorRepository {
         var pageable = SpringDataPages.toPageable(page);
         var result = nameContains == null
                 ? jpaRepository.findByActive(active, pageable)
-                : jpaRepository.findByActiveAndNameContainingIgnoreCase(active, nameContains, pageable);
+                : jpaRepository.searchByName(LikePatterns.contains(nameContains), active, pageable);
         return SpringDataPages.toPageResult(result, this::toDomain);
     }
 
