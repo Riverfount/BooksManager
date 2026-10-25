@@ -1,5 +1,9 @@
 package com.riverfount.booksmanager.catalog.application.service;
 
+import com.riverfount.booksmanager.audit.application.port.in.AuditEvent;
+import com.riverfount.booksmanager.audit.application.port.in.RecordAuditEventUseCase;
+import com.riverfount.booksmanager.audit.domain.AuditAction;
+import com.riverfount.booksmanager.audit.domain.AuditTarget;
 import com.riverfount.booksmanager.catalog.application.port.in.DeactivateCategoryUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.GetCategoryUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ListCategoriesQuery;
@@ -29,9 +33,11 @@ class CategoryService implements RegisterCategoryUseCase, GetCategoryUseCase, Li
         UpdateCategoryUseCase, DeactivateCategoryUseCase, ReactivateCategoryUseCase {
 
     private final CategoryRepository categoryRepository;
+    private final RecordAuditEventUseCase audit;
 
-    CategoryService(CategoryRepository categoryRepository) {
+    CategoryService(CategoryRepository categoryRepository, RecordAuditEventUseCase audit) {
         this.categoryRepository = categoryRepository;
+        this.audit = audit;
     }
 
     @Override
@@ -68,15 +74,25 @@ class CategoryService implements RegisterCategoryUseCase, GetCategoryUseCase, Li
     @Override
     public void deactivate(Long id) {
         var category = loadExisting(id);
+        var wasActive = category.isActive();
         category.deactivate();
         categoryRepository.save(category);
+        if (wasActive) {
+            audit.record(new AuditEvent(AuditAction.CATEGORY_DEACTIVATED, AuditTarget.CATEGORY, id,
+                    category.getName()));
+        }
     }
 
     @Override
     public Category reactivate(Long id) {
         var category = loadExisting(id);
+        var wasActive = category.isActive();
         category.reactivate();
-        return categoryRepository.save(category);
+        var saved = categoryRepository.save(category);
+        if (!wasActive) {
+            audit.record(new AuditEvent(AuditAction.CATEGORY_REACTIVATED, AuditTarget.CATEGORY, id, saved.getName()));
+        }
+        return saved;
     }
 
     private Category loadExisting(Long id) {

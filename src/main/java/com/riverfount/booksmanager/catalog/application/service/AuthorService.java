@@ -1,5 +1,9 @@
 package com.riverfount.booksmanager.catalog.application.service;
 
+import com.riverfount.booksmanager.audit.application.port.in.AuditEvent;
+import com.riverfount.booksmanager.audit.application.port.in.RecordAuditEventUseCase;
+import com.riverfount.booksmanager.audit.domain.AuditAction;
+import com.riverfount.booksmanager.audit.domain.AuditTarget;
 import com.riverfount.booksmanager.catalog.application.port.in.DeactivateAuthorUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.GetAuthorUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ListAuthorsQuery;
@@ -31,9 +35,11 @@ class AuthorService implements RegisterAuthorUseCase, GetAuthorUseCase, ListAuth
         UpdateAuthorUseCase, DeactivateAuthorUseCase, ReactivateAuthorUseCase {
 
     private final AuthorRepository authorRepository;
+    private final RecordAuditEventUseCase audit;
 
-    AuthorService(AuthorRepository authorRepository) {
+    AuthorService(AuthorRepository authorRepository, RecordAuditEventUseCase audit) {
         this.authorRepository = authorRepository;
+        this.audit = audit;
     }
 
     @Override
@@ -70,8 +76,12 @@ class AuthorService implements RegisterAuthorUseCase, GetAuthorUseCase, ListAuth
     @Override
     public void deactivate(Long id) {
         var author = loadExisting(id);
+        var wasActive = author.isActive();
         author.deactivate();
         authorRepository.save(author);
+        if (wasActive) {
+            audit.record(new AuditEvent(AuditAction.AUTHOR_DEACTIVATED, AuditTarget.AUTHOR, id, author.getName()));
+        }
     }
 
     @Override
@@ -82,8 +92,13 @@ class AuthorService implements RegisterAuthorUseCase, GetAuthorUseCase, ListAuth
             Author.validateNameNotTaken(author.getName(), activeAuthorWithName(author.getName(), author.getId()),
                     allowDuplicate);
         }
+        var wasActive = author.isActive();
         author.reactivate();
-        return authorRepository.save(author);
+        var saved = authorRepository.save(author);
+        if (!wasActive) {
+            audit.record(new AuditEvent(AuditAction.AUTHOR_REACTIVATED, AuditTarget.AUTHOR, id, saved.getName()));
+        }
+        return saved;
     }
 
     /** The id of an active author, other than {@code exceptId}, that has the name (ignoring case), or null. */

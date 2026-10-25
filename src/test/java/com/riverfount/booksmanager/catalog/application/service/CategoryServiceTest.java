@@ -1,5 +1,6 @@
 package com.riverfount.booksmanager.catalog.application.service;
 
+import com.riverfount.booksmanager.audit.application.RecordedAudit;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -22,7 +23,7 @@ class CategoryServiceTest {
     @BeforeEach
     void setUp() {
         repository = new InMemoryCategoryRepository();
-        service = new CategoryService(repository);
+        service = new CategoryService(repository, new RecordedAudit());
     }
 
     @Test

@@ -1,5 +1,9 @@
 package com.riverfount.booksmanager.catalog.application.service;
 
+import com.riverfount.booksmanager.audit.application.port.in.AuditEvent;
+import com.riverfount.booksmanager.audit.application.port.in.RecordAuditEventUseCase;
+import com.riverfount.booksmanager.audit.domain.AuditAction;
+import com.riverfount.booksmanager.audit.domain.AuditTarget;
 import com.riverfount.booksmanager.catalog.application.port.in.DeactivateCopyUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.GetCopyUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.ListCopiesQuery;
@@ -35,12 +39,14 @@ class CopyService implements RegisterCopyUseCase, GetCopyUseCase, ListCopiesUseC
     private final CopyRepository copyRepository;
     private final BookRepository bookRepository;
     private final ActiveLoanChecker activeLoanChecker;
+    private final RecordAuditEventUseCase audit;
 
     CopyService(CopyRepository copyRepository, BookRepository bookRepository,
-            ActiveLoanChecker activeLoanChecker) {
+            ActiveLoanChecker activeLoanChecker, RecordAuditEventUseCase audit) {
         this.copyRepository = copyRepository;
         this.bookRepository = bookRepository;
         this.activeLoanChecker = activeLoanChecker;
+        this.audit = audit;
     }
 
     @Override
@@ -82,16 +88,25 @@ class CopyService implements RegisterCopyUseCase, GetCopyUseCase, ListCopiesUseC
     public void deactivate(Long id) {
         var copy = copyRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("exemplar não encontrado: " + id));
+        var wasActive = copy.isActive();
         copy.deactivate(activeLoanChecker.hasActiveLoan(copy.getId()));
         copyRepository.save(copy);
+        if (wasActive) {
+            audit.record(new AuditEvent(AuditAction.COPY_DEACTIVATED, AuditTarget.COPY, id, copy.getAssetCode()));
+        }
     }
 
     @Override
     public Copy reactivate(Long id) {
         var copy = copyRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("exemplar não encontrado: " + id));
+        var wasActive = copy.isActive();
         copy.reactivate(bookRepository.existsActiveById(copy.getBookId()));
-        return copyRepository.save(copy);
+        var saved = copyRepository.save(copy);
+        if (!wasActive) {
+            audit.record(new AuditEvent(AuditAction.COPY_REACTIVATED, AuditTarget.COPY, id, saved.getAssetCode()));
+        }
+        return saved;
     }
 
     private void validateBookExistsAndIsActive(Long bookId) {

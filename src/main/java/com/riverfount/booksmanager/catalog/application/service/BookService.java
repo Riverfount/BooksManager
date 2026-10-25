@@ -1,5 +1,9 @@
 package com.riverfount.booksmanager.catalog.application.service;
 
+import com.riverfount.booksmanager.audit.application.port.in.AuditEvent;
+import com.riverfount.booksmanager.audit.application.port.in.RecordAuditEventUseCase;
+import com.riverfount.booksmanager.audit.domain.AuditAction;
+import com.riverfount.booksmanager.audit.domain.AuditTarget;
 import com.riverfount.booksmanager.catalog.application.port.in.BookWithAvailability;
 import com.riverfount.booksmanager.catalog.application.port.in.DeactivateBookUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.GetBookUseCase;
@@ -49,14 +53,17 @@ class BookService implements RegisterBookUseCase, GetBookUseCase, ListBooksUseCa
     private final AuthorRepository authorRepository;
     private final CopyRepository copyRepository;
     private final Clock clock;
+    private final RecordAuditEventUseCase audit;
 
     BookService(BookRepository bookRepository, CategoryRepository categoryRepository,
-            AuthorRepository authorRepository, CopyRepository copyRepository, Clock clock) {
+            AuthorRepository authorRepository, CopyRepository copyRepository, Clock clock,
+            RecordAuditEventUseCase audit) {
         this.bookRepository = bookRepository;
         this.categoryRepository = categoryRepository;
         this.authorRepository = authorRepository;
         this.copyRepository = copyRepository;
         this.clock = clock;
+        this.audit = audit;
     }
 
     @Override
@@ -122,8 +129,12 @@ class BookService implements RegisterBookUseCase, GetBookUseCase, ListBooksUseCa
     public void deactivate(Long id) {
         var book = bookRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("livro não encontrado: " + id));
+        var wasActive = book.isActive();
         book.deactivate();
         bookRepository.save(book);
+        if (wasActive) {
+            audit.record(new AuditEvent(AuditAction.BOOK_DEACTIVATED, AuditTarget.BOOK, id, book.getTitle()));
+        }
     }
 
     @Override
@@ -136,6 +147,7 @@ class BookService implements RegisterBookUseCase, GetBookUseCase, ListBooksUseCa
                     () -> new IllegalStateException("the category of the book " + id + " does not exist"));
             book.reactivate(category, authorRepository.findAllByIds(book.getAuthorIds()));
             bookRepository.save(book);
+            audit.record(new AuditEvent(AuditAction.BOOK_REACTIVATED, AuditTarget.BOOK, id, book.getTitle()));
         }
         return withDetails(List.of(book)).get(0);
     }
