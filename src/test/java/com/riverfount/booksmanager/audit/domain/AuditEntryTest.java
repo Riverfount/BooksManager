@@ -1,5 +1,6 @@
 package com.riverfount.booksmanager.audit.domain;
 
+import com.riverfount.booksmanager.audit.application.RecordedAudit;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -99,6 +100,6 @@ class AuditEntryTest {
 
     @Test
     void everyActionShouldHaveItsOwnName() {
-        assertThat(AuditAction.values()).extracting(Enum::name).doesNotHaveDuplicates().hasSize(15);
+        assertThat(AuditAction.values()).extracting(Enum::name).doesNotHaveDuplicates().hasSize(23);
     }
 }

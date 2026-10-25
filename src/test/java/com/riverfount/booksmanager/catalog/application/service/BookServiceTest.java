@@ -1,5 +1,6 @@
 package com.riverfount.booksmanager.catalog.application.service;
 
+import com.riverfount.booksmanager.audit.application.RecordedAudit;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -42,7 +43,7 @@ class BookServiceTest {
         categoryRepository = new InMemoryCategoryRepository();
         copyRepository = new InMemoryCopyRepository();
         service = new BookService(bookRepository, categoryRepository, authorRepository, copyRepository,
-                FIXED_CLOCK);
+                FIXED_CLOCK, new RecordedAudit());
 
         categoryId = categoryRepository.save(Category.create("Ficção")).getId();
         authorId = authorRepository.save(Author.create("Machado de Assis")).getId();
@@ -89,7 +90,7 @@ class BookServiceTest {
     @Test
     void shouldNotRegisterWithCategoryDeactivatedThroughItsUseCase() {
         // HU21: once deactivated, the category can no longer be used in new books
-        new CategoryService(categoryRepository).deactivate(categoryId);
+        new CategoryService(categoryRepository, new RecordedAudit()).deactivate(categoryId);
 
         assertThatThrownBy(() -> service.register(new RegisterBookCommand("9788533302273", "Dom Casmurro",
                 "Editora X", 1899, categoryId, Set.of(authorId))))
@@ -573,8 +574,8 @@ class BookServiceTest {
     @Test
     void shouldKeepShowingTheNameOfAnInactiveCategoryAndAuthor() {
         var book = register("9788533302273", "Dom Casmurro", 1899);
-        new CategoryService(categoryRepository).deactivate(categoryId);
-        new AuthorService(authorRepository).deactivate(authorId);
+        new CategoryService(categoryRepository, new RecordedAudit()).deactivate(categoryId);
+        new AuthorService(authorRepository, new RecordedAudit()).deactivate(authorId);
 
         var found = service.findById(book.getId()).orElseThrow();
 

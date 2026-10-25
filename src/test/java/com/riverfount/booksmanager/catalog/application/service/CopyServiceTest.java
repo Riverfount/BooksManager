@@ -1,5 +1,6 @@
 package com.riverfount.booksmanager.catalog.application.service;
 
+import com.riverfount.booksmanager.audit.application.RecordedAudit;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -36,7 +37,7 @@ class CopyServiceTest {
         copyRepository = new InMemoryCopyRepository();
         bookRepository = new InMemoryBookRepository();
         activeLoans = new StubActiveLoanChecker();
-        service = new CopyService(copyRepository, bookRepository, activeLoans);
+        service = new CopyService(copyRepository, bookRepository, activeLoans, new RecordedAudit());
 
         var categoryId = 1L;
         var authorId = 1L;

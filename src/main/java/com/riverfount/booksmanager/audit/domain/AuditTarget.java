@@ -6,5 +6,9 @@ public enum AuditTarget {
     READER,
     FINE,
     SUSPENSION,
-    LIBRARY_CONFIGURATION
+    LIBRARY_CONFIGURATION,
+    BOOK,
+    AUTHOR,
+    CATEGORY,
+    COPY
 }
