@@ -41,8 +41,8 @@ Prioridade pelo método MoSCoW: **M** (deve, essencial na v1.0), **S** (deveria,
 
 | ID | Requisito | Prioridade |
 | --- | --- | --- |
-| RF16 | Reservar um livro sem exemplar disponível, entrando em uma fila de espera. | S |
-| RF17 | Cancelar uma reserva. O leitor não acessa o sistema, então o cancelamento é feito pelo operador ou pelo administrador, em nome dele. | S |
+| RF16 | Reservar um livro sem exemplar disponível, entrando em uma fila de espera. O operador ou o administrador reserva em nome do leitor, e o leitor reserva para si pelas rotas `/api/v1/me/reservations` (Fase 6), com as mesmas regras (RN05, RN11, RN12); nenhuma rota do leitor recebe o id do leitor, que vem do token. | S |
+| RF17 | Cancelar uma reserva. O operador ou o administrador cancela em nome do leitor, e o leitor cancela as próprias reservas (Fase 6, `POST /api/v1/me/reservations/{id}/cancel`). Reserva de outro leitor é tratada como inexistente (404, antes de qualquer outra verificação), e a resposta do leitor traz só a reserva cancelada, nunca a de quem recebeu o exemplar liberado (RN20). | S |
 | RF18 | Ao devolver um exemplar, reservá-lo ao primeiro da fila de espera. | S |
 | RF19 | Expirar automaticamente a reserva não retirada no prazo e passar a vez ao próximo da fila. | S |
 

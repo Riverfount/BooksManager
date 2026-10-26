@@ -211,6 +211,11 @@
 - Critério de aceite: cada livro mostra quantos exemplares estão disponíveis agora; o leitor nunca vê o código de patrimônio, o status nem o total de exemplares.
 - Critério de aceite: um livro inativo não aparece e devolve 404 como se não existisse; o leitor não consegue pedir os inativos.
 
+**HU45 —** Como leitor, quero reservar um livro sem exemplar disponível, acompanhar o meu lugar na fila e cancelar a reserva, para não precisar ir ao balcão.
+- Critério de aceite: a reserva segue as regras do balcão e a recusa traz todos os motivos de uma vez (RN05, RN11, RN12, RF16).
+- Critério de aceite: o leitor vê só as próprias reservas, com o lugar na fila e o prazo de retirada, e nunca o exemplar guardado nem dado de outro leitor.
+- Critério de aceite: uma reserva de outro leitor devolve 404, igual a uma que não existe; ao cancelar a sua, o leitor não fica sabendo para quem o exemplar foi (RF17, RF18).
+
 ## Referências
 
 Requisitos e regras de negócio: `docs/requisitos.md`. Entidades envolvidas: `docs/diagramas.md`.
