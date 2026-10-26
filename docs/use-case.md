@@ -216,6 +216,11 @@
 - Critério de aceite: o leitor vê só as próprias reservas, com o lugar na fila e o prazo de retirada, e nunca o exemplar guardado nem dado de outro leitor.
 - Critério de aceite: uma reserva de outro leitor devolve 404, igual a uma que não existe; ao cancelar a sua, o leitor não fica sabendo para quem o exemplar foi (RF17, RF18).
 
+**HU46 —** Como leitor, quero ver os meus empréstimos e renovar os que posso, para não ter que ir ao balcão só para estender o prazo.
+- Critério de aceite: o leitor vê só os próprios empréstimos, ativos e devolvidos, com a data prevista, as renovações, os dias de atraso e a multa e a suspensão que a devolução gerou (RF14).
+- Critério de aceite: a renovação segue as regras do balcão e diz o motivo da recusa: empréstimo encerrado, em atraso, livro inativo, limite atingido ou outro leitor esperando o livro na fila, sem dizer quem (RN07, RN09, RF13).
+- Critério de aceite: nenhuma data é aceita; o empréstimo de outro leitor devolve 404, igual a um que não existe, mesmo se já devolvido (RN20).
+
 ## Referências
 
 Requisitos e regras de negócio: `docs/requisitos.md`. Entidades envolvidas: `docs/diagramas.md`.
