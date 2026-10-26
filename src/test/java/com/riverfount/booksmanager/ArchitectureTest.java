@@ -70,4 +70,8 @@ class ArchitectureTest {
     /** A new controller that does not decide who may call it fails the build (see AccessRules). */
     @ArchTest
     static final ArchRule everyControllerDeclaresItsAccess = AccessRules.everyControllerDeclaresItsAccess();
+
+    /** The reader's routes are exactly the ones under /api/v1/me, and only for the reader (see AccessRules). */
+    @ArchTest
+    static final ArchRule readerRoutesAreExactlyTheOnesUnderMe = AccessRules.readerRoutesAreExactlyTheOnesUnderMe();
 }

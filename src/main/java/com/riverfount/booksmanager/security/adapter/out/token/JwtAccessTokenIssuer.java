@@ -3,6 +3,7 @@ package com.riverfount.booksmanager.security.adapter.out.token;
 import com.riverfount.booksmanager.security.application.port.out.AccessTokenIssuer;
 import com.riverfount.booksmanager.security.application.port.out.IssuedAccessToken;
 import com.riverfount.booksmanager.security.configuration.JwtProperties;
+import com.riverfount.booksmanager.shared.adapter.in.web.CurrentReader;
 import com.riverfount.booksmanager.user.application.port.in.AuthenticatedUser;
 import java.time.Instant;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
@@ -22,7 +23,7 @@ import org.springframework.stereotype.Component;
 class JwtAccessTokenIssuer implements AccessTokenIssuer {
 
     /** The reader the access belongs to; only the access of a reader has it. */
-    static final String READER_ID_CLAIM = "readerId";
+    static final String READER_ID_CLAIM = CurrentReader.CLAIM;
 
     private final JwtEncoder encoder;
     private final JwtProperties properties;

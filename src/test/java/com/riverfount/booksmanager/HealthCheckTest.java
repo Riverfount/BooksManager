@@ -15,6 +15,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.MockMvcPrint;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
@@ -58,10 +59,10 @@ class HealthCheckTest {
     }
 
     @Test
-    void shouldNotExposeOtherActuatorEndpointsEvenToAuthenticatedUsers() throws Exception {
-        mockMvc.perform(get("/actuator/env").with(jwt()))
+    void shouldNotExposeOtherActuatorEndpointsEvenToAnAdministrator() throws Exception {
+        mockMvc.perform(get("/actuator/env").with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
                 .andExpect(status().isNotFound());
-        mockMvc.perform(get("/actuator/beans").with(jwt()))
+        mockMvc.perform(get("/actuator/beans").with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
                 .andExpect(status().isNotFound());
     }
 
