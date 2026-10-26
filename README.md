@@ -155,6 +155,7 @@ Todos aceitam os perfis `ADMIN` e `OPERATOR` (a configuração da biblioteca, a 
 
 | Operação | Requisição | Resposta |
 |---|---|---|
+| Pesquisar o acervo (só `READER`) | `GET /api/v1/me/books?title=&author=&isbn=&categoryId=`, `GET /api/v1/me/books/{id}`, `GET /api/v1/me/authors?name=` e `GET /api/v1/me/categories?name=` | 200 paginada (máximo de 100 por página), só ativos, com `availableCopies` por livro e nada dos exemplares em si; livro inativo ou inexistente é 404; `ADMIN` e `OPERATOR` recebem 403 (RF05) |
 | Convidar o leitor para acessar o sistema | `POST /api/v1/readers/{id}/access-invitations` (sem corpo) | 202 com `readerId` e `expiresAt` (o link, de uso único, vai para o e-mail do leitor e vale 72 horas); um novo convite substitui o anterior; 404 se o leitor não existe; 422 se está inativo ou já tem acesso (RF30, RN20) |
 | Revogar o acesso do leitor | `DELETE /api/v1/readers/{id}/access` | 204, idempotente; inativa o acesso, revoga os refresh tokens e invalida os links pendentes; o leitor pode ser convidado de novo; 404 se o leitor não existe |
 | Aceitar o convite (público) | `POST /api/v1/auth/accept-invitation` com `token`, `login` e `password` | 204; link inválido, usado ou expirado recebe sempre o mesmo 422; login já usado ou senha fora da política também dão 422 e o link continua valendo. Depois, o leitor entra por `POST /api/v1/auth/login` (JWT com `role` `READER` e `readerId`) |

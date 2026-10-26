@@ -206,6 +206,11 @@
 - Critério de aceite: uma senha fora da política ou um login já usado são recusados e o link continua valendo.
 - Critério de aceite: o pedido de redefinição nunca diz se o e-mail existe; o link de redefinição vale 1 hora e uma vez só, e a nova senha encerra as sessões abertas.
 
+**HU44 —** Como leitor, quero pesquisar o acervo por título, autor, ISBN e categoria e ver se o livro está disponível, para decidir o que pegar ou reservar sem ir ao balcão.
+- Critério de aceite: a pesquisa mostra só livros, autores e categorias ativos, paginada (máximo de 100 por página), e ignora maiúsculas e acentos no título e no autor (RF05).
+- Critério de aceite: cada livro mostra quantos exemplares estão disponíveis agora; o leitor nunca vê o código de patrimônio, o status nem o total de exemplares.
+- Critério de aceite: um livro inativo não aparece e devolve 404 como se não existisse; o leitor não consegue pedir os inativos.
+
 ## Referências
 
 Requisitos e regras de negócio: `docs/requisitos.md`. Entidades envolvidas: `docs/diagramas.md`.
