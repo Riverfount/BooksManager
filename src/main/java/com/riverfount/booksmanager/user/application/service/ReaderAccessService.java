@@ -7,6 +7,8 @@ import com.riverfount.booksmanager.audit.domain.AuditTarget;
 import com.riverfount.booksmanager.security.application.port.in.RevokeRefreshTokensUseCase;
 import com.riverfount.booksmanager.shared.application.port.out.Notification;
 import com.riverfount.booksmanager.shared.application.port.out.NotificationSender;
+import com.riverfount.booksmanager.shared.application.port.out.RateLimiter;
+import com.riverfount.booksmanager.shared.configuration.RateLimitProperties;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
 import com.riverfount.booksmanager.user.application.port.in.AcceptReaderInvitationCommand;
@@ -33,7 +35,10 @@ import com.riverfount.booksmanager.user.domain.ReaderAccessToken.Purpose;
 import com.riverfount.booksmanager.user.domain.User;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Locale;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,6 +57,8 @@ import org.springframework.transaction.annotation.Transactional;
 class ReaderAccessService implements InviteReaderAccessUseCase, AcceptReaderInvitationUseCase,
         RequestReaderPasswordResetUseCase, ResetReaderPasswordUseCase, RevokeReaderAccessUseCase {
 
+    private static final Logger log = LoggerFactory.getLogger(ReaderAccessService.class);
+
     private static final String INVALID_INVITATION = "convite inválido ou expirado";
     private static final String INVALID_RESET_LINK = "link de redefinição de senha inválido ou expirado";
 
@@ -66,12 +73,14 @@ class ReaderAccessService implements InviteReaderAccessUseCase, AcceptReaderInvi
     private final Clock clock;
     private final ReaderAccessProperties properties;
     private final LoginLockoutProperties lockout;
+    private final RateLimiter rateLimiter;
+    private final RateLimitProperties rateLimits;
 
     ReaderAccessService(ReaderRepository readerRepository, UserRepository userRepository,
             ReaderAccessTokenRepository accessTokens, ReaderAccessTokenGenerator tokenGenerator,
             PasswordHasher passwordHasher, NotificationSender notifications, RevokeRefreshTokensUseCase refreshTokens,
-            RecordAuditEventUseCase audit, Clock clock, ReaderAccessProperties properties,
-            LoginLockoutProperties lockout) {
+            RecordAuditEventUseCase audit, Clock clock, RateLimiter rateLimiter, RateLimitProperties rateLimits,
+            ReaderAccessProperties properties, LoginLockoutProperties lockout) {
         this.readerRepository = readerRepository;
         this.userRepository = userRepository;
         this.accessTokens = accessTokens;
@@ -83,6 +92,8 @@ class ReaderAccessService implements InviteReaderAccessUseCase, AcceptReaderInvi
         this.clock = clock;
         this.properties = properties;
         this.lockout = lockout;
+        this.rateLimiter = rateLimiter;
+        this.rateLimits = rateLimits;
     }
 
     @Override
@@ -127,6 +138,14 @@ class ReaderAccessService implements InviteReaderAccessUseCase, AcceptReaderInvi
     @Override
     public void requestReset(RequestReaderPasswordResetCommand command) {
         if (command.email() == null || command.email().isBlank()) {
+            return;
+        }
+        // Every request counts, a registered e-mail or not, so the limit never tells which e-mails exist; past it
+        // nothing is sent, and the answer is the same as ever. Each request sends an e-mail, so without this anyone
+        // could fill the mailbox of a reader. The key is a hash: the e-mail itself is not kept, nor logged.
+        var attempt = rateLimiter.tryAcquire(rateLimits.passwordResetPolicy(), emailKey(command.email()));
+        if (!attempt.allowed()) {
+            log.info("A password reset request was over the limit; nothing was sent.");
             return;
         }
         var now = Instant.now(clock);
@@ -177,6 +196,11 @@ class ReaderAccessService implements InviteReaderAccessUseCase, AcceptReaderInvi
         refreshTokens.revokeAllOf(user.getId());
         audit.record(new AuditEvent(AuditAction.READER_ACCESS_REVOKED, AuditTarget.USER, user.getId(),
                 "leitor: " + readerId));
+    }
+
+    /** The same e-mail whatever the case and the spaces, as a hash. */
+    private static String emailKey(String email) {
+        return "email:" + ReaderAccessToken.hashOf(email.strip().toLowerCase(Locale.ROOT));
     }
 
     /** A new link replaces the pending ones of the same kind; only the hash of the new token is kept. */

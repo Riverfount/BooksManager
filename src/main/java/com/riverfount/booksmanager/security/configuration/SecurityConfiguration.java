@@ -1,5 +1,8 @@
 package com.riverfount.booksmanager.security.configuration;
 
+import com.riverfount.booksmanager.shared.application.port.out.RateLimiter;
+import com.riverfount.booksmanager.shared.configuration.RateLimitProperties;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -11,7 +14,9 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtGra
 import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
 import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.web.servlet.HandlerExceptionResolver;
 
 /**
  * The security chain (RF08, RNF08): stateless, with the JWT bearer token as
@@ -44,13 +49,18 @@ public class SecurityConfiguration {
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, ProblemDetailAuthenticationEntryPoint entryPoint,
-            ProblemDetailAccessDeniedHandler accessDeniedHandler, JwtAuthenticationConverter converter)
+            ProblemDetailAccessDeniedHandler accessDeniedHandler, JwtAuthenticationConverter converter,
+            RateLimiter rateLimiter, RateLimitProperties rateLimits,
+            @Qualifier("handlerExceptionResolver") HandlerExceptionResolver resolver)
             throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .requestCache(cache -> cache.disable())
+                // after the authorization, so only a reader the chain accepted is counted (see the filter)
+                .addFilterAfter(new ReaderRateLimitFilter(rateLimiter, rateLimits.readerRoutesPolicy(), resolver),
+                        AuthorizationFilter.class)
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(PUBLIC_ROUTES).permitAll()
                         .requestMatchers(READER_ROUTES).hasRole("READER")
