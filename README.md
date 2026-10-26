@@ -20,7 +20,7 @@ Bibliotecas desse porte costumam controlar livros e empréstimos em cadernos, pl
 Oferecer ao bibliotecário uma forma simples de cadastrar o acervo, registrar empréstimos e devoluções, acompanhar atrasos e calcular multas automaticamente.
 
 ### 1.3 Para quem
-Bibliotecários, que operam o sistema no dia a dia, e o administrador, que gerencia usuários e parâmetros. O leitor tem um acesso limitado, por convite (Fase 6, em andamento): hoje a API já concede e revoga esse acesso e deixa o leitor entrar e recuperar a senha; as rotas próprias do leitor (consultar o acervo, reservar e renovar) vêm nas próximas issues.
+Bibliotecários, que operam o sistema no dia a dia, e o administrador, que gerencia usuários e parâmetros. O leitor tem um acesso limitado, por convite (Fase 6, em andamento): a API já concede e revoga esse acesso e deixa o leitor entrar e recuperar a senha, e já separa as rotas do leitor (tudo sob `/api/v1/me`, só para o perfil `READER`, que não alcança nenhuma rota administrativa); as rotas em si (consultar o acervo, reservar e renovar) vêm nas próximas issues.
 
 ### 1.4 O que o sistema vai fazer
 - Cadastrar livros, autores, categorias, exemplares e leitores

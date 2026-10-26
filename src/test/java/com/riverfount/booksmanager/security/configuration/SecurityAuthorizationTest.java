@@ -2,6 +2,7 @@ package com.riverfount.booksmanager.security.configuration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -11,6 +12,9 @@ import com.riverfount.booksmanager.TestTokens;
 import com.riverfount.booksmanager.TestcontainersConfiguration;
 import com.riverfount.booksmanager.shared.adapter.in.web.AdminOnly;
 import com.riverfount.booksmanager.shared.adapter.in.web.AdminOrOperator;
+import com.riverfount.booksmanager.shared.adapter.in.web.CurrentReader;
+import com.riverfount.booksmanager.shared.adapter.in.web.PublicEndpoint;
+import com.riverfount.booksmanager.shared.adapter.in.web.ReaderOnly;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +29,7 @@ import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -49,6 +54,16 @@ class SecurityAuthorizationTest {
             @GetMapping("/api/v1/_probe/admin")
             String admin() {
                 return "admin area";
+            }
+        }
+
+        @ReaderOnly
+        @RestController
+        @RequestMapping("/api/v1/me/_probe")
+        static class ReaderProbe {
+            @GetMapping
+            String reader(@CurrentReader Long readerId) {
+                return "reader " + readerId;
             }
         }
 
@@ -212,5 +227,72 @@ class SecurityAuthorizationTest {
                 .andExpect(status().isNoContent());
         mockMvc.perform(get("/actuator/health")).andExpect(status().isOk());
         mockMvc.perform(get("/v3/api-docs")).andExpect(status().isOk());
+    }
+
+    // the routes of the reader (Phase 6): /api/v1/me/**, for the READER profile and nobody else
+
+    private String reader(Long readerId) {
+        return TestTokens.forReader(encoder, properties, 5L, readerId);
+    }
+
+    @Autowired
+    @org.springframework.beans.factory.annotation.Qualifier("requestMappingHandlerMapping")
+    private org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping handlerMapping;
+
+    @Test
+    void aReaderMayCallTheReaderRoutesAndIsToldWhoTheyAreByTheToken() throws Exception {
+        call("/api/v1/me/_probe", reader(42L)).andExpect(status().isOk()).andExpect(content().string("reader 42"));
+    }
+
+    @Test
+    void aReaderTokenWithoutTheReaderIsRefusedOnTheReaderRoutes() throws Exception {
+        assertForbiddenProblem(call("/api/v1/me/_probe", reader(null)));
+    }
+
+    @Test
+    void theSystemUsersAndUnknownProfilesMayNotCallTheReaderRoutes() throws Exception {
+        for (var role : new String[] {"ADMIN", "OPERATOR", null, "", "SUPERUSER", "reader", "ROLE_READER"}) {
+            assertForbiddenProblem(call("/api/v1/me/_probe", token(role)));
+        }
+    }
+
+    @Test
+    void withoutATokenTheReaderRoutesAre401() throws Exception {
+        call("/api/v1/me/_probe", null).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void aReaderGets403OnEveryRouteThatIsNotTheirOwnWhateverTheRequest() throws Exception {
+        var readerToken = reader(42L);
+        var checked = 0;
+        for (var entry : handlerMapping.getHandlerMethods().entrySet()) {
+            var handler = entry.getValue();
+            var type = handler.getBeanType();
+            var isOurs = type.getName().startsWith("com.riverfount.booksmanager");
+            var isPublic = type.isAnnotationPresent(PublicEndpoint.class)
+                    || handler.hasMethodAnnotation(PublicEndpoint.class);
+            if (!isOurs || isPublic) {
+                continue;
+            }
+            for (var pattern : entry.getKey().getPathPatternsCondition().getPatternValues()) {
+                if (pattern.startsWith("/api/v1/me")) {
+                    continue;
+                }
+                var methods = entry.getKey().getMethodsCondition().getMethods();
+                var verbs = methods.isEmpty() ? java.util.Set.of(org.springframework.web.bind.annotation.RequestMethod.GET)
+                        : methods;
+                for (var verb : verbs) {
+                    // the body and the id do not matter: the chain refuses the reader before the controller is reached
+                    mockMvc.perform(request(org.springframework.http.HttpMethod.valueOf(verb.name()),
+                                    pattern.replaceAll("\\{[^}]+}", "1"))
+                                    .header("Authorization", "Bearer " + readerToken)
+                                    .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                            .andExpect(status().isForbidden());
+                    checked++;
+                }
+            }
+        }
+        // a vacuous pass (no route found) would prove nothing
+        org.assertj.core.api.Assertions.assertThat(checked).isGreaterThan(50);
     }
 }

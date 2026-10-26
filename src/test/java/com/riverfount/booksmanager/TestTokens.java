@@ -57,6 +57,17 @@ public final class TestTokens {
         return encoder.encode(JwtEncoderParameters.from(header, claims.build())).getTokenValue();
     }
 
+    /** A valid token of the access of a reader: the {@code READER} profile and the reader it belongs to. */
+    public static String forReader(JwtEncoder encoder, JwtProperties properties, long userId, Long readerId) {
+        var claims = JwtClaimsSet.builder().issuer(properties.issuer()).subject(String.valueOf(userId))
+                .claim(ROLE_CLAIM, "READER").issuedAt(Instant.now()).expiresAt(Instant.now().plus(Duration.ofMinutes(15)));
+        if (readerId != null) {
+            claims.claim("readerId", readerId);
+        }
+        var header = JwsHeader.with(MacAlgorithm.HS256).build();
+        return encoder.encode(JwtEncoderParameters.from(header, claims.build())).getTokenValue();
+    }
+
     /** A well-formed token signed with another secret. */
     public static String signedWithAnotherKey(JwtProperties properties) {
         return signWith(JWSAlgorithm.HS256, "another-secret-another-secret-another-secret!!", properties);
