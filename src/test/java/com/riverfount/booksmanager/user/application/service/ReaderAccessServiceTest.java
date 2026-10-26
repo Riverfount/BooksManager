@@ -7,6 +7,10 @@ import com.riverfount.booksmanager.audit.application.RecordedAudit;
 import com.riverfount.booksmanager.audit.domain.AuditAction;
 import com.riverfount.booksmanager.audit.domain.AuditTarget;
 import com.riverfount.booksmanager.security.application.port.in.RevokeRefreshTokensUseCase;
+import com.riverfount.booksmanager.shared.application.port.out.RateLimitResult;
+import com.riverfount.booksmanager.shared.application.port.out.RateLimiter;
+import com.riverfount.booksmanager.shared.configuration.RateLimitProperties;
+import com.riverfount.booksmanager.user.domain.Guardian;
 import com.riverfount.booksmanager.shared.application.port.out.Notification;
 import com.riverfount.booksmanager.shared.application.port.out.NotificationSender;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
@@ -29,6 +33,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -80,6 +86,10 @@ class ReaderAccessServiceTest {
     private RecordingSender sender;
     private RecordedAudit audit;
     private final List<Long> revokedFor = new ArrayList<>();
+    /** How many attempts each key made: stands for the limiter, which allows three per hour. */
+    private final Map<String, Integer> attempts = new HashMap<>();
+    private final RateLimiter limiter = (policy, key) -> attempts.merge(key, 1, Integer::sum) <= policy.maxAttempts()
+            ? RateLimitResult.allow() : RateLimitResult.refuse(Duration.ofHours(1));
     private ReaderAccessService service;
     private Clock clock;
 
@@ -100,7 +110,9 @@ class ReaderAccessServiceTest {
             return 1;
         };
         return new ReaderAccessService(readers, users, tokens, new SequenceTokens(), new FakeHasher(), sender,
-                refreshTokens, audit, theClock,
+                refreshTokens, audit, theClock, limiter,
+                new RateLimitProperties(new RateLimitProperties.Limit(120, Duration.ofMinutes(1)),
+                        new RateLimitProperties.Limit(3, Duration.ofHours(1))),
                 new ReaderAccessProperties(Duration.ofHours(72), Duration.ofHours(1),
                         "https://app.example.com/convite?token={token}",
                         "https://app.example.com/senha?token={token}"),
@@ -531,5 +543,86 @@ class ReaderAccessServiceTest {
             return e.getMessage();
         }
         throw new AssertionError("expected a BusinessRuleException");
+    }
+
+    // limits of attempts and personal data (Phase 6, RNF31, LGPD)
+
+    private int mailsSent() {
+        return sender.sent.size();
+    }
+
+    @Test
+    void shouldSendNoMoreResetLinksOnceAnEmailIsOverTheLimitAndSayNothingAboutIt() {
+        var id = reader();
+        invitedAndAccepted(id, "ana");
+        sender.sent.clear();
+
+        for (var i = 0; i < 6; i++) {
+            service.requestReset(new RequestReaderPasswordResetCommand("ana@example.com"));
+        }
+
+        // three per hour: the other three requests are answered like any other, with nothing sent
+        assertThat(mailsSent()).isEqualTo(3);
+    }
+
+    @Test
+    void shouldCountTheSameEmailWhateverTheCaseAndTheSpaces() {
+        var id = reader();
+        invitedAndAccepted(id, "ana");
+        sender.sent.clear();
+
+        service.requestReset(new RequestReaderPasswordResetCommand("ana@example.com"));
+        service.requestReset(new RequestReaderPasswordResetCommand("  ANA@Example.com "));
+        service.requestReset(new RequestReaderPasswordResetCommand("Ana@EXAMPLE.com"));
+        service.requestReset(new RequestReaderPasswordResetCommand("ana@example.com "));
+
+        assertThat(mailsSent()).isEqualTo(3);
+    }
+
+    @Test
+    void shouldCountAnUnknownEmailToo_soTheLimitDoesNotTellWhichEmailsExist() {
+        for (var i = 0; i < 4; i++) {
+            service.requestReset(new RequestReaderPasswordResetCommand("ninguem@example.com"));
+        }
+
+        assertThat(attempts.values()).containsExactly(4);
+        assertThat(mailsSent()).isZero();
+    }
+
+    @Test
+    void shouldNotKeepTheEmailItselfAsTheKeyOfTheLimit() {
+        service.requestReset(new RequestReaderPasswordResetCommand("ana@example.com"));
+
+        assertThat(attempts.keySet()).hasSize(1)
+                .allSatisfy(key -> assertThat(key).doesNotContain("ana").doesNotContain("example"));
+    }
+
+    @Test
+    void shouldNotCountABlankEmail() {
+        service.requestReset(new RequestReaderPasswordResetCommand(" "));
+        service.requestReset(new RequestReaderPasswordResetCommand(null));
+
+        assertThat(attempts).isEmpty();
+    }
+
+    @Test
+    void shouldNotMentionTheEmailInTheStringFormOfTheRequest() {
+        assertThat(new RequestReaderPasswordResetCommand("ana@example.com").toString())
+                .doesNotContain("ana@example.com");
+    }
+
+    @Test
+    void aMinorShouldBeInvitedAtTheirOwnEmailAndTheGuardianIsNeverWritten() {
+        var minor = readers.save(Reader.create("Caio Souza", "222.222.222-22", "caio@example.com", null,
+                LocalDate.of(2012, 3, 4), new Guardian("Paula Souza", "paula@example.com", "11999990000"),
+                LocalDate.of(2026, 10, 26))).getId();
+
+        service.invite(new InviteReaderAccessCommand(minor));
+
+        assertThat(sender.sent).hasSize(1);
+        var mail = sender.sent.getFirst();
+        assertThat(mail.recipient()).isEqualTo("caio@example.com");
+        assertThat(mail.text()).doesNotContain("Paula").doesNotContain("paula@example.com");
+        assertThat(audit.all().toString()).doesNotContain("Paula").doesNotContain("paula@example.com");
     }
 }

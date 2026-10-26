@@ -13,6 +13,19 @@ map "$request_method $uri" $login_limit_key {
 }
 limit_req_zone $login_limit_key zone=login:10m rate=5r/m;
 
+# Limit of the public routes of the access of the readers (Phase 6, RNF31): accepting an invitation, asking for a new
+# password and choosing it. They are open to anyone who has a link or an e-mail address, and "forgot-password" sends an
+# e-mail each time, so they are counted per client address, with the same 5 per minute and burst of 5 as the login. A
+# request to any other route has an empty key and is not counted. The API also limits the "forgot-password" requests per
+# e-mail (3 per hour), which the Nginx cannot see; this one is the first barrier, by address.
+map "$request_method $uri" $reader_access_limit_key {
+    default                                  "";
+    "POST /api/v1/auth/accept-invitation"    $binary_remote_addr;
+    "POST /api/v1/auth/forgot-password"      $binary_remote_addr;
+    "POST /api/v1/auth/reset-password"       $binary_remote_addr;
+}
+limit_req_zone $reader_access_limit_key zone=reader_access:10m rate=5r/m;
+
 # Port 80: nothing is served in clear text, everything goes to https.
 server {
     listen 80;
@@ -55,7 +68,7 @@ server {
     # Do not say which version of Nginx this is.
     server_tokens off;
 
-    # The answer to a login over the limit: the same format as the errors of the API (ProblemDetail, RFC 9457). An
+    # The answer to a request over a limit (the login and the public routes of the readers): the same format as the errors of the API (ProblemDetail, RFC 9457). An
     # "add_header" in a location replaces the ones of the server block, so the security headers are repeated here.
     error_page 429 = @too_many_requests;
     location @too_many_requests {
@@ -65,12 +78,13 @@ server {
         add_header X-Content-Type-Options "nosniff" always;
         add_header X-Frame-Options "DENY" always;
         add_header Referrer-Policy "no-referrer" always;
-        return 429 '{"type":"about:blank","title":"Too Many Requests","status":429,"detail":"Muitas tentativas de login. Aguarde alguns segundos e tente de novo."}';
+        return 429 '{"type":"about:blank","title":"Too Many Requests","status":429,"detail":"Muitas tentativas. Aguarde alguns segundos e tente de novo."}';
     }
 
     location / {
-        # Only the login is counted (see the map above).
+        # Only the login and the public routes of the readers are counted (see the maps above).
         limit_req zone=login burst=5 nodelay;
+        limit_req zone=reader_access burst=5 nodelay;
 
         proxy_pass http://app:8080;
         proxy_http_version 1.1;

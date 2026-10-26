@@ -322,11 +322,13 @@ docker compose --env-file .env.prod -f compose.prod.yaml exec -T postgres sh -c 
 
 Toda tentativa de login recusada é registrada, e a API não limita a taxa de requisições por conta própria, então alguém sem login poderia encher a tabela com tentativas. Quem limita é o **Nginx** (seção 8.2): 5 tentativas por minuto por endereço, com rajada de 5. Confira o tamanho da tabela de vez em quando (`select count(*), pg_size_pretty(pg_total_relation_size('audit_log')) from audit_log`).
 
-### 8.2 O limite de tentativas de login (Nginx)
+### 8.2 O limite de tentativas de login e do acesso do leitor (Nginx)
 
 O `deploy/nginx/nginx.conf.template` limita o `POST /api/v1/auth/login` a **5 tentativas por minuto por endereço de origem, com uma rajada de 5** (RNF13, RF27). Quem erra a senha algumas vezes não é barrado; um programa que tenta senhas em série passa a gerar poucas linhas por minuto na trilha. Passou do limite, a resposta é **429** (`application/problem+json`, com `Retry-After: 12`), e o log do Nginx registra `limiting requests` (nível `warn`). Só o login é contado: as demais rotas, inclusive o `/auth/refresh`, não têm limite.
 
 Isto complementa o bloqueio da conta (que protege cada usuário) e não o substitui.
+
+**As rotas públicas do acesso do leitor** (Fase 6, RNF31) têm o mesmo limite, em uma zona à parte (`reader_access`): `POST /api/v1/auth/accept-invitation`, `/forgot-password` e `/reset-password`, **5 por minuto por endereço, com rajada de 5**, também com 429 em `application/problem+json`. Elas ficam abertas a quem tem um link ou um endereço de e-mail, e o `forgot-password` manda um e-mail a cada pedido. Os outros limites desse acesso são da aplicação, não do Nginx: **120 requisições por minuto por leitor** em `/api/v1/me/**` e **3 pedidos de "esqueci a senha" por hora por e-mail** (`app.rate-limit.*` no `application.properties`; contados em memória, o que vale para uma instância da API, como na pilha de produção). Para conferir o Nginx: `for i in $(seq 1 10); do curl -sk -o /dev/null -w '%{http_code} ' -X POST https://<DOMAIN>/api/v1/auth/forgot-password -H 'Content-Type: application/json' -d '{"email":"x@example.com"}'; done` mostra uns 6 códigos 204 e depois 429.
 
 - **Atrás de uma CDN ou de outro proxy**, o endereço que o Nginx vê é o dele, e todos os usuários passariam a dividir o mesmo limite. Nesse caso, configure `set_real_ip_from` (a faixa do proxy) e `real_ip_header` antes de ligar o limite.
 - **Muitos usuários atrás do mesmo endereço** (a rede de uma escola, por exemplo) dividem o limite. Se isso incomodar, aumente `rate` e `burst` no template.

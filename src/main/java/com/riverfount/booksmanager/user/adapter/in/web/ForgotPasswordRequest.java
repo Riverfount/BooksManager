@@ -10,4 +10,10 @@ record ForgotPasswordRequest(
         @NotBlank(message = "o e-mail é obrigatório")
         @Size(max = 254, message = "o e-mail deve ter até 254 caracteres")
         String email) {
+
+    /** Without the e-mail, which is personal data, so the string form is safe to log. */
+    @Override
+    public String toString() {
+        return "ForgotPasswordRequest[email=***]";
+    }
 }

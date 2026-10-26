@@ -36,8 +36,10 @@ abstract class AfterCommitNotificationSender implements NotificationSender {
         try {
             deliver(notification);
         } catch (RuntimeException e) {
-            // The recipient address is personal data (LGPD): only the subject goes in the message.
-            throw new NotificationDeliveryException("Could not deliver the notification \"" + notification.subject() + "\"", e);
+            // The recipient address is personal data (LGPD): only the subject and the kind of failure go in the message,
+            // and the cause is not chained, since the message of an SMTP exception often repeats the address.
+            throw new NotificationDeliveryException("Could not deliver the notification \"" + notification.subject()
+                    + "\" (" + kindOfFailure(e) + ")", null);
         }
     }
 
@@ -45,10 +47,20 @@ abstract class AfterCommitNotificationSender implements NotificationSender {
         try {
             deliver(notification);
         } catch (RuntimeException e) {
-            // The recipient address is personal data (LGPD): only the subject and the cause go to the log.
-            log.error("Could not deliver the notification \"{}\"; the operation that caused it is not affected.",
-                    notification.subject(), e);
+            // The recipient address is personal data (LGPD): only the subject and the kind of failure go to the log, not
+            // the exception itself, since the message of an SMTP exception often repeats the address.
+            log.error("Could not deliver the notification \"{}\" ({}); the operation that caused it is not affected.",
+                    notification.subject(), kindOfFailure(e));
         }
+    }
+
+    /** The class of the failure and of each of its causes, such as "IllegalStateException <- MessagingException". */
+    private static String kindOfFailure(Throwable failure) {
+        var kinds = new java.util.ArrayList<String>();
+        for (var cause = failure; cause != null && kinds.size() < 5; cause = cause.getCause()) {
+            kinds.add(cause.getClass().getSimpleName());
+        }
+        return String.join(" <- ", kinds);
     }
 
     abstract void deliver(Notification notification);

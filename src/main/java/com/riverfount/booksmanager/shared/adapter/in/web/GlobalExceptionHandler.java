@@ -3,6 +3,7 @@ package com.riverfount.booksmanager.shared.adapter.in.web;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.InvalidCredentialsException;
 import com.riverfount.booksmanager.shared.domain.InvalidQueryException;
+import com.riverfount.booksmanager.shared.domain.RateLimitExceededException;
 import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -19,8 +20,10 @@ import org.springframework.web.method.annotation.HandlerMethodValidationExceptio
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import tools.jackson.core.JacksonException;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -102,6 +105,21 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     ProblemDetail handleTypeMismatch(MethodArgumentTypeMismatchException exception) {
         return invalidFields(List.of(entry(exception.getName(), INVALID_VALUE)));
+    }
+
+    /**
+     * Over a limit of attempts (Phase 6, RNF31): 429 with the seconds to wait, rounded up and never less than one. It
+     * says nothing about what was counted or for whom.
+     */
+    @ExceptionHandler(RateLimitExceededException.class)
+    ResponseEntity<ProblemDetail> handleRateLimit(RateLimitExceededException exception) {
+        var seconds = Math.max(1, (exception.getRetryAfter().toMillis() + 999) / 1000);
+        var problem = ProblemDetail.forStatusAndDetail(HttpStatus.TOO_MANY_REQUESTS,
+                "Muitas requisições. Aguarde " + seconds + (seconds == 1 ? " segundo" : " segundos")
+                        + " e tente de novo.");
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(seconds))
+                .body(problem);
     }
 
     /** A request parameter that is required and was not sent. */
