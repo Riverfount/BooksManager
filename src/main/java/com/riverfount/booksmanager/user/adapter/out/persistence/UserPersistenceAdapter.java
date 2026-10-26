@@ -26,7 +26,7 @@ class UserPersistenceAdapter implements UserRepository {
     @Override
     public User save(User user) {
         var entity = new UserJpaEntity(user.getId(), user.getLogin(), user.getPasswordHash(), user.getRole(),
-                user.isActive(), user.getFailedLoginAttempts(), user.getBlockedUntil(), user.getDisplayName());
+                user.isActive(), user.getFailedLoginAttempts(), user.getBlockedUntil(), user.getDisplayName(), user.getReaderId());
         try {
             return toDomain(jpaRepository.saveAndFlush(entity));
         } catch (DataIntegrityViolationException e) {
@@ -36,6 +36,9 @@ class UserPersistenceAdapter implements UserRepository {
             // violation really is the login's.
             if (ConstraintViolations.violates(e, "app_user_login_key")) {
                 throw new BusinessRuleException("já existe um usuário com o login '" + user.getLogin() + "'");
+            }
+            if (ConstraintViolations.violates(e, "uq_app_user_active_reader")) {
+                throw new BusinessRuleException("o leitor já tem um acesso ativo");
             }
             throw e;
         }
@@ -67,6 +70,11 @@ class UserPersistenceAdapter implements UserRepository {
     }
 
     @Override
+    public Optional<User> findActiveByReaderIdForUpdate(Long readerId) {
+        return jpaRepository.findActiveByReaderIdForUpdate(readerId).map(this::toDomain);
+    }
+
+    @Override
     public boolean existsByLogin(String login) {
         return jpaRepository.existsByLogin(User.normalizeLogin(login));
     }
@@ -94,6 +102,6 @@ class UserPersistenceAdapter implements UserRepository {
 
     private User toDomain(UserJpaEntity entity) {
         return User.reconstitute(entity.getId(), entity.getLogin(), entity.getPasswordHash(), entity.getRole(),
-                entity.isActive(), entity.getFailedLoginAttempts(), entity.getBlockedUntil(), entity.getDisplayName());
+                entity.isActive(), entity.getFailedLoginAttempts(), entity.getBlockedUntil(), entity.getDisplayName(), entity.getReaderId());
     }
 }

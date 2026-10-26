@@ -23,6 +23,9 @@ import java.util.Locale;
  * duration come by parameter, and so does the current instant: the domain
  * never reads the clock.
  *
+ * <p>A user with the {@link Role#READER} profile is the access of one reader (Phase 6): it is tied to the reader by id,
+ * is created only by {@link #createReaderAccess} (when the reader accepts an invitation) and never changes profile.
+ *
  * <p>The display name is what a screen shows for who is logged in. It is optional: blank
  * means none (the screens fall back to the login), and it is kept without surrounding spaces.
  */
@@ -40,9 +43,10 @@ public class User {
     private int failedLoginAttempts;
     private Instant blockedUntil;
     private String displayName;
+    private final Long readerId;
 
     private User(Long id, String login, String passwordHash, Role role, boolean active, int failedLoginAttempts,
-            Instant blockedUntil, String displayName) {
+            Instant blockedUntil, String displayName, Long readerId) {
         this.id = id;
         this.login = login;
         this.passwordHash = passwordHash;
@@ -51,6 +55,7 @@ public class User {
         this.failedLoginAttempts = failedLoginAttempts;
         this.blockedUntil = blockedUntil;
         this.displayName = displayName;
+        this.readerId = readerId;
     }
 
     public static User create(String login, String passwordHash, Role role) {
@@ -60,22 +65,41 @@ public class User {
     public static User create(String login, String passwordHash, Role role, String displayName) {
         validatePasswordHash(passwordHash);
         validateRole(role);
-        return new User(null, validLogin(login), passwordHash, role, true, 0, null, validDisplayName(displayName));
+        if (role == Role.READER) {
+            throw new BusinessRuleException("o perfil de leitor só é concedido por convite");
+        }
+        return new User(null, validLogin(login), passwordHash, role, true, 0, null, validDisplayName(displayName),
+                null);
+    }
+
+    /** The access of a reader (Phase 6): the READER profile, tied to the reader, created when the invitation is accepted. */
+    public static User createReaderAccess(String login, String passwordHash, Long readerId) {
+        validatePasswordHash(passwordHash);
+        if (readerId == null) {
+            throw new BusinessRuleException("o leitor do acesso é obrigatório");
+        }
+        return new User(null, validLogin(login), passwordHash, Role.READER, true, 0, null, null, readerId);
     }
 
     /** A persisted user with no failed attempts and not blocked. */
     public static User reconstitute(Long id, String login, String passwordHash, Role role, boolean active) {
-        return new User(id, login, passwordHash, role, active, 0, null, null);
+        return new User(id, login, passwordHash, role, active, 0, null, null, null);
     }
 
     public static User reconstitute(Long id, String login, String passwordHash, Role role, boolean active,
             int failedLoginAttempts, Instant blockedUntil) {
-        return new User(id, login, passwordHash, role, active, failedLoginAttempts, blockedUntil, null);
+        return new User(id, login, passwordHash, role, active, failedLoginAttempts, blockedUntil, null, null);
     }
 
     public static User reconstitute(Long id, String login, String passwordHash, Role role, boolean active,
             int failedLoginAttempts, Instant blockedUntil, String displayName) {
-        return new User(id, login, passwordHash, role, active, failedLoginAttempts, blockedUntil, displayName);
+        return new User(id, login, passwordHash, role, active, failedLoginAttempts, blockedUntil, displayName, null);
+    }
+
+    public static User reconstitute(Long id, String login, String passwordHash, Role role, boolean active,
+            int failedLoginAttempts, Instant blockedUntil, String displayName, Long readerId) {
+        return new User(id, login, passwordHash, role, active, failedLoginAttempts, blockedUntil, displayName,
+                readerId);
     }
 
     /**
@@ -98,7 +122,7 @@ public class User {
     }
 
     public void changeRole(Role newRole) {
-        validateRole(newRole);
+        validateRoleChange(newRole);
         this.role = newRole;
     }
 
@@ -110,7 +134,7 @@ public class User {
      * demoting an inactive administrator (who counted for nothing), is always allowed.
      */
     public void changeRoleKeepingAnAdministrator(Role newRole, long otherActiveAdministrators) {
-        validateRole(newRole);
+        validateRoleChange(newRole);
         if (active && role == Role.ADMIN && newRole != Role.ADMIN && otherActiveAdministrators < 1) {
             throw new BusinessRuleException(
                     "não é possível tirar o perfil de administrador do último administrador ativo");
@@ -254,6 +278,14 @@ public class User {
         }
     }
 
+    /** The READER profile is neither given to nor taken from a user: it belongs to the access of a reader. */
+    private void validateRoleChange(Role newRole) {
+        validateRole(newRole);
+        if (newRole != role && (newRole == Role.READER || role == Role.READER)) {
+            throw new BusinessRuleException("o perfil de leitor não pode ser atribuído nem removido de um usuário");
+        }
+    }
+
     private static void validateRole(Role role) {
         if (role == null) {
             throw new BusinessRuleException("o perfil do usuário é obrigatório");
@@ -286,6 +318,11 @@ public class User {
 
     public Instant getBlockedUntil() {
         return blockedUntil;
+    }
+
+    /** The reader this access belongs to, or null for a user of the system (administrator or operator). */
+    public Long getReaderId() {
+        return readerId;
     }
 
     /** The name screens show for this user, or null when there is none (they fall back to the login). */

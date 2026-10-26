@@ -22,9 +22,10 @@ Prioridade pelo método MoSCoW: **M** (deve, essencial na v1.0), **S** (deveria,
 | ID | Requisito | Prioridade |
 | --- | --- | --- |
 | RF07 | Cadastrar, listar, consultar, editar e inativar leitores (nome, documento, e-mail obrigatório, telefone opcional, data de nascimento e, para menores de 18 anos, o responsável). | M |
-| RF08 | Autenticar usuários por login e senha e controlar o acesso por perfil (administrador e operador). | M |
+| RF08 | Autenticar usuários por login e senha e controlar o acesso por perfil (administrador, operador e leitor; o leitor só tem o acesso limitado da Fase 6, RF30). | M |
 | RF09 | Gerenciar os usuários do sistema (criar, listar, consultar, editar, inativar e redefinir senha), restrito ao administrador. | M |
 | RF10 | Bloquear e desbloquear leitores manualmente. | M |
+| RF30 | Conceder e revogar o acesso do leitor ao sistema. O administrador ou o operador convida o leitor, que recebe no próprio e-mail um link de uso único, escolhe o login e a senha e passa a poder entrar com o perfil `READER` (RN20). O leitor que esqueceu a senha pede um link de redefinição ao próprio e-mail. Inativar o leitor ou revogar o acesso encerra as sessões dele. | M |
 
 ### Empréstimos
 
@@ -90,6 +91,7 @@ As regras ficam na camada de domínio, ou em políticas parametrizáveis, e nunc
 | RN17 | A exportação de relatórios (CSV e PDF, RF29) é restrita ao administrador; o operador, que consulta os relatórios na tela (RF23, RF24 e RF25), recebe 403 ao tentar exportar. Decidido em 24/10/2026. |
 | RN18 | A trilha de auditoria (RF27) é consultada **somente pelo administrador**; o operador recebe 403. Os registros só são acrescentados pelas próprias operações, na mesma transação (uma operação desfeita não deixa registro): nenhuma rota da API cria, altera ou apaga um registro, e o banco recusa a alteração. Nenhum registro traz senha, hash, token ou dado pessoal além do necessário (LGPD). Os registros são guardados por 2 anos, e a limpeza é manual (guia de implantação). Como toda recusa de login é registrada, o proxy limita as tentativas de login por endereço (RNF13), para que quem não está autenticado não encha a trilha. Decidido em 24/10/2026. |
 | RN19 | O nome de um autor ativo não se repete por engano: cadastrar ou renomear um autor para o nome (sem diferenciar maiúsculas) de **outro autor ativo** é recusado (422, com o `existingAuthorId` do autor que já existe), a menos que se confirme que é um homônimo (`allowDuplicate=true`). Autor inativo não conta, e manter o próprio nome (ou só mudar a caixa) não é duplicidade. **Reativar** um autor inativo cujo nome outro autor ativo já tem segue a mesma regra (422 com o `existingAuthorId`, a menos que se confirme o homônimo com o corpo opcional `{"allowDuplicate": true}`); reativar um autor que já está ativo não é checado. Decidido em 24/10/2026. |
+| RN20 | O acesso do leitor ao sistema (RF30) é concedido só por convite: o ADMIN ou o OPERATOR convida um leitor **ativo**, e o link de uso único (72 horas, configurável) vai para o e-mail do próprio leitor, inclusive o menor de 18 anos. O leitor escolhe o login (único) e a senha (a mesma política de senha dos usuários). Um leitor tem no máximo **um acesso ativo**; revogar o acesso ou inativar o leitor o inativa e revoga os refresh tokens, e um novo convite cria outro acesso (o antigo fica inativo, para o histórico, RN14). Um novo convite substitui o anterior ainda pendente. Convite e link de redefinição de senha (1 hora, configurável) valem uma vez só; link desconhecido, usado ou expirado recebe sempre a mesma resposta, e o pedido de redefinição nunca diz se o e-mail existe. Leitor bloqueado, suspenso ou com multa pendente continua podendo entrar e consultar; reservar e renovar seguem as regras de sempre (RN05, RN07, RN11, RN12). O token só existe no e-mail: no banco fica o hash, e nem ele, nem a senha, nem o hash da senha entram na trilha de auditoria (RF27). | M |
 
 > As decisões da Fase 4 (reservas, expiração, retirada do exemplar reservado, perda ou dano na devolução e implantação mínima), tomadas em 17/10/2026, estão em `docs/projeto.md`, seção "Decisões tomadas", e ajustam RF15, RN03, RN07, RN11 e RN12 acima.
 
@@ -115,7 +117,7 @@ Mesma escala de prioridade dos requisitos funcionais.
 | ID | Requisito | Prioridade |
 | --- | --- | --- |
 | RNF07 | Armazenar senhas com hash forte (BCrypt), nunca em texto puro. | M |
-| RNF08 | Exigir autenticação na API e autorizar o acesso por perfil em cada endpoint (administrador e operador). A exportação de relatórios (RF29) é só do administrador (RN17), assim como a consulta à trilha de auditoria (RF27, RN18) e a reativação de livros, autores, categorias e exemplares (RN14). | M |
+| RNF08 | Exigir autenticação na API e autorizar o acesso por perfil em cada endpoint (administrador, operador e leitor; o perfil `READER` recebe 403 em toda rota administrativa e só age sobre o que é dele, a partir das rotas `/api/v1/me/...`). A exportação de relatórios (RF29) é só do administrador (RN17), assim como a consulta à trilha de auditoria (RF27, RN18) e a reativação de livros, autores, categorias e exemplares (RN14). | M |
 | RNF09 | Validar toda entrada de dados (Bean Validation) e proteger contra as vulnerabilidades do OWASP Top 10, incluindo XSS e CSRF, e restringir o CORS à origem do front-end. | M |
 | RNF10 | Manter segredos (senhas de banco e chaves) fora do código-fonte, em variáveis de ambiente. | M |
 | RNF11 | Coletar apenas os dados pessoais mínimos dos leitores (nome, documento, e-mail, telefone opcional, data de nascimento e, para menores de 18 anos, o responsável), em respeito à LGPD. | M |

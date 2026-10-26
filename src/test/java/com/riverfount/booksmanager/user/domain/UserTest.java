@@ -25,8 +25,8 @@ class UserTest {
     // roles (RF08, RF09)
 
     @Test
-    void shouldHaveOnlyTheAdminAndOperatorRoles() {
-        assertThat(Role.values()).containsExactly(Role.ADMIN, Role.OPERATOR);
+    void shouldHaveTheAdminOperatorAndReaderRoles() {
+        assertThat(Role.values()).containsExactly(Role.ADMIN, Role.OPERATOR, Role.READER);
     }
 
     // display name (the name the screens show for who is logged in)
@@ -607,5 +607,82 @@ class UserTest {
         assertThat(user.getLogin()).isEqualTo("chefe");
         assertThat(user.getRole()).isEqualTo(Role.ADMIN);
         assertThat(user.getPasswordHash()).isEqualTo(HASH);
+    }
+
+    // reader access (Phase 6): the READER profile is tied to one reader
+
+    @Test
+    void shouldCreateAReaderAccessTiedToTheReader() {
+        var user = User.createReaderAccess("Ana.Souza", HASH, 42L);
+
+        assertThat(user.getRole()).isEqualTo(Role.READER);
+        assertThat(user.getReaderId()).isEqualTo(42L);
+        assertThat(user.getLogin()).isEqualTo("ana.souza");
+        assertThat(user.isActive()).isTrue();
+    }
+
+    @Test
+    void shouldRequireTheReaderOfAReaderAccess() {
+        assertThatThrownBy(() -> User.createReaderAccess("ana", HASH, null))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("leitor");
+    }
+
+    @Test
+    void shouldNotCreateAReaderProfileWithoutGoingThroughTheInvitation() {
+        assertThatThrownBy(() -> User.create("ana", HASH, Role.READER))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("convite");
+    }
+
+    @Test
+    void shouldHaveNoReaderOnAUserOfTheSystem() {
+        assertThat(operator().getReaderId()).isNull();
+        assertThat(User.reconstitute(7L, "maria", HASH, Role.OPERATOR, true).getReaderId()).isNull();
+    }
+
+    @Test
+    void shouldReconstituteAReaderAccessWithItsReader() {
+        var user = User.reconstitute(7L, "ana", HASH, Role.READER, true, 1, null, null, 42L);
+
+        assertThat(user.getReaderId()).isEqualTo(42L);
+        assertThat(user.getFailedLoginAttempts()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldNotTurnAUserIntoAReader() {
+        var user = operator();
+
+        assertThatThrownBy(() -> user.changeRole(Role.READER)).isInstanceOf(BusinessRuleException.class);
+        assertThatThrownBy(() -> user.changeRoleKeepingAnAdministrator(Role.READER, 1))
+                .isInstanceOf(BusinessRuleException.class);
+        assertThat(user.getRole()).isEqualTo(Role.OPERATOR);
+    }
+
+    @Test
+    void shouldNotChangeTheProfileOfAReaderAccess() {
+        var user = User.createReaderAccess("ana", HASH, 42L);
+
+        assertThatThrownBy(() -> user.changeRole(Role.OPERATOR)).isInstanceOf(BusinessRuleException.class);
+        assertThatThrownBy(() -> user.changeRoleKeepingAnAdministrator(Role.ADMIN, 1))
+                .isInstanceOf(BusinessRuleException.class);
+        assertThat(user.getRole()).isEqualTo(Role.READER);
+    }
+
+    @Test
+    void shouldAllowKeepingTheReaderProfile() {
+        var user = User.createReaderAccess("ana", HASH, 42L);
+
+        user.changeRole(Role.READER);
+
+        assertThat(user.getRole()).isEqualTo(Role.READER);
+    }
+
+    @Test
+    void shouldDeactivateAReaderAccessWithoutCountingAdministrators() {
+        var user = User.createReaderAccess("ana", HASH, 42L);
+
+        assertThat(user.deactivateKeepingAnAdministrator(0)).isTrue();
+        assertThat(user.isActive()).isFalse();
     }
 }

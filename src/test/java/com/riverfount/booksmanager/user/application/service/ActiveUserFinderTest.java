@@ -60,4 +60,12 @@ class ActiveUserFinderTest {
 
         assertThat(finder.findActiveUser(saved.getId())).isPresent();
     }
+
+    @Test
+    void shouldCarryTheReaderOfAReaderAccess() {
+        var saved = repository.save(User.createReaderAccess("ana", "{hash}", 42L));
+
+        assertThat(finder.findActiveUser(saved.getId()))
+                .contains(new AuthenticatedUser(saved.getId(), Role.READER, 42L));
+    }
 }

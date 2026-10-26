@@ -5,6 +5,6 @@ import org.springframework.context.annotation.Configuration;
 
 /** Enables the settings of the user module. */
 @Configuration
-@EnableConfigurationProperties(LoginLockoutProperties.class)
+@EnableConfigurationProperties({LoginLockoutProperties.class, ReaderAccessProperties.class})
 public class UserConfiguration {
 }

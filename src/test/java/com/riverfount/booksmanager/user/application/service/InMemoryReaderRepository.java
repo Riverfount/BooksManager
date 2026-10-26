@@ -86,6 +86,16 @@ class InMemoryReaderRepository implements ReaderRepository {
     }
 
     @Override
+    public List<Reader> findActiveByEmail(String email) {
+        var normalized = email == null ? "" : email.strip().toLowerCase(java.util.Locale.ROOT);
+        return readers.values().stream()
+                .filter(reader -> reader.isActive() && reader.getEmail().toLowerCase(java.util.Locale.ROOT).equals(normalized))
+                .sorted(java.util.Comparator.comparing(Reader::getId))
+                .map(reader -> copyWithId(reader, reader.getId()))
+                .toList();
+    }
+
+    @Override
     public PageResult<Reader> findAll(ReaderFilter filter, PageQuery page) {
         var comparator = COMPARATORS.get(page.sortBy());
         if (comparator == null) {

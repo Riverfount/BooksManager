@@ -13,6 +13,7 @@ import com.riverfount.booksmanager.user.application.port.in.ListReadersQuery;
 import com.riverfount.booksmanager.user.application.port.in.ListReadersUseCase;
 import com.riverfount.booksmanager.user.application.port.in.RegisterReaderCommand;
 import com.riverfount.booksmanager.user.application.port.in.RegisterReaderUseCase;
+import com.riverfount.booksmanager.user.application.port.in.RevokeReaderAccessUseCase;
 import com.riverfount.booksmanager.user.application.port.in.UnblockReaderUseCase;
 import com.riverfount.booksmanager.user.application.port.in.UpdateReaderCommand;
 import com.riverfount.booksmanager.user.application.port.in.UpdateReaderUseCase;
@@ -40,11 +41,14 @@ class ReaderService implements RegisterReaderUseCase, GetReaderUseCase, ListRead
     private final ReaderRepository readerRepository;
     private final Clock clock;
     private final RecordAuditEventUseCase audit;
+    private final RevokeReaderAccessUseCase readerAccess;
 
-    ReaderService(ReaderRepository readerRepository, Clock clock, RecordAuditEventUseCase audit) {
+    ReaderService(ReaderRepository readerRepository, Clock clock, RecordAuditEventUseCase audit,
+            RevokeReaderAccessUseCase readerAccess) {
         this.readerRepository = readerRepository;
         this.clock = clock;
         this.audit = audit;
+        this.readerAccess = readerAccess;
     }
 
     @Override
@@ -96,6 +100,8 @@ class ReaderService implements RegisterReaderUseCase, GetReaderUseCase, ListRead
         if (wasActive) {
             audit.record(new AuditEvent(AuditAction.READER_DEACTIVATED, AuditTarget.READER, id, null));
         }
+        // an inactive reader cannot keep the access (Phase 6); idempotent, so it also cleans up what was left behind
+        readerAccess.revoke(id);
     }
 
     @Override

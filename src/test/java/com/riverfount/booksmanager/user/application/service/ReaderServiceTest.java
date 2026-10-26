@@ -29,7 +29,7 @@ class ReaderServiceTest {
     @BeforeEach
     void setUp() {
         repository = new InMemoryReaderRepository();
-        service = new ReaderService(repository, FIXED_CLOCK, new RecordedAudit());
+        service = new ReaderService(repository, FIXED_CLOCK, new RecordedAudit(), readerId -> { });
     }
 
     private static RegisterReaderCommand adult(String document) {

@@ -132,7 +132,7 @@ class UserService implements CreateInitialAdminUseCase, AuthenticateUserUseCase,
                 userRepository.save(user);
             }
             audit.recordAs(user.getId(), new AuditEvent(AuditAction.LOGIN_SUCCESS, AuditTarget.USER, user.getId(), null));
-            return new AuthenticatedUser(user.getId(), user.getRole());
+            return new AuthenticatedUser(user.getId(), user.getRole(), user.getReaderId());
         }
         var changed = user != null && !passwordMatches
                 && user.registerFailedLogin(now, lockout.maxFailedAttempts(), lockout.blockDuration());

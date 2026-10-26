@@ -32,7 +32,7 @@ class InMemoryUserRepository implements UserRepository {
 
     private static User copyWithId(User user, Long id) {
         return User.reconstitute(id, user.getLogin(), user.getPasswordHash(), user.getRole(), user.isActive(),
-                user.getFailedLoginAttempts(), user.getBlockedUntil(), user.getDisplayName());
+                user.getFailedLoginAttempts(), user.getBlockedUntil(), user.getDisplayName(), user.getReaderId());
     }
 
     @Override
@@ -42,6 +42,12 @@ class InMemoryUserRepository implements UserRepository {
                 .anyMatch(other -> other.getLogin().equals(user.getLogin()) && !other.getId().equals(user.getId()));
         if (duplicate) {
             throw new BusinessRuleException("já existe um usuário com o login '" + user.getLogin() + "'");
+        }
+        var secondAccess = user.getReaderId() != null && user.isActive() && users.values().stream()
+                .anyMatch(other -> user.getReaderId().equals(other.getReaderId()) && other.isActive()
+                        && !other.getId().equals(user.getId()));
+        if (secondAccess) {
+            throw new BusinessRuleException("o leitor já tem um acesso ativo");
         }
         var id = user.getId() != null ? user.getId() : nextId++;
         users.put(id, copyWithId(user, id));
@@ -80,6 +86,13 @@ class InMemoryUserRepository implements UserRepository {
                 .sorted(Comparator.comparing(User::getId))
                 .map(user -> copyWithId(user, user.getId()))
                 .toList();
+    }
+
+    @Override
+    public Optional<User> findActiveByReaderIdForUpdate(Long readerId) {
+        return users.values().stream()
+                .filter(user -> user.isActive() && readerId.equals(user.getReaderId()))
+                .findFirst().map(user -> copyWithId(user, user.getId()));
     }
 
     int saves() {

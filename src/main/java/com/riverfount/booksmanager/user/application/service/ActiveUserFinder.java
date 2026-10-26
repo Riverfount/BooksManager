@@ -33,6 +33,6 @@ class ActiveUserFinder implements FindActiveUserUseCase {
         }
         return userRepository.findById(id)
                 .filter(User::isActive)
-                .map(user -> new AuthenticatedUser(user.getId(), user.getRole()));
+                .map(user -> new AuthenticatedUser(user.getId(), user.getRole(), user.getReaderId()));
     }
 }

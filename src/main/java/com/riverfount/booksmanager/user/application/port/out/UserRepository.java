@@ -16,7 +16,7 @@ public interface UserRepository {
 
     /**
      * Saves the user. A login already used by another user is refused with a
-     * BusinessRuleException (RF09).
+     * BusinessRuleException (RF09), and so is a second active access for the same reader.
      */
     User save(User user);
 
@@ -49,6 +49,12 @@ public interface UserRepository {
      * the other (otherwise each would see the other still there, and both would go through).
      */
     List<User> findActiveByRoleForUpdate(Role role);
+
+    /**
+     * The active access of the reader (Phase 6), locked until the end of the current transaction, so two requests
+     * on the same reader (an invitation and a revocation, for example) are handled one after the other.
+     */
+    Optional<User> findActiveByReaderIdForUpdate(Long readerId);
 
     boolean existsByLogin(String login);
 
