@@ -33,8 +33,8 @@ Prioridade pelo método MoSCoW: **M** (deve, essencial na v1.0), **S** (deveria,
 | --- | --- | --- |
 | RF11 | Registrar o empréstimo de um exemplar a um leitor. | M |
 | RF12 | Registrar a devolução e aplicar a penalidade por atraso conforme a política configurada pela biblioteca. | M |
-| RF13 | Renovar um empréstimo, respeitando o limite de renovações. | M |
-| RF14 | Consultar os empréstimos ativos e o histórico por leitor e por exemplar. | M |
+| RF13 | Renovar um empréstimo, respeitando o limite de renovações. O operador ou o administrador renova no balcão, e o leitor renova os próprios empréstimos por `POST /api/v1/me/loans/{id}/renew` (Fase 6), sob as mesmas regras (RN07, RN09): sem corpo, a data é hoje, e o empréstimo de outro leitor é tratado como inexistente (404, antes de qualquer outra verificação, RN20). | M |
+| RF14 | Consultar os empréstimos ativos e o histórico por leitor e por exemplar. O leitor consulta os próprios empréstimos, ativos e devolvidos, por `GET /api/v1/me/loans` (Fase 6): com o livro, as datas, as renovações, os dias de atraso e a multa e a suspensão que a devolução gerou, e sem nada do exemplar (código de patrimônio, condição de devolução) nem de outro leitor. | M |
 | RF15 | Registrar perda ou dano do exemplar na devolução (condição `GOOD`, `DAMAGED` ou `LOST`, guardada no empréstimo), apenas registrando a ocorrência, sem cobrança. O exemplar danificado ou extraviado não volta a disponível nem entra na fila de reservas. | S |
 
 ### Reservas
