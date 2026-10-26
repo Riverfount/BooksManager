@@ -99,6 +99,16 @@ classDiagram
         boolean active
         int failedLoginAttempts
         Instant blockedUntil
+        Long readerId
+    }
+    class ReaderAccessToken {
+        Long id
+        ReaderAccessTokenPurpose purpose
+        Long readerId
+        String tokenHash
+        Instant createdAt
+        Instant expiresAt
+        Instant usedAt
     }
     class LibraryConfiguration {
         Long id
@@ -123,6 +133,8 @@ classDiagram
     Loan "1" --> "0..1" Suspension : generates
     Reader "1" --> "*" Suspension : receives
     Reader "1" --> "*" Reservation : makes
+    Reader "1" --> "0..*" User : has access as READER (one active)
+    Reader "1" --> "*" ReaderAccessToken : receives (invitation, password reset)
     Book "1" --> "*" Reservation : receives
     Copy "1" --> "0..1" Reservation : holds (when RESERVED)
 ```
@@ -145,6 +157,7 @@ classDiagram
 | `Category`, `Author`, `Book`, `Copy` | `catalog` | Implementadas: domínio, persistência, casos de uso e endpoints REST de cadastro, consulta, listagem, edição e inativação (issues #5–#16, #35–#37 e #43–#58), inclusive a pesquisa de livros com exemplares disponíveis (RF05, issue #83). |
 | `Reader` | `user` | Implementado: migração (issue #88), domínio (issue #89), persistência (issue #90) e endpoints REST de cadastro, consulta, listagem, edição, inativação e bloqueio (issues #91 a #96). |
 | `User` | `user` | Migração `app_user` (issue #97), domínio (issue #98), persistência (issue #99), administrador inicial (issue #100), autenticação (issues #101 a #105) e criação, consulta, listagem, edição de perfil, desbloqueio, inativação e redefinição de senha de usuário (issues #106 a #110) implementados (fase 2, `docs/projeto.md`). |
+| `ReaderAccessToken` e o perfil `READER` | `user` | Implementados (issue #296): o acesso do leitor ao sistema, por convite. `Role.READER` e `User.readerId` (um acesso ativo por leitor), e o `ReaderAccessToken` (convite ou redefinição de senha, só com o hash, de uso único). A autorização por dono do dado e as rotas `/api/v1/me/...` vêm nas issues seguintes da Fase 6. |
 | `LibraryConfiguration` | `loan` | Migração (issue #136), domínio, com o enum `PenaltyPolicy` (issue #137), persistência (issue #138) e os endpoints `GET` e `PATCH /api/v1/library-configuration` (issue #139) implementados. |
 | `Penalty` e `PenaltyPolicy.calculate` | `loan` | Implementados (issue #140): o cálculo da multa e da suspensão por variante da política. |
 | `BorrowingEligibility` e `BorrowingSituation` | `loan` | Implementados (issue #144): as regras que decidem se um leitor pode pegar um exemplar (RN03, RN04, RN05, RN11). |

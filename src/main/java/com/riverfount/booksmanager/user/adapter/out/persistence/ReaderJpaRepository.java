@@ -10,6 +10,10 @@ import org.springframework.data.repository.query.Param;
 
 interface ReaderJpaRepository extends JpaRepository<ReaderJpaEntity, Long> {
 
+    /** The e-mail comes already stripped and lowercased (see {@link ReaderPersistenceAdapter}). */
+    @Query("select r from ReaderJpaEntity r where lower(r.email) = :email and r.active = true order by r.id")
+    List<ReaderJpaEntity> findActiveByEmail(@Param("email") String email);
+
     boolean existsByDocument(String document);
 
     boolean existsByDocumentAndIdNot(String document, Long id);

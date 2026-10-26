@@ -34,6 +34,11 @@ interface UserJpaRepository extends JpaRepository<UserJpaEntity, Long> {
     @Query("select u from UserJpaEntity u where u.active = true and u.role = :role order by u.id")
     List<UserJpaEntity> findActiveByRoleForUpdate(@Param("role") Role role);
 
+    /** The active access of a reader, with a write lock on the row until the end of the transaction. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from UserJpaEntity u where u.readerId = :readerId and u.active = true")
+    Optional<UserJpaEntity> findActiveByReaderIdForUpdate(@Param("readerId") Long readerId);
+
     boolean existsByLogin(String login);
 
     /**

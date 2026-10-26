@@ -10,6 +10,7 @@ import com.riverfount.booksmanager.user.application.port.out.ReaderRepository;
 import com.riverfount.booksmanager.user.application.port.in.ReaderContact;
 import com.riverfount.booksmanager.user.domain.Guardian;
 import com.riverfount.booksmanager.user.domain.Reader;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -103,6 +104,15 @@ class ReaderPersistenceAdapter implements ReaderRepository {
         }
         var escaped = term.toLowerCase(Locale.ROOT).replace("!", "!!").replace("%", "!%").replace("_", "!_");
         return "%" + escaped + "%";
+    }
+
+    @Override
+    public List<Reader> findActiveByEmail(String email) {
+        if (email == null) {
+            return List.of();
+        }
+        return jpaRepository.findActiveByEmail(email.strip().toLowerCase(Locale.ROOT)).stream()
+                .map(this::toDomain).toList();
     }
 
     private Reader toDomain(ReaderJpaEntity entity) {

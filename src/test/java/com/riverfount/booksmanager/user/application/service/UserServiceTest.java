@@ -351,7 +351,37 @@ class UserServiceTest {
     void theAuthenticatedUserShouldCarryNoSecret() {
         assertThat(AuthenticatedUser.class.getRecordComponents())
                 .extracting(java.lang.reflect.RecordComponent::getName)
-                .containsExactly("id", "role");
+                .containsExactly("id", "role", "readerId");
+    }
+
+    @Test
+    void shouldNotCreateAUserWithTheReaderProfile() {
+        assertThatThrownBy(() -> service.create(new CreateUserCommand("ana", GOOD_PASSWORD, Role.READER)))
+                .isInstanceOf(BusinessRuleException.class).hasMessageContaining("convite");
+        assertThat(repository.findByLogin("ana")).isEmpty();
+    }
+
+    @Test
+    void shouldNotTurnAUserIntoAReaderNorChangeTheProfileOfAReaderAccess() {
+        var operator = service.create(new CreateUserCommand("maria", GOOD_PASSWORD, Role.OPERATOR));
+        var reader = repository.save(User.createReaderAccess("ana", "{hash}", 42L));
+
+        assertThatThrownBy(() -> service.update(new UpdateUserCommand(operator.getId(), Role.READER, null)))
+                .isInstanceOf(BusinessRuleException.class);
+        assertThatThrownBy(() -> service.update(new UpdateUserCommand(reader.getId(), Role.OPERATOR, null)))
+                .isInstanceOf(BusinessRuleException.class);
+        assertThat(repository.findById(operator.getId()).orElseThrow().getRole()).isEqualTo(Role.OPERATOR);
+        assertThat(repository.findById(reader.getId()).orElseThrow().getRole()).isEqualTo(Role.READER);
+    }
+
+    @Test
+    void shouldAuthenticateAReaderAccessWithItsReader() {
+        repository.save(User.createReaderAccess("ana", hasher.hash(RIGHT_PASSWORD), 42L));
+
+        var authenticated = service.authenticate(new AuthenticateUserCommand("ana", RIGHT_PASSWORD));
+
+        assertThat(authenticated.role()).isEqualTo(Role.READER);
+        assertThat(authenticated.readerId()).isEqualTo(42L);
     }
 
     // login lockout after wrong passwords (RF08)

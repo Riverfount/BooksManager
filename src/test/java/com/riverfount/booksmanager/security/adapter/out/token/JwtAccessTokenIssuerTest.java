@@ -83,4 +83,17 @@ class JwtAccessTokenIssuerTest {
 
         assertThat(issued.toString()).doesNotContain(issued.value());
     }
+
+    @Test
+    void shouldCarryTheReaderOnlyForAReaderAccess() {
+        var forReader = issuer.issue(new AuthenticatedUser(7L, Role.READER, 42L), NOW);
+        var forOperator = issuer.issue(new AuthenticatedUser(8L, Role.OPERATOR), NOW);
+
+        var readerClaims = signatureOnlyDecoder.decode(forReader.value());
+        assertThat(readerClaims.getClaimAsString("role")).isEqualTo("READER");
+        assertThat(((Number) readerClaims.getClaim("readerId")).longValue()).isEqualTo(42L);
+        assertThat(readerClaims.getClaims().keySet())
+                .containsExactlyInAnyOrder("sub", "role", "readerId", "iss", "iat", "exp");
+        assertThat(signatureOnlyDecoder.decode(forOperator.value()).getClaims()).doesNotContainKey("readerId");
+    }
 }

@@ -46,12 +46,15 @@ class UserJpaEntity {
     @Column(name = "display_name", length = 100)
     private String displayName;
 
+    @Column(name = "reader_id")
+    private Long readerId;
+
     protected UserJpaEntity() {
         // required by JPA
     }
 
     UserJpaEntity(Long id, String login, String passwordHash, Role role, boolean active,
-            int failedLoginAttempts, Instant blockedUntil, String displayName) {
+            int failedLoginAttempts, Instant blockedUntil, String displayName, Long readerId) {
         this.id = id;
         this.login = login;
         this.passwordHash = passwordHash;
@@ -60,6 +63,7 @@ class UserJpaEntity {
         this.failedLoginAttempts = failedLoginAttempts;
         this.blockedUntil = blockedUntil;
         this.displayName = displayName;
+        this.readerId = readerId;
     }
 
     Long getId() {
@@ -92,5 +96,9 @@ class UserJpaEntity {
 
     String getDisplayName() {
         return displayName;
+    }
+
+    Long getReaderId() {
+        return readerId;
     }
 }

@@ -21,13 +21,14 @@ class ReaderServiceAuditTest {
     private InMemoryReaderRepository repository;
     private RecordedAudit audit;
     private ReaderService service;
+    private final java.util.List<Long> revokedAccessOf = new java.util.ArrayList<>();
 
     @BeforeEach
     void setUp() {
         repository = new InMemoryReaderRepository();
         audit = new RecordedAudit();
         service = new ReaderService(repository, Clock.fixed(Instant.parse("2026-10-15T12:00:00Z"), ZoneOffset.UTC),
-                audit);
+                audit, revokedAccessOf::add);
     }
 
     private Long reader() {
@@ -100,5 +101,31 @@ class ReaderServiceAuditTest {
         assertThatThrownBy(() -> service.deactivate(999L)).isInstanceOf(ResourceNotFoundException.class);
 
         assertThat(audit.isEmpty()).isTrue();
+    }
+
+    @Test
+    void deactivatingAReaderShouldTakeAwayTheAccessOfTheReader() {
+        var id = reader();
+
+        service.deactivate(id);
+
+        assertThat(revokedAccessOf).containsExactly(id);
+    }
+
+    @Test
+    void deactivatingAnAlreadyInactiveReaderShouldStillMakeSureTheAccessIsGone() {
+        var id = reader();
+        service.deactivate(id);
+
+        service.deactivate(id);
+
+        assertThat(revokedAccessOf).containsExactly(id, id);
+    }
+
+    @Test
+    void blockingAReaderShouldNotTouchTheAccess() {
+        service.block(reader());
+
+        assertThat(revokedAccessOf).isEmpty();
     }
 }

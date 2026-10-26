@@ -38,7 +38,7 @@ class AppUserMigrationTest {
                 String.class);
 
         assertThat(columns).containsExactlyInAnyOrder("id", "login", "password_hash", "role", "active",
-                "failed_login_attempts", "blocked_until", "display_name");
+                "failed_login_attempts", "blocked_until", "display_name", "reader_id");
         assertThat(columns).noneMatch(column -> column.equals("password") || column.equals("plain_password"));
     }
 

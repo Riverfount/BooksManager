@@ -89,7 +89,7 @@
 
 **HU05 —** Como usuário do sistema, quero entrar com login e senha, para acessar só as funções permitidas ao meu perfil.
 - Critério de aceite: a senha é validada contra um hash forte (BCrypt), nunca armazenada em texto puro (RNF07).
-- Critério de aceite: cada endpoint autoriza o acesso conforme o perfil, administrador ou operador (RF08, RNF08).
+- Critério de aceite: cada endpoint autoriza o acesso conforme o perfil, administrador, operador ou leitor (RF08, RNF08); o leitor não acessa nenhuma rota administrativa.
 
 **HU06 —** Como operador, quero bloquear um leitor manualmente, para impedir novos empréstimos em casos excepcionais (ex.: perda recorrente de exemplares).
 - Critério de aceite: um leitor bloqueado não pode fazer empréstimos nem reservas (RN11).
@@ -194,6 +194,17 @@
 - Critério de aceite: o exemplar só é reativado se o livro dele está ativo, e volta com o status que tinha; reativar o livro não reativa os exemplares (RN14).
 - Critério de aceite: o registro reativado volta às listagens padrão e, no caso do livro, pode ser emprestado e reservado de novo (RN14); reativar o que já está ativo não tem efeito.
 - Critério de aceite: o autor só é reativado se nenhum outro autor ativo tem o mesmo nome; a recusa informa quem já existe, e o administrador pode confirmar que é um homônimo e repetir (RN19).
+
+**HU42 —** Como operador, quero convidar um leitor para acessar o sistema e, se for preciso, revogar esse acesso, para que ele consulte o acervo e cuide das próprias reservas e renovações sem passar pelo balcão.
+- Critério de aceite: o convite vai para o e-mail do próprio leitor, com um link de uso único que vale 72 horas; um novo convite substitui o anterior (RF30, RN20).
+- Critério de aceite: leitor inativo não é convidado, e leitor que já tem acesso ativo também não (422).
+- Critério de aceite: revogar o acesso, ou inativar o leitor, encerra as sessões dele; o leitor pode ser convidado de novo (RN20).
+- Critério de aceite: o convite, a concessão e a revogação ficam na trilha de auditoria, sem token, senha nem hash (RF27).
+
+**HU43 —** Como leitor, quero aceitar o convite escolhendo meu login e minha senha, e poder redefinir a senha se a esquecer, para entrar no sistema sem depender da biblioteca.
+- Critério de aceite: o link do convite vale uma vez só; link inválido, usado ou expirado recebe sempre a mesma resposta (RN20).
+- Critério de aceite: uma senha fora da política ou um login já usado são recusados e o link continua valendo.
+- Critério de aceite: o pedido de redefinição nunca diz se o e-mail existe; o link de redefinição vale 1 hora e uma vez só, e a nova senha encerra as sessões abertas.
 
 ## Referências
 

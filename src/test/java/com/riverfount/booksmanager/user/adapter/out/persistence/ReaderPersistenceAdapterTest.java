@@ -316,4 +316,33 @@ class ReaderPersistenceAdapterTest {
     void shouldFindNoNamesForNoIds() {
         assertThat(adapter.findNamesByIds(java.util.Set.of())).isEmpty();
     }
+
+    // e-mail lookup for the password reset (Phase 6)
+
+    @Test
+    void shouldFindTheActiveReadersByEmailIgnoringCase() {
+        var ana = adapter.save(Reader.create("Ana", "EM-1", "Ana@Example.com", null, ADULT_BIRTH, null, TODAY));
+        adapter.save(Reader.create("Bia", "EM-2", "bia@example.com", null, ADULT_BIRTH, null, TODAY));
+
+        assertThat(adapter.findActiveByEmail("  ana@example.COM ")).extracting(Reader::getId)
+                .containsExactly(ana.getId());
+        assertThat(adapter.findActiveByEmail("ninguem@example.com")).isEmpty();
+    }
+
+    @Test
+    void shouldNotFindAnInactiveReaderByEmail() {
+        var ana = adapter.save(Reader.create("Ana", "EM-3", "ana3@example.com", null, ADULT_BIRTH, null, TODAY));
+        ana.deactivate();
+        adapter.save(ana);
+
+        assertThat(adapter.findActiveByEmail("ana3@example.com")).isEmpty();
+    }
+
+    @Test
+    void shouldFindEveryActiveReaderThatSharesTheEmail() {
+        adapter.save(Reader.create("Pai", "EM-4", "familia@example.com", null, ADULT_BIRTH, null, TODAY));
+        adapter.save(Reader.create("Mae", "EM-5", "familia@example.com", null, ADULT_BIRTH, null, TODAY));
+
+        assertThat(adapter.findActiveByEmail("familia@example.com")).hasSize(2);
+    }
 }

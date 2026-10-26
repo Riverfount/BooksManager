@@ -10,7 +10,11 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 class LoginLockoutPropertiesTest {
 
     private final ApplicationContextRunner runner = new ApplicationContextRunner()
-            .withUserConfiguration(UserConfiguration.class);
+            .withUserConfiguration(UserConfiguration.class)
+            .withPropertyValues("app.reader-access.invitation-validity=72h",
+                    "app.reader-access.password-reset-validity=1h",
+                    "app.reader-access.invitation-url=https://app.example.com/convite?token={token}",
+                    "app.reader-access.password-reset-url=https://app.example.com/senha?token={token}");
 
     @Test
     void shouldBindTheValues() {

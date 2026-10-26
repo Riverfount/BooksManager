@@ -7,6 +7,7 @@ import com.riverfount.booksmanager.PersistenceTest;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.user.application.port.out.UserFilter;
+import com.riverfount.booksmanager.user.domain.Reader;
 import com.riverfount.booksmanager.user.domain.Role;
 import com.riverfount.booksmanager.user.domain.User;
 import org.junit.jupiter.api.Test;
@@ -26,6 +27,9 @@ class UserPersistenceAdapterTest {
 
     @Autowired
     private UserPersistenceAdapter adapter;
+
+    @Autowired
+    private ReaderPersistenceAdapter readers;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -397,5 +401,67 @@ class UserPersistenceAdapterTest {
         assertThat(adapter.findById(saved.getId()).orElseThrow().getRole()).isEqualTo(Role.ADMIN);
         assertThat(jdbcTemplate.queryForObject("select role from app_user where login = 'maria'", String.class))
                 .isEqualTo("ADMIN");
+    }
+
+    // reader access (Phase 6)
+
+    private Long saveReader(String document) {
+        return readers.save(Reader.create("Ana Souza", document, "ana@example.com", null,
+                java.time.LocalDate.of(1990, 5, 10), null, java.time.LocalDate.of(2026, 10, 26))).getId();
+    }
+
+    @Test
+    void shouldPersistTheReaderOfAReaderAccess() {
+        var readerId = saveReader("RA-1");
+
+        var saved = adapter.save(User.createReaderAccess("ana", HASH, readerId));
+
+        var found = adapter.findById(saved.getId()).orElseThrow();
+        assertThat(found.getRole()).isEqualTo(Role.READER);
+        assertThat(found.getReaderId()).isEqualTo(readerId);
+        assertThat(adapter.findById(saveUser("maria", Role.OPERATOR).getId()).orElseThrow().getReaderId()).isNull();
+    }
+
+    @Test
+    void shouldFindTheActiveAccessOfAReader() {
+        var readerId = saveReader("RA-2");
+        var saved = adapter.save(User.createReaderAccess("ana", HASH, readerId));
+
+        assertThat(adapter.findActiveByReaderIdForUpdate(readerId)).get().extracting(User::getId)
+                .isEqualTo(saved.getId());
+        assertThat(adapter.findActiveByReaderIdForUpdate(readerId + 1000)).isEmpty();
+    }
+
+    @Test
+    void shouldNotFindARevokedAccessAsActive() {
+        var readerId = saveReader("RA-3");
+        var saved = adapter.save(User.createReaderAccess("ana", HASH, readerId));
+        saved.deactivate();
+        adapter.save(saved);
+
+        assertThat(adapter.findActiveByReaderIdForUpdate(readerId)).isEmpty();
+    }
+
+    @Test
+    void shouldAllowANewAccessAfterTheFirstOneWasRevoked() {
+        var readerId = saveReader("RA-4");
+        var first = adapter.save(User.createReaderAccess("ana", HASH, readerId));
+        first.deactivate();
+        adapter.save(first);
+
+        var second = adapter.save(User.createReaderAccess("ana2", HASH, readerId));
+
+        assertThat(adapter.findActiveByReaderIdForUpdate(readerId)).get().extracting(User::getId)
+                .isEqualTo(second.getId());
+    }
+
+    @Test
+    void shouldRefuseASecondActiveAccessForTheSameReader() {
+        var readerId = saveReader("RA-5");
+        adapter.save(User.createReaderAccess("ana", HASH, readerId));
+
+        assertThatThrownBy(() -> adapter.save(User.createReaderAccess("ana2", HASH, readerId)))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("acesso");
     }
 }
