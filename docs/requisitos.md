@@ -14,7 +14,7 @@ Prioridade pelo método MoSCoW: **M** (deve, essencial na v1.0), **S** (deveria,
 | RF02 | Cadastrar, listar, consultar, editar, inativar e reativar autores e associá-los aos livros (relação N:N). Um nome que outro autor ativo já tem exige a confirmação do homônimo (RN19). | M |
 | RF03 | Cadastrar, listar, consultar, editar, inativar e reativar categorias. | M |
 | RF04 | Cadastrar, listar, consultar, inativar e reativar exemplares de um livro, com código de patrimônio único e status, e alterar o status (disponível, emprestado, reservado, danificado, extraviado). | M |
-| RF05 | Pesquisar livros por título, autor, ISBN e categoria, informando quantos exemplares estão disponíveis, com paginação e ordenação. A busca por título e por autor, e a busca de autores por nome, **ignoram maiúsculas e acentos** ("jose" acha "José", e "García Márquez" acha "garcia marquez"); o ISBN e a categoria não. Decidido em 24/10/2026. | M |
+| RF05 | Pesquisar livros por título, autor, ISBN e categoria, informando quantos exemplares estão disponíveis, com paginação e ordenação. A busca por título e por autor, e a busca de autores por nome, **ignoram maiúsculas e acentos** ("jose" acha "José", e "García Márquez" acha "garcia marquez"); o ISBN e a categoria não. Decidido em 24/10/2026. O **leitor** faz a mesma pesquisa pelas rotas `/api/v1/me/books`, `/me/authors` e `/me/categories` (Fase 6, RF30): só registros ativos, com a quantidade de exemplares disponíveis agora e nada dos exemplares em si (código de patrimônio, status, total). Decidido em 26/10/2026. | M |
 | RF06 | Importar os dados de um livro automaticamente a partir do ISBN, por meio de API externa. | C |
 
 ### Leitores e acesso
