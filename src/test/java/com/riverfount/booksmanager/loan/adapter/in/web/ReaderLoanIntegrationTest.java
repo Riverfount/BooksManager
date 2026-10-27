@@ -86,6 +86,7 @@ class ReaderLoanIntegrationTest {
     void cleanUp() {
         jdbcTemplate.update("delete from reservation where reader_id in (select id from reader where document like 'RLN-DOC-%')");
         jdbcTemplate.update("delete from fine where reader_id in (select id from reader where document like 'RLN-DOC-%')");
+        jdbcTemplate.update("delete from suspension where reader_id in (select id from reader where document like 'RLN-DOC-%')");
         jdbcTemplate.update("delete from loan where reader_id in (select id from reader where document like 'RLN-DOC-%')");
         jdbcTemplate.update("delete from copy where asset_code like 'RLN-%'");
         jdbcTemplate.update("delete from reader where document like 'RLN-DOC-%'");
@@ -368,6 +369,39 @@ class ReaderLoanIntegrationTest {
                 .andExpect(status().isForbidden());
         mockMvc.perform(post("/api/v1/loans/" + loan + "/return").header("Authorization", asReader(ana))
                 .contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().isForbidden());
+        assertThat(renewalsOf(loan)).isZero();
+    }
+
+    @Test
+    void aBlockedReaderShouldNotRenewTheirOwnLoanButStillSeesIt() throws Exception {
+        var loan = activeLoan(ana, 5, 9, 0);
+        var due = dueDateOf(loan);
+        var biasLoan = activeLoan(bia, 5, 9, 0);
+        jdbcTemplate.update("update reader set blocked = true where id = ?", ana);
+
+        renew(ana, loan).andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.detail").value("A renovação não pode ser feita: o leitor está bloqueado."));
+        mockMvc.perform(get("/api/v1/me/loans/" + loan).header("Authorization", asReader(ana)))
+                .andExpect(status().isOk());
+
+        assertThat(renewalsOf(loan)).isZero();
+        assertThat(dueDateOf(loan)).isEqualTo(due);
+        // Bia is in good standing: Ana's block is not hers
+        renew(bia, biasLoan).andExpect(status().isOk());
+    }
+
+    @Test
+    void aReaderWithAPendingFineOrASuspensionShouldNotRenewTheirOwnLoan() throws Exception {
+        var loan = activeLoan(ana, 5, 9, 0);
+        jdbcTemplate.update("insert into fine (loan_id, reader_id, amount, status) values (?, ?, 6.00, 'PENDING')",
+                loan, ana);
+        jdbcTemplate.update("insert into suspension (reader_id, loan_id, start_date, end_date) values (?, ?, ?, ?)",
+                ana, loan, TODAY.minusDays(1), TODAY.plusDays(5));
+
+        renew(ana, loan).andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.detail").value(
+                        "A renovação não pode ser feita: o leitor tem multa pendente; o leitor está suspenso."));
+
         assertThat(renewalsOf(loan)).isZero();
     }
 }

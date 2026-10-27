@@ -149,7 +149,8 @@ class LoanController {
             @ApiResponse(responseCode = "422",
                     description = "Renovação não permitida (a mensagem diz o motivo): empréstimo encerrado (RN09), "
                             + "em atraso, livro inativo (RN14), com o limite de renovações atingido ou com outro leitor "
-                            + "esperando o livro na fila de reservas (RN07)",
+                            + "esperando o livro na fila de reservas (RN07); ou leitor inativo, bloqueado, suspenso ou "
+                            + "com multa pendente (RN21), caso em que a mensagem traz todos os motivos do leitor",
                     content = @Content(mediaType = "application/problem+json",
                             schema = @Schema(implementation = ProblemDetail.class)))
     })

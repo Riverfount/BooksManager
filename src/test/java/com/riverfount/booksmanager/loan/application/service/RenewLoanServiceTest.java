@@ -12,9 +12,14 @@ import com.riverfount.booksmanager.catalog.application.port.in.FindCopyAvailabil
 import com.riverfount.booksmanager.catalog.application.port.in.FindCopySummariesUseCase;
 import com.riverfount.booksmanager.loan.application.port.in.RenewLoanCommand;
 import com.riverfount.booksmanager.loan.domain.Loan;
+import com.riverfount.booksmanager.loan.domain.Fine;
 import com.riverfount.booksmanager.loan.domain.Reservation;
+import com.riverfount.booksmanager.loan.domain.Suspension;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
+import com.riverfount.booksmanager.user.application.port.in.GetReaderBorrowingStateUseCase;
+import com.riverfount.booksmanager.user.application.port.in.ReaderBorrowingState;
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -43,6 +48,9 @@ class RenewLoanServiceTest {
     private InMemoryReservationRepository reservationRepository;
     private FindCopySummariesUseCase copySummaries;
     private FindCopyAvailabilityUseCase copyAvailability;
+    private InMemoryFineRepository fineRepository;
+    private InMemorySuspensionRepository suspensionRepository;
+    private GetReaderBorrowingStateUseCase readerState;
     private RenewLoanService service;
 
     @BeforeEach
@@ -55,8 +63,21 @@ class RenewLoanServiceTest {
                 .willReturn(Map.of(COPY, new CopySummary(COPY, "PAT-7", BOOK, "T")));
         copyAvailability = mock(FindCopyAvailabilityUseCase.class);
         bookIsActive(true);
-        service = new RenewLoanService(configurationRepository, loanRepository, reservationRepository,
-                copySummaries, copyAvailability, CLOCK);
+        fineRepository = new InMemoryFineRepository();
+        suspensionRepository = new InMemorySuspensionRepository();
+        readerState = mock(GetReaderBorrowingStateUseCase.class);
+        readerIs(true, false);
+        service = serviceWith(CLOCK);
+    }
+
+    private RenewLoanService serviceWith(Clock clock) {
+        return new RenewLoanService(configurationRepository, loanRepository, reservationRepository, fineRepository,
+                suspensionRepository, copySummaries, copyAvailability, readerState, clock);
+    }
+
+    private void readerIs(boolean active, boolean blocked) {
+        given(readerState.getBorrowingState(20L))
+                .willReturn(new ReaderBorrowingState(20L, active, blocked, active && !blocked));
     }
 
     private void bookIsActive(boolean active) {
@@ -180,8 +201,7 @@ class RenewLoanServiceTest {
     void shouldUseTheDayOfTheClockInTheLibraryTimezone() {
         // 01:00 UTC of the 25th is still the 24th in São Paulo, the day the loan is due: on time
         var lateNight = Clock.fixed(Instant.parse("2026-11-25T01:00:00Z"), ZONE);
-        var lateService = new RenewLoanService(configurationRepository, loanRepository, reservationRepository,
-                copySummaries, copyAvailability, lateNight);
+        var lateService = serviceWith(lateNight);
         var id = loanRepository.save(Loan.create(7L, 20L, LocalDate.of(2026, 11, 10), 14)).getId();
 
         assertThat(lateService.renew(new RenewLoanCommand(id)).getRenewals()).isEqualTo(1);
@@ -230,6 +250,84 @@ class RenewLoanServiceTest {
     void aQueueForAnotherBookShouldNotBlockTheRenewal() {
         var id = openLoan(5);
         reserve(31L, 21L);
+
+        assertThat(renew(id).getRenewals()).isEqualTo(1);
+    }
+
+    // the state of the reader (RN21)
+
+    private void assertNothingChanged(Long id, LocalDate dueDate) {
+        var loan = loanRepository.findById(id).orElseThrow();
+        assertThat(loan.getDueDate()).isEqualTo(dueDate);
+        assertThat(loan.getRenewals()).isZero();
+    }
+
+    @Test
+    void shouldRefuseABlockedReaderAndChangeNothing() {
+        var id = openLoan(5);
+        var due = loanRepository.findById(id).orElseThrow().getDueDate();
+        readerIs(true, true);
+
+        assertThatThrownBy(() -> renew(id)).isInstanceOf(BusinessRuleException.class)
+                .hasMessage("A renovação não pode ser feita: o leitor está bloqueado.");
+
+        assertNothingChanged(id, due);
+    }
+
+    @Test
+    void shouldRefuseAnInactiveReader() {
+        var id = openLoan(5);
+        readerIs(false, false);
+
+        assertThatThrownBy(() -> renew(id)).isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("o leitor está inativo");
+    }
+
+    @Test
+    void shouldRefuseAReaderWithAPendingFineButNotOneWithAPaidFine() {
+        var id = openLoan(5);
+        var fine = fineRepository.save(Fine.create(1L, 20L, new BigDecimal("3.00")));
+
+        assertThatThrownBy(() -> renew(id)).isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("o leitor tem multa pendente");
+
+        fine.pay();
+        fineRepository.save(fine);
+        assertThat(renew(id).getRenewals()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldRefuseASuspendedReader() {
+        var id = openLoan(5);
+        suspensionRepository.save(Suspension.create(20L, 1L, TODAY.minusDays(1), 3));
+
+        assertThatThrownBy(() -> renew(id)).isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("o leitor está suspenso");
+    }
+
+    @Test
+    void shouldNotRefuseAReaderWhoseSuspensionAlreadyEnded() {
+        var id = openLoan(5);
+        suspensionRepository.save(Suspension.create(20L, 1L, TODAY.minusDays(10), 3));
+
+        assertThat(renew(id).getRenewals()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldReportEveryStateOfTheReaderAtOnce() {
+        var id = openLoan(5);
+        readerIs(true, true);
+        fineRepository.save(Fine.create(1L, 20L, new BigDecimal("3.00")));
+
+        assertThatThrownBy(() -> renew(id)).isInstanceOf(BusinessRuleException.class)
+                .hasMessage("A renovação não pode ser feita: o leitor está bloqueado; o leitor tem multa pendente.");
+    }
+
+    @Test
+    void shouldIgnoreTheStateOfAnotherReader() {
+        var id = openLoan(5);
+        fineRepository.save(Fine.create(1L, 21L, new BigDecimal("3.00")));
+        suspensionRepository.save(Suspension.create(21L, 2L, TODAY.minusDays(1), 3));
 
         assertThat(renew(id).getRenewals()).isEqualTo(1);
     }
