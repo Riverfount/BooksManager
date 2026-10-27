@@ -75,6 +75,8 @@ class RenewLoanIntegrationTest {
     @AfterEach
     void cleanUp() {
         jdbcTemplate.update("delete from reservation where reader_id in (select id from reader where document like 'RNW-DOC-%')");
+        jdbcTemplate.update("delete from fine where reader_id in (select id from reader where document like 'RNW-DOC-%')");
+        jdbcTemplate.update("delete from suspension where reader_id in (select id from reader where document like 'RNW-DOC-%')");
         jdbcTemplate.update("delete from loan where reader_id in (select id from reader where document like 'RNW-DOC-%')");
         jdbcTemplate.update("delete from copy where asset_code like 'RNW-%'");
         jdbcTemplate.update("delete from reader where document like 'RNW-DOC-%'");
@@ -238,5 +240,57 @@ class RenewLoanIntegrationTest {
         assertThat(renewalsOf(loanId)).as("statuses %s", statuses)
                 .isEqualTo((int) statuses.stream().filter(s -> s == 200).count());
         assertThat(statuses).contains(200);
+    }
+
+    // the state of the reader (RN21), through the real path: nothing changes when it is refused
+
+    private void assertRefusedAndUnchanged(long loanId, String reason) throws Exception {
+        var due = jdbcTemplate.queryForObject("select due_date from loan where id = ?", java.sql.Date.class, loanId);
+
+        renew(loanId).andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.detail").value(containsString(reason)));
+
+        assertThat(renewalsOf(loanId)).isZero();
+        assertThat(jdbcTemplate.queryForObject("select due_date from loan where id = ?", java.sql.Date.class, loanId))
+                .isEqualTo(due);
+    }
+
+    @Test
+    void aBlockedReaderShouldNotRenewAndRenewsAgainOnceUnblocked() throws Exception {
+        var loanId = activeLoan(5);
+        jdbcTemplate.update("update reader set blocked = true where id = ?", readerId);
+
+        assertRefusedAndUnchanged(loanId, "o leitor está bloqueado");
+
+        jdbcTemplate.update("update reader set blocked = false where id = ?", readerId);
+        renew(loanId).andExpect(status().isOk()).andExpect(jsonPath("$.renewals").value(1));
+    }
+
+    @Test
+    void aReaderWithAPendingFineShouldNotRenewButOneWithAPaidFineDoes() throws Exception {
+        var loanId = activeLoan(5);
+        var fineId = jdbcTemplate.queryForObject("""
+                insert into fine (loan_id, reader_id, amount, status) values (?, ?, 6.00, 'PENDING') returning id
+                """, Long.class, loanId, readerId);
+
+        assertRefusedAndUnchanged(loanId, "o leitor tem multa pendente");
+
+        jdbcTemplate.update("update fine set status = 'PAID' where id = ?", fineId);
+        renew(loanId).andExpect(status().isOk());
+    }
+
+    @Test
+    void aSuspendedReaderShouldNotRenewAndEveryReasonComesAtOnce() throws Exception {
+        var loanId = activeLoan(5);
+        jdbcTemplate.update("""
+                insert into suspension (reader_id, loan_id, start_date, end_date) values (?, ?, ?, ?)
+                """, readerId, loanId, TODAY.minusDays(1), TODAY.plusDays(5));
+
+        assertRefusedAndUnchanged(loanId, "o leitor está suspenso");
+
+        jdbcTemplate.update("update reader set blocked = true where id = ?", readerId);
+        renew(loanId).andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.detail").value(
+                        "A renovação não pode ser feita: o leitor está bloqueado; o leitor está suspenso."));
     }
 }

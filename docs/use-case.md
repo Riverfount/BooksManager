@@ -119,6 +119,7 @@
 **HU09 —** Como operador, quero renovar um empréstimo, para dar mais prazo ao leitor sem precisar devolver e emprestar de novo.
 - Critério de aceite: cada empréstimo pode ser renovado no máximo 2 vezes, valor configurável (RN07).
 - Critério de aceite: a renovação é recusada se o empréstimo estiver em atraso ou se houver reserva pendente para o livro (RN07).
+- Critério de aceite: a renovação é recusada, com todos os motivos, se o leitor estiver inativo, bloqueado, suspenso ou com multa pendente (RN21).
 - Critério de aceite: a renovação é recusada se o livro foi inativado; o leitor ainda pode devolver o exemplar (RN14).
 
 **HU30 —** Como operador, quero consultar os empréstimos ativos e o histórico de um leitor ou de um exemplar, para responder dúvidas e acompanhar a circulação do acervo.
@@ -219,7 +220,7 @@
 
 **HU46 —** Como leitor, quero ver os meus empréstimos e renovar os que posso, para não ter que ir ao balcão só para estender o prazo.
 - Critério de aceite: o leitor vê só os próprios empréstimos, ativos e devolvidos, com a data prevista, as renovações, os dias de atraso e a multa e a suspensão que a devolução gerou (RF14).
-- Critério de aceite: a renovação segue as regras do balcão e diz o motivo da recusa: empréstimo encerrado, em atraso, livro inativo, limite atingido ou outro leitor esperando o livro na fila, sem dizer quem (RN07, RN09, RF13).
+- Critério de aceite: a renovação segue as regras do balcão e diz o motivo da recusa: empréstimo encerrado, em atraso, livro inativo, limite atingido ou outro leitor esperando o livro na fila, sem dizer quem, e também leitor bloqueado, suspenso ou com multa pendente, com todos os motivos (RN07, RN09, RN21, RF13).
 - Critério de aceite: nenhuma data é aceita; o empréstimo de outro leitor devolve 404, igual a um que não existe, mesmo se já devolvido (RN20).
 
 ## Referências

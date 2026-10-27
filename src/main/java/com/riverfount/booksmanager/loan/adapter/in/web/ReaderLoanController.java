@@ -103,7 +103,9 @@ class ReaderLoanController {
                     + "configuração, contado a partir da data prevista atual, e a renovação é contada. Sem corpo: "
                     + "nenhuma data é aceita. Valem as regras do balcão (RN07, RN09): não renova empréstimo "
                     + "encerrado, em atraso, de livro inativo, com o limite de renovações atingido ou com outro "
-                    + "leitor esperando o livro na fila de reservas. Empréstimo de outro leitor devolve 404, igual a "
+                    + "leitor esperando o livro na fila de reservas. O leitor bloqueado, suspenso ou com multa pendente "
+                    + "também não renova (RN21), embora entre e consulte normalmente. Empréstimo de outro leitor "
+                    + "devolve 404, igual a "
                     + "um que não existe, antes de qualquer outra verificação. Só para o perfil de leitor.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Empréstimo renovado, com a nova data prevista"),
@@ -116,8 +118,9 @@ class ReaderLoanController {
                             schema = @Schema(implementation = ProblemDetail.class))),
             @ApiResponse(responseCode = "422",
                     description = "Renovação não permitida (a mensagem diz o motivo): empréstimo encerrado (RN09), "
-                            + "em atraso, livro inativo (RN14), limite de renovações atingido ou outro leitor "
-                            + "esperando o livro na fila (RN07)",
+                            + "em atraso, livro inativo (RN14), limite de renovações atingido, outro leitor "
+                            + "esperando o livro na fila (RN07), ou leitor bloqueado, suspenso ou com multa pendente "
+                            + "(RN21; a mensagem traz todos os motivos)",
                     content = @Content(mediaType = "application/problem+json",
                             schema = @Schema(implementation = ProblemDetail.class)))
     })
