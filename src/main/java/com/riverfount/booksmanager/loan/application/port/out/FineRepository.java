@@ -3,6 +3,7 @@ package com.riverfount.booksmanager.loan.application.port.out;
 import com.riverfount.booksmanager.loan.domain.Fine;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.PageResult;
+import java.math.BigDecimal;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -27,4 +28,7 @@ public interface FineRepository {
 
     /** Listing, always paginated (RNF14). */
     PageResult<Fine> findAll(FineFilter filter, PageQuery page);
+
+    /** The total of the pending fines of the reader, in one aggregated query; zero when there is none. */
+    BigDecimal sumPendingAmount(Long readerId);
 }

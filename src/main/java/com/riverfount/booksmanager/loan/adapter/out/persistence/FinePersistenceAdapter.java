@@ -3,11 +3,13 @@ package com.riverfount.booksmanager.loan.adapter.out.persistence;
 import com.riverfount.booksmanager.loan.application.port.out.FineFilter;
 import com.riverfount.booksmanager.loan.application.port.out.FineRepository;
 import com.riverfount.booksmanager.loan.domain.Fine;
+import com.riverfount.booksmanager.loan.domain.FineStatus;
 import com.riverfount.booksmanager.shared.adapter.out.persistence.ConstraintViolations;
 import com.riverfount.booksmanager.shared.adapter.out.persistence.SpringDataPages;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.PageResult;
+import java.math.BigDecimal;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -22,6 +24,11 @@ class FinePersistenceAdapter implements FineRepository {
 
     FinePersistenceAdapter(FineJpaRepository jpaRepository) {
         this.jpaRepository = jpaRepository;
+    }
+
+    @Override
+    public BigDecimal sumPendingAmount(Long readerId) {
+        return jpaRepository.sumAmountByReaderAndStatus(readerId, FineStatus.PENDING);
     }
 
     @Override

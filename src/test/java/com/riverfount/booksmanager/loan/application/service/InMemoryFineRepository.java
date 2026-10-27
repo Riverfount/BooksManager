@@ -3,9 +3,11 @@ package com.riverfount.booksmanager.loan.application.service;
 import com.riverfount.booksmanager.loan.application.port.out.FineFilter;
 import com.riverfount.booksmanager.loan.application.port.out.FineRepository;
 import com.riverfount.booksmanager.loan.domain.Fine;
+import com.riverfount.booksmanager.loan.domain.FineStatus;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
 import com.riverfount.booksmanager.shared.domain.PageResult;
+import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
@@ -44,6 +46,13 @@ class InMemoryFineRepository implements FineRepository {
         var id = fine.getId() != null ? fine.getId() : nextId++;
         fines.put(id, copyWithId(fine, id));
         return copyWithId(fine, id);
+    }
+
+    @Override
+    public BigDecimal sumPendingAmount(Long readerId) {
+        return fines.values().stream()
+                .filter(fine -> fine.getReaderId().equals(readerId) && fine.getStatus() == FineStatus.PENDING)
+                .map(Fine::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     @Override

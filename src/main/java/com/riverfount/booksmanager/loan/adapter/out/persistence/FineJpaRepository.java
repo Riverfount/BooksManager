@@ -1,6 +1,7 @@
 package com.riverfount.booksmanager.loan.adapter.out.persistence;
 
 import com.riverfount.booksmanager.loan.domain.FineStatus;
+import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.List;
 import org.springframework.data.domain.Page;
@@ -22,4 +23,11 @@ interface FineJpaRepository extends JpaRepository<FineJpaEntity, Long> {
             @Param("status") FineStatus status, Pageable pageable);
 
     List<FineJpaEntity> findByLoanIdIn(Collection<Long> loanIds);
+
+    /** The total of the fines of the reader in the given status; zero when there is none. */
+    @Query("""
+            select coalesce(sum(f.amount), 0) from FineJpaEntity f
+            where f.readerId = :readerId and f.status = :status
+            """)
+    BigDecimal sumAmountByReaderAndStatus(@Param("readerId") Long readerId, @Param("status") FineStatus status);
 }

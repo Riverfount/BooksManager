@@ -193,4 +193,29 @@ class FinePersistenceAdapterTest {
                 .containsExactly(new BigDecimal("3.00"), new BigDecimal("2.00"));
         assertThat(page.totalItems()).isEqualTo(3);
     }
+
+    @Test
+    void shouldSumOnlyThePendingFinesOfTheReader() {
+        saveFine(loanId, "3.50");
+        saveFine(data.newReturnedLoan(data.newCopy(), readerId, PICKUP), "6.25");
+        var paid = saveFine(data.newReturnedLoan(data.newCopy(), readerId, PICKUP), "4.00");
+        paid.pay();
+        adapter.save(paid);
+        var waived = saveFine(data.newReturnedLoan(data.newCopy(), readerId, PICKUP), "2.00");
+        waived.waive("Hospital stay");
+        adapter.save(waived);
+        var otherReader = data.newReader();
+        adapter.save(Fine.create(data.newReturnedLoan(data.newCopy(), otherReader, PICKUP), otherReader,
+                new BigDecimal("9.00")));
+        clearPersistenceContext();
+
+        assertThat(adapter.sumPendingAmount(readerId)).isEqualByComparingTo("9.75");
+        assertThat(adapter.sumPendingAmount(otherReader)).isEqualByComparingTo("9.00");
+    }
+
+    @Test
+    void shouldSumZeroWhenTheReaderOwesNothing() {
+        assertThat(adapter.sumPendingAmount(readerId)).isEqualByComparingTo("0");
+        assertThat(adapter.sumPendingAmount(readerId + 100000)).isEqualByComparingTo("0");
+    }
 }
