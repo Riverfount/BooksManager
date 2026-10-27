@@ -777,4 +777,32 @@ class UserControllerTest {
 
         then(resetUserPasswordUseCase).should(never()).resetPassword(any());
     }
+
+    @Test
+    @WithAdmin
+    void shouldListWithoutAnyRoleByDefault() throws Exception {
+        given(listUsersUseCase.list(any())).willReturn(new PageResult<>(List.of(), 0, 20, 0));
+
+        mockMvc.perform(get("/api/v1/users")).andExpect(status().isOk());
+
+        assertThat(capturedQuery().role()).isNull();
+    }
+
+    @Test
+    @WithAdmin
+    void shouldPassTheRoleFilterToTheUseCase() throws Exception {
+        given(listUsersUseCase.list(any())).willReturn(new PageResult<>(List.of(), 0, 20, 0));
+
+        mockMvc.perform(get("/api/v1/users").param("role", "READER")).andExpect(status().isOk());
+
+        assertThat(capturedQuery().role()).isEqualTo(Role.READER);
+    }
+
+    @Test
+    @WithAdmin
+    void shouldAnswer400ForAnUnknownRoleFilter() throws Exception {
+        mockMvc.perform(get("/api/v1/users").param("role", "BOSS")).andExpect(status().isBadRequest());
+
+        then(listUsersUseCase).shouldHaveNoInteractions();
+    }
 }

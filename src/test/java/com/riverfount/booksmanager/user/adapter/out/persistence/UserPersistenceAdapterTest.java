@@ -464,4 +464,57 @@ class UserPersistenceAdapterTest {
                 .isInstanceOf(BusinessRuleException.class)
                 .hasMessageContaining("acesso");
     }
+
+    // reader accesses are not "users of the system" (#305)
+
+    private void saveReaderAccess(String login, String document) {
+        adapter.save(User.createReaderAccess(login, HASH, saveReader(document)));
+    }
+
+    @Test
+    void shouldLeaveTheReaderAccessesOutOfTheListingByDefault() {
+        saveUser("ana", Role.ADMIN);
+        saveUser("bruno", Role.OPERATOR);
+        saveReaderAccess("carla", "LS-1");
+
+        var page = adapter.findAll(UserFilter.none(), byLogin());
+
+        assertThat(page.items()).extracting(User::getLogin).containsExactly("ana", "bruno");
+        assertThat(page.totalItems()).isEqualTo(2);
+    }
+
+    @Test
+    void shouldListOnlyTheReaderAccessesWhenTheRoleIsReader() {
+        saveUser("ana", Role.ADMIN);
+        saveReaderAccess("carla", "LS-2");
+        saveReaderAccess("dora", "LS-3");
+
+        var page = adapter.findAll(new UserFilter(null, null, Role.READER), byLogin());
+
+        assertThat(page.items()).extracting(User::getLogin).containsExactly("carla", "dora");
+        assertThat(page.totalItems()).isEqualTo(2);
+    }
+
+    @Test
+    void shouldListOnlyTheGivenRole() {
+        saveUser("ana", Role.ADMIN);
+        saveUser("bruno", Role.OPERATOR);
+        saveReaderAccess("carla", "LS-4");
+
+        assertThat(adapter.findAll(new UserFilter(null, null, Role.OPERATOR), byLogin()).items())
+                .extracting(User::getLogin).containsExactly("bruno");
+        assertThat(adapter.findAll(new UserFilter(null, null, Role.ADMIN), byLogin()).items())
+                .extracting(User::getLogin).containsExactly("ana");
+    }
+
+    @Test
+    void shouldCombineTheRoleWithTheLoginAndTheActiveFilters() {
+        saveReaderAccess("carla", "LS-5");
+        saveReaderAccess("carlos", "LS-6");
+
+        assertThat(adapter.findAll(new UserFilter("carla", true, Role.READER), byLogin()).items())
+                .extracting(User::getLogin).containsExactly("carla");
+        assertThat(adapter.findAll(new UserFilter("carla", false, Role.READER), byLogin()).items()).isEmpty();
+        assertThat(adapter.findAll(new UserFilter("carla", true, null), byLogin()).items()).isEmpty();
+    }
 }

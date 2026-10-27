@@ -16,6 +16,7 @@ import com.riverfount.booksmanager.user.application.port.in.ResetUserPasswordUse
 import com.riverfount.booksmanager.user.application.port.in.UnblockUserUseCase;
 import com.riverfount.booksmanager.user.application.port.in.UpdateUserCommand;
 import com.riverfount.booksmanager.user.application.port.in.UpdateUserUseCase;
+import com.riverfount.booksmanager.user.domain.Role;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -105,7 +106,9 @@ class UserController {
     @GetMapping
     @Operation(summary = "Listar usuários",
             description = "Lista os usuários do sistema de forma paginada (máximo de 100 por página), só para "
-                    + "administrador, com filtro opcional por trecho do login (sem diferenciar maiúsculas). Por "
+                    + "administrador, com filtro opcional por trecho do login (sem diferenciar maiúsculas) e por "
+                    + "perfil. Sem o perfil, só os usuários que operam o sistema (ADMIN e OPERATOR): os acessos dos "
+                    + "leitores são geridos pelo cadastro do leitor e aparecem com role=READER. Por "
                     + "padrão, só os ativos e em ordem de login. Cada item mostra o perfil e se o usuário está "
                     + "bloqueado agora por tentativas de login; nunca a senha nem o hash.")
     @ApiResponses({
@@ -120,6 +123,10 @@ class UserController {
             @RequestParam(required = false) String login,
             @Parameter(description = "Listar ativos (true) ou inativos (false)")
             @RequestParam(defaultValue = "true") boolean active,
+            @Parameter(description = "Listar só este perfil (ADMIN, OPERATOR ou READER). Sem ele, a lista traz os "
+                    + "usuários que operam o sistema (ADMIN e OPERATOR), sem os acessos dos leitores",
+                    example = "READER")
+            @RequestParam(required = false) Role role,
             @Parameter(description = "Número da página, a partir de 0")
             @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Tamanho da página, de 1 a 100")
@@ -127,7 +134,7 @@ class UserController {
             @Parameter(description = "Ordenação no formato campo[,asc|desc]; campos: id, login",
                     example = "login,asc")
             @RequestParam(defaultValue = ListUsersQuery.DEFAULT_SORT) String sort) {
-        var query = new ListUsersQuery(login, active, PageQuery.of(page, size, sort));
+        var query = new ListUsersQuery(login, active, role, PageQuery.of(page, size, sort));
         var now = Instant.now(clock);
         return PageResponse.from(listUsersUseCase.list(query), user -> UserResponse.from(user, now));
     }

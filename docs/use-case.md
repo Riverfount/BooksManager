@@ -97,6 +97,7 @@
 
 **HU28 —** Como administrador, quero criar, listar, consultar, editar e inativar os usuários do sistema, para controlar quem opera a biblioteca e com qual perfil.
 - Critério de aceite: só o administrador acessa a gestão de usuários (RF09, RNF08).
+- Critério de aceite: a listagem traz só administradores e operadores; os acessos dos leitores aparecem apenas com o filtro de perfil `READER` (RF09, RF30).
 - Critério de aceite: cada usuário tem um perfil, administrador ou operador; um usuário inativo não consegue entrar no sistema (RF08, RF09).
 - Critério de aceite: a listagem é paginada, com no máximo 100 itens por página (RNF14).
 
