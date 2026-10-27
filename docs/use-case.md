@@ -223,6 +223,11 @@
 - Critério de aceite: a renovação segue as regras do balcão e diz o motivo da recusa: empréstimo encerrado, em atraso, livro inativo, limite atingido ou outro leitor esperando o livro na fila, sem dizer quem, e também leitor bloqueado, suspenso ou com multa pendente, com todos os motivos (RN07, RN09, RN21, RF13).
 - Critério de aceite: nenhuma data é aceita; o empréstimo de outro leitor devolve 404, igual a um que não existe, mesmo se já devolvido (RN20).
 
+**HU47 —** Como leitor, quero ver a minha situação (se posso pegar um livro, quanto devo, se estou suspenso e até quando), para saber o que me impede antes de tentar emprestar, reservar ou renovar.
+- Critério de aceite: a resposta diz se o leitor poderia emprestar hoje e, se não, todos os motivos de uma vez, os mesmos da recusa no balcão (RF31, RN05, RN11).
+- Critério de aceite: traz o total das multas pendentes, a suspensão em vigor (início e dia de volta), os empréstimos ativos e atrasados e as reservas ativas, com os limites (RF31, RN15).
+- Critério de aceite: mostra só o que é do próprio leitor e nunca o motivo do bloqueio; o leitor bloqueado, suspenso ou com multa pendente consulta normalmente (RF31, RN20).
+
 ## Referências
 
 Requisitos e regras de negócio: `docs/requisitos.md`. Entidades envolvidas: `docs/diagramas.md`.
