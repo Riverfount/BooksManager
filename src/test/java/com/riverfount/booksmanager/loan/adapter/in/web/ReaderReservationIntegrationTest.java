@@ -82,6 +82,7 @@ class ReaderReservationIntegrationTest {
 
     @AfterEach
     void cleanUp() {
+        jdbcTemplate.update("delete from audit_log where action = 'RESERVATION_CANCELLED'");
         jdbcTemplate.update("delete from reservation where reader_id in (select id from reader where document like 'RRES-DOC-%')");
         jdbcTemplate.update("delete from copy where asset_code like 'RRES-%'");
         jdbcTemplate.update("delete from reader where document like 'RRES-DOC-%'");
@@ -365,5 +366,26 @@ class ReaderReservationIntegrationTest {
         mockMvc.perform(post("/api/v1/reservations/" + anas + "/cancel").header("Authorization", asReader(ana)))
                 .andExpect(status().isForbidden());
         assertThat(statusOf(anas)).isEqualTo("ACTIVE");
+    }
+
+    @Test
+    void aCancellationByTheReaderShouldLeaveAnAuditEntryWithThemAsTheAuthorAndNothingOfOthers() throws Exception {
+        var anas = waiting(ana, 3);
+        waiting(bia, 2);
+
+        cancel(bia, anas).andExpect(status().isNotFound());
+        cancel(ana, anas).andExpect(status().isOk());
+        cancel(ana, anas).andExpect(status().isUnprocessableContent());
+
+        var entries = jdbcTemplate.queryForList("""
+                select actor_id, target_type, target_id, summary from audit_log
+                where action = 'RESERVATION_CANCELLED'
+                """);
+        assertThat(entries).singleElement().satisfies(entry -> {
+            assertThat(entry.get("actor_id")).isEqualTo(1000 + ana);
+            assertThat(entry.get("target_type")).isEqualTo("RESERVATION");
+            assertThat(entry.get("target_id")).isEqualTo(anas);
+            assertThat(entry.get("summary")).isEqualTo("livro " + bookId + ", na fila");
+        });
     }
 }

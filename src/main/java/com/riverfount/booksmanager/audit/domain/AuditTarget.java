@@ -10,5 +10,6 @@ public enum AuditTarget {
     BOOK,
     AUTHOR,
     CATEGORY,
-    COPY
+    COPY,
+    RESERVATION
 }
