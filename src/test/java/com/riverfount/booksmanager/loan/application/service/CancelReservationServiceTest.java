@@ -9,6 +9,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 
+import com.riverfount.booksmanager.audit.application.RecordedAudit;
 import com.riverfount.booksmanager.catalog.application.port.in.CopyAvailability;
 import com.riverfount.booksmanager.catalog.application.port.in.CopySummary;
 import com.riverfount.booksmanager.catalog.application.port.in.FindCopyAvailabilityUseCase;
@@ -65,7 +66,7 @@ class CancelReservationServiceTest {
                 .willReturn(Map.of(COPY, new CopySummary(COPY, "PAT-7", BOOK, "T")));
         var queue = new ReservationQueue(reservationRepository, copyAvailability, copySummaries, reserveCopy, mock(FindReaderContactsUseCase.class), mock(NotificationSender.class));
         service = new CancelReservationService(configurationRepository, reservationRepository,
-                releaseCopyReservation, queue, CLOCK);
+                releaseCopyReservation, queue, CLOCK, new RecordedAudit());
     }
 
     private Reservation waiting(long reader) {

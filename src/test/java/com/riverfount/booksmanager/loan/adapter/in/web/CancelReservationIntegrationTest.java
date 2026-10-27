@@ -74,6 +74,7 @@ class CancelReservationIntegrationTest {
 
     @AfterEach
     void cleanUp() {
+        jdbcTemplate.update("delete from audit_log where action = 'RESERVATION_CANCELLED'");
         jdbcTemplate.update("delete from reservation where reader_id in (select id from reader where document like 'CRV-DOC-%')");
         jdbcTemplate.update("delete from copy where asset_code like 'CRV-%'");
         jdbcTemplate.update("delete from reader where document like 'CRV-DOC-%'");
@@ -229,5 +230,50 @@ class CancelReservationIntegrationTest {
         assertThat(row(holding).get("status")).isEqualTo("CANCELLED");
         assertThat(row(next).get("copy_id")).isEqualTo(copyId);
         assertThat(copyStatus()).isEqualTo("RESERVED");
+    }
+
+    private java.util.List<Map<String, Object>> cancellationEntries() {
+        return jdbcTemplate.queryForList("""
+                select actor_id, action, target_type, target_id, summary from audit_log
+                where action = 'RESERVATION_CANCELLED' order by id
+                """);
+    }
+
+    @Test
+    void cancellingShouldLeaveOneAuditEntryWithTheCallerAndNoPersonalDataNorAssetCode() throws Exception {
+        var holding = holdingTheCopy();
+
+        cancel(holding).andExpect(status().isOk());
+
+        assertThat(cancellationEntries()).singleElement().satisfies(entry -> {
+            assertThat(entry.get("actor_id")).isEqualTo(1L);
+            assertThat(entry.get("target_type")).isEqualTo("RESERVATION");
+            assertThat(entry.get("target_id")).isEqualTo(holding);
+            assertThat(entry.get("summary")).isEqualTo("livro " + bookId + ", com exemplar reservado");
+        });
+    }
+
+    @Test
+    void aRefusedCancellationShouldLeaveNoAuditEntry() throws Exception {
+        var id = waiting(3);
+        cancel(id).andExpect(status().isOk());
+
+        cancel(id).andExpect(status().isUnprocessableContent());
+        cancel(-1L).andExpect(status().isNotFound());
+
+        assertThat(cancellationEntries()).hasSize(1);
+    }
+
+    @Test
+    void aCancellationUndoneByAFailureShouldLeaveNoAuditEntry() throws Exception {
+        var holding = holdingTheCopy();
+        jdbcTemplate.queryForObject("""
+                insert into reservation (book_id, reader_id, reservation_date, status) values (?, ?, ?, 'ACTIVE')
+                returning id
+                """, Long.class, bookId, newReader(), TODAY.plusDays(1));
+
+        cancel(holding).andExpect(status().isUnprocessableContent());
+
+        assertThat(cancellationEntries()).isEmpty();
     }
 }
