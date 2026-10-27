@@ -147,7 +147,7 @@ classDiagram
 | `FineStatus` | PENDING, PAID, WAIVED |
 | `ReturnCondition` | GOOD (padrão), DAMAGED, LOST |
 | `ReservationStatus` | ACTIVE, FULFILLED, CANCELLED, EXPIRED |
-| `Role` | ADMIN, OPERATOR |
+| `Role` | ADMIN, OPERATOR, READER |
 | `PenaltyPolicy` | FINE, SUSPENSION, BOTH, NONE |
 
 ## Estado de implementação
@@ -157,10 +157,11 @@ classDiagram
 | `Category`, `Author`, `Book`, `Copy` | `catalog` | Implementadas: domínio, persistência, casos de uso e endpoints REST de cadastro, consulta, listagem, edição e inativação (issues #5–#16, #35–#37 e #43–#58), inclusive a pesquisa de livros com exemplares disponíveis (RF05, issue #83). |
 | `Reader` | `user` | Implementado: migração (issue #88), domínio (issue #89), persistência (issue #90) e endpoints REST de cadastro, consulta, listagem, edição, inativação e bloqueio (issues #91 a #96). |
 | `User` | `user` | Migração `app_user` (issue #97), domínio (issue #98), persistência (issue #99), administrador inicial (issue #100), autenticação (issues #101 a #105) e criação, consulta, listagem, edição de perfil, desbloqueio, inativação e redefinição de senha de usuário (issues #106 a #110) implementados (fase 2, `docs/projeto.md`). |
-| `ReaderAccessToken` e o perfil `READER` | `user` | Implementados (issue #296): o acesso do leitor ao sistema, por convite. `Role.READER` e `User.readerId` (um acesso ativo por leitor), e o `ReaderAccessToken` (convite ou redefinição de senha, só com o hash, de uso único). A autorização por dono do dado e as rotas `/api/v1/me/...` vêm nas issues seguintes da Fase 6. |
+| `ReaderAccessToken` e o perfil `READER` | `user` | Implementados (issue #296): o acesso do leitor ao sistema, por convite. `Role.READER` e `User.readerId` (um acesso ativo por leitor), e o `ReaderAccessToken` (convite ou redefinição de senha, só com o hash, de uso único). A autorização por dono do dado e as rotas `/api/v1/me/...` (acervo, reservas, empréstimos e situação do leitor) foram implementadas nas issues seguintes da Fase 6 e não criam classe de domínio nova. |
 | `LibraryConfiguration` | `loan` | Migração (issue #136), domínio, com o enum `PenaltyPolicy` (issue #137), persistência (issue #138) e os endpoints `GET` e `PATCH /api/v1/library-configuration` (issue #139) implementados. |
 | `Penalty` e `PenaltyPolicy.calculate` | `loan` | Implementados (issue #140): o cálculo da multa e da suspensão por variante da política. |
 | `BorrowingEligibility` e `BorrowingSituation` | `loan` | Implementados (issue #144): as regras que decidem se um leitor pode pegar um exemplar (RN03, RN04, RN05, RN11). |
+| `RenewalEligibility` e `RenewalSituation` | `loan` | Implementados (issue #311, RN21): as regras do leitor que decidem se ele pode renovar um empréstimo (inativo, bloqueado, multa pendente, suspensão em vigor), na linha da `BorrowingEligibility`; o que é do empréstimo continua no `Loan.renew`. |
 | `Loan` | `loan` | Implementado (Fase 3): domínio (issue #141), migração e persistência (issues #145 e #146) e os endpoints de registro (`POST /api/v1/loans`, issue #149), devolução (`/{id}/return`, issue #150), renovação (`/{id}/renew`, issue #151), consulta e listagem com o histórico (issue #152) e o relatório de atrasos (`/api/v1/reports/overdue-loans`, issue #157). |
 | `Fine` | `loan` | Implementada (Fase 3): domínio, com o enum `FineStatus` (issue #142), migração e persistência (issues #145 e #146) e os endpoints de pagamento e abono (issue #153) e de listagem (`GET /api/v1/fines`, issue #154). |
 | `Suspension` | `loan` | Implementada (Fase 3): domínio (issue #143), migração e persistência (issues #145 e #146) e os endpoints de listagem (issue #154) e de encerramento antecipado (`POST /api/v1/suspensions/{id}/end`, issue #155). A suspensão é um registro do `loan`, não um campo do `Reader` (decisão da issue #135). |
