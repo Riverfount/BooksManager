@@ -1,5 +1,6 @@
 package com.riverfount.booksmanager.user.application.port.in;
 
+import com.riverfount.booksmanager.user.domain.Role;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -39,5 +40,12 @@ class ListUsersQueryTest {
     @Test
     void shouldRequirePageQuery() {
         assertThatThrownBy(() -> new ListUsersQuery(null, true, null)).isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    void shouldHaveNoRoleUnlessAskedFor() {
+        assertThat(new ListUsersQuery(null, true, PageQuery.of(0, 20, "login")).role()).isNull();
+        assertThat(new ListUsersQuery(null, true, Role.READER, PageQuery.of(0, 20, "login")).role())
+                .isEqualTo(Role.READER);
     }
 }

@@ -1,5 +1,6 @@
 package com.riverfount.booksmanager.user.application.port.out;
 
+import com.riverfount.booksmanager.user.domain.Role;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
@@ -29,5 +30,11 @@ class UserFilterTest {
     void shouldKeepTheActiveFilter() {
         assertThat(new UserFilter(null, true).active()).isTrue();
         assertThat(new UserFilter(null, false).active()).isFalse();
+    }
+
+    @Test
+    void shouldKeepTheRoleFilter() {
+        assertThat(UserFilter.none().role()).isNull();
+        assertThat(new UserFilter(null, null, Role.READER).role()).isEqualTo(Role.READER);
     }
 }

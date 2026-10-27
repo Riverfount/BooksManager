@@ -23,7 +23,7 @@ Prioridade pelo método MoSCoW: **M** (deve, essencial na v1.0), **S** (deveria,
 | --- | --- | --- |
 | RF07 | Cadastrar, listar, consultar, editar e inativar leitores (nome, documento, e-mail obrigatório, telefone opcional, data de nascimento e, para menores de 18 anos, o responsável). | M |
 | RF08 | Autenticar usuários por login e senha e controlar o acesso por perfil (administrador, operador e leitor; o leitor só tem o acesso limitado da Fase 6, RF30). | M |
-| RF09 | Gerenciar os usuários do sistema (criar, listar, consultar, editar, inativar e redefinir senha), restrito ao administrador. | M |
+| RF09 | Gerenciar os usuários do sistema (criar, listar, consultar, editar, inativar e redefinir senha), restrito ao administrador. A listagem traz só os usuários que operam o sistema (administrador e operador); os acessos dos leitores (RF30) ficam fora dela por padrão e aparecem com o filtro `role=READER`. As demais operações por id valem também para um acesso de leitor (o administrador pode desbloquear ou inativar). Decidido em 27/10/2026. | M |
 | RF10 | Bloquear e desbloquear leitores manualmente. | M |
 | RF30 | Conceder e revogar o acesso do leitor ao sistema. O administrador ou o operador convida o leitor, que recebe no próprio e-mail um link de uso único, escolhe o login e a senha e passa a poder entrar com o perfil `READER` (RN20). O leitor que esqueceu a senha pede um link de redefinição ao próprio e-mail. Inativar o leitor ou revogar o acesso encerra as sessões dele. | M |
 

@@ -86,7 +86,7 @@ class UserPersistenceAdapter implements UserRepository {
 
     @Override
     public PageResult<User> findAll(UserFilter filter, PageQuery page) {
-        var result = jpaRepository.search(likePattern(filter.login()), filter.active(),
+        var result = jpaRepository.search(likePattern(filter.login()), filter.active(), filter.role(),
                 SpringDataPages.toPageable(page));
         return SpringDataPages.toPageResult(result, this::toDomain);
     }

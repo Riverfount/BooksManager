@@ -6,6 +6,7 @@ import com.riverfount.booksmanager.shared.domain.PageResult;
 import com.riverfount.booksmanager.shared.domain.SortDirection;
 import com.riverfount.booksmanager.user.application.port.out.UserFilter;
 import com.riverfount.booksmanager.user.application.port.out.UserRepository;
+import com.riverfount.booksmanager.user.domain.Role;
 import com.riverfount.booksmanager.user.domain.User;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -121,6 +122,7 @@ class InMemoryUserRepository implements UserRepository {
         List<User> sorted = users.values().stream()
                 .filter(user -> filter.login() == null || user.getLogin().contains(filter.login()))
                 .filter(user -> filter.active() == null || user.isActive() == filter.active())
+                .filter(user -> filter.role() == null ? user.getRole() != Role.READER : user.getRole() == filter.role())
                 .sorted(comparator.thenComparing(User::getId))
                 .toList();
         var items = sorted.stream().skip((long) page.page() * page.size()).limit(page.size())

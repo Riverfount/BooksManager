@@ -172,7 +172,7 @@ class UserService implements CreateInitialAdminUseCase, AuthenticateUserUseCase,
     @Override
     @Transactional(readOnly = true)
     public PageResult<User> list(ListUsersQuery query) {
-        return userRepository.findAll(new UserFilter(query.login(), query.active()), query.page());
+        return userRepository.findAll(new UserFilter(query.login(), query.active(), query.role()), query.page());
     }
 
     /**
