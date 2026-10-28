@@ -122,7 +122,7 @@ class InMemoryUserRepository implements UserRepository {
         List<User> sorted = users.values().stream()
                 .filter(user -> filter.login() == null || user.getLogin().contains(filter.login()))
                 .filter(user -> filter.active() == null || user.isActive() == filter.active())
-                .filter(user -> filter.role() == null ? user.getRole() != Role.READER : user.getRole() == filter.role())
+                .filter(user -> filter.role() == null || user.getRole() == filter.role())
                 .sorted(comparator.thenComparing(User::getId))
                 .toList();
         var items = sorted.stream().skip((long) page.page() * page.size()).limit(page.size())

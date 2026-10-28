@@ -10,8 +10,8 @@ import java.util.Set;
  * Filters and pagination for listing system users (RF09, HU28). The login
  * matches by "contains", ignoring case; a blank login means no filter.
  * {@code active} always filters (the API defaults it to true). Only the id and
- * the login can be sorted by, so no secret (the hash) can be used to order. A null {@code role} lists the users
- * who run the system (the accesses of the readers are left out, #305); a role lists exactly that profile.
+ * the login can be sorted by, so no secret (the hash) can be used to order. A null {@code role} lists every profile,
+ * the accesses of the readers included (#325); a role lists exactly that profile.
  */
 public record ListUsersQuery(String login, boolean active, Role role, PageQuery page) {
 

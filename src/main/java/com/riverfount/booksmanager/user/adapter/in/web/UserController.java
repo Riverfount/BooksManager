@@ -107,9 +107,9 @@ class UserController {
     @Operation(summary = "Listar usuários",
             description = "Lista os usuários do sistema de forma paginada (máximo de 100 por página), só para "
                     + "administrador, com filtro opcional por trecho do login (sem diferenciar maiúsculas) e por "
-                    + "perfil. Sem o perfil, só os usuários que operam o sistema (ADMIN e OPERATOR): os acessos dos "
-                    + "leitores são geridos pelo cadastro do leitor e aparecem com role=READER. Por "
-                    + "padrão, só os ativos e em ordem de login. Cada item mostra o perfil e se o usuário está "
+                    + "perfil. Sem o perfil, traz todos os usuários, de qualquer perfil (ADMIN, OPERATOR e "
+                    + "READER, este com o acesso de um leitor). Por padrão, só os ativos e em ordem "
+                    + "de login. Cada item mostra o perfil e se o usuário está "
                     + "bloqueado agora por tentativas de login; nunca a senha nem o hash.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Página de usuários"),
@@ -124,7 +124,7 @@ class UserController {
             @Parameter(description = "Listar ativos (true) ou inativos (false)")
             @RequestParam(defaultValue = "true") boolean active,
             @Parameter(description = "Listar só este perfil (ADMIN, OPERATOR ou READER). Sem ele, a lista traz os "
-                    + "usuários que operam o sistema (ADMIN e OPERATOR), sem os acessos dos leitores",
+                    + "usuários de todos os perfis",
                     example = "READER")
             @RequestParam(required = false) Role role,
             @Parameter(description = "Número da página, a partir de 0")
