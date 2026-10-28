@@ -212,6 +212,30 @@ Sem nenhum usuário, ninguém consegue entrar para criar os outros. Por isso, na
 
 Para experimentar os outros perfis sem passar pelo convite por e-mail, a subida também cria, **se configurados**, um operador (`APP_OPERATOR_LOGIN` e `APP_OPERATOR_PASSWORD`) e um leitor com acesso (`APP_READER_LOGIN`, `APP_READER_PASSWORD`, `APP_READER_NAME`, `APP_READER_DOCUMENT`, `APP_READER_EMAIL` e `APP_READER_BIRTH_DATE`, no formato `AAAA-MM-DD`). Cada grupo só vale com todas as variáveis preenchidas; é criado apenas se ainda não houver usuário com o login (funciona também num banco que já tem o administrador) e um usuário existente nunca é alterado. A política de senha é a mesma do administrador. Em produção, deixe-as vazias.
 
+#### Usuários de teste (um por perfil)
+Para ter os três perfis no ambiente de desenvolvimento, copie o `.env-sample` para `.env` e preencha com estes valores (descartáveis, só para teste local; todos cumprem a política de senha, então a aplicação sobe com eles):
+
+| Perfil | Login | Senha | O que alcança |
+|---|---|---|---|
+| `ADMIN` | `admin` | `Adm1n#Teste123` | Tudo: catálogo, leitores, empréstimos, relatórios, usuários, configuração da biblioteca e auditoria |
+| `OPERATOR` | `operador` | `0per@dor#Teste1` | O dia a dia: catálogo, leitores, empréstimos, multas, reservas e relatórios (inclusive o painel); não alcança usuários, configuração nem auditoria (403) |
+| `READER` | `leitor` | `Le1tor#Teste9` | Só a própria área, em `/api/v1/me` (empréstimos, reservas e situação); nenhuma rota administrativa (403) |
+
+```
+APP_ADMIN_LOGIN=admin
+APP_ADMIN_PASSWORD=Adm1n#Teste123
+APP_OPERATOR_LOGIN=operador
+APP_OPERATOR_PASSWORD=0per@dor#Teste1
+APP_READER_LOGIN=leitor
+APP_READER_PASSWORD=Le1tor#Teste9
+APP_READER_NAME=Lucas Leitor
+APP_READER_DOCUMENT=390.533.447-05
+APP_READER_EMAIL=lucas.leitor@example.com
+APP_READER_BIRTH_DATE=1995-04-12
+```
+
+Para entrar, faça `POST /api/v1/auth/login` com `{"login": "operador", "password": "0per@dor#Teste1"}` (por exemplo, no Swagger) e use o `accessToken` da resposta no botão **Authorize**; sem token, as rotas internas respondem 401. **Nunca use estas senhas em produção**: lá, escolha senhas próprias ou deixe as variáveis do operador e do leitor vazias.
+
 ### Verificação de saúde
 A rota pública **http://localhost:8080/actuator/health** informa se a aplicação e o banco estão no ar (200 com `UP`, ou 503 com `DOWN` se a conexão com o banco falhar). É o único endpoint do Actuator exposto.
 
