@@ -465,22 +465,22 @@ class UserPersistenceAdapterTest {
                 .hasMessageContaining("acesso");
     }
 
-    // reader accesses are not "users of the system" (#305)
+    // the listing without a role has every profile, reader accesses included (#325)
 
     private void saveReaderAccess(String login, String document) {
         adapter.save(User.createReaderAccess(login, HASH, saveReader(document)));
     }
 
     @Test
-    void shouldLeaveTheReaderAccessesOutOfTheListingByDefault() {
+    void shouldListEveryProfileIncludingTheReaderAccessesByDefault() {
         saveUser("ana", Role.ADMIN);
         saveUser("bruno", Role.OPERATOR);
         saveReaderAccess("carla", "LS-1");
 
         var page = adapter.findAll(UserFilter.none(), byLogin());
 
-        assertThat(page.items()).extracting(User::getLogin).containsExactly("ana", "bruno");
-        assertThat(page.totalItems()).isEqualTo(2);
+        assertThat(page.items()).extracting(User::getLogin).containsExactly("ana", "bruno", "carla");
+        assertThat(page.totalItems()).isEqualTo(3);
     }
 
     @Test
@@ -515,6 +515,7 @@ class UserPersistenceAdapterTest {
         assertThat(adapter.findAll(new UserFilter("carla", true, Role.READER), byLogin()).items())
                 .extracting(User::getLogin).containsExactly("carla");
         assertThat(adapter.findAll(new UserFilter("carla", false, Role.READER), byLogin()).items()).isEmpty();
-        assertThat(adapter.findAll(new UserFilter("carla", true, null), byLogin()).items()).isEmpty();
+        assertThat(adapter.findAll(new UserFilter("carla", true, null), byLogin()).items())
+                .extracting(User::getLogin).containsExactly("carla");
     }
 }

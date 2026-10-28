@@ -741,11 +741,12 @@ class UserServiceTest {
     }
 
     @Test
-    void shouldListTheReaderAccessesOnlyWhenTheRoleIsAskedFor() {
+    void shouldListTheReaderAccessesByDefaultAndOnlyThemWhenTheRoleIsReader() {
         registerUser("ana", Role.OPERATOR);
         repository.save(User.createReaderAccess("carla", "{existing}", 7L));
 
-        assertThat(service.list(usersQuery(null, true)).items()).extracting(User::getLogin).containsExactly("ana");
+        assertThat(service.list(usersQuery(null, true)).items()).extracting(User::getLogin)
+                .containsExactly("ana", "carla");
         assertThat(service.list(new ListUsersQuery(null, true, Role.READER, PageQuery.of(0, 20, "login"))).items())
                 .extracting(User::getLogin).containsExactly("carla");
     }

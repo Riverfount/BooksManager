@@ -46,13 +46,13 @@ interface UserJpaRepository extends JpaRepository<UserJpaEntity, Long> {
      * login comes already normalized (lowercase, like the stored one) and
      * wrapped as a LIKE pattern (see {@link UserPersistenceAdapter}), using
      * '!' as the escape character so '%' and '_' typed by the user stay
-     * literal. Without a role the accesses of the readers are left out; with one, only that role is listed.
+     * literal. Without a role every profile is listed, the accesses of the readers included; with one, only that role.
      */
     @Query("""
             select u from UserJpaEntity u
             where (:login is null or u.login like :login escape '!')
               and (:active is null or u.active = :active)
-              and ((:role is null and u.role <> com.riverfount.booksmanager.user.domain.Role.READER) or u.role = :role)
+              and (:role is null or u.role = :role)
             """)
     Page<UserJpaEntity> search(@Param("login") String login, @Param("active") Boolean active,
             @Param("role") Role role, Pageable pageable);
