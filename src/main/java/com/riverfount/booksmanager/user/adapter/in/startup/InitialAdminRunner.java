@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 /**
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Component;
  * login, the password or the hash.
  */
 @Component
+@Order(1)
 @EnableConfigurationProperties(AdminProperties.class)
 class InitialAdminRunner implements ApplicationRunner {
 
