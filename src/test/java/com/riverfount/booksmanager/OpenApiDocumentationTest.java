@@ -131,6 +131,23 @@ class OpenApiDocumentationTest {
                 "/api/v1/books", "/api/v1/copies", "/api/v1/users", "/api/v1/auth/login");
     }
 
+    @Test
+    void readerRoutesShouldNotDocumentTheReaderIdTheServerTakesFromTheToken() throws Exception {
+        var problems = new ArrayList<String>();
+        forEachOperation((where, operation) -> {
+            if (!where.contains(" /api/v1/me/")) {
+                return;
+            }
+            operation.path("parameters").forEach(parameter -> {
+                if ("readerId".equals(parameter.path("name").asText())) {
+                    problems.add(where + " documents the readerId parameter");
+                }
+            });
+        });
+
+        assertThat(problems).isEmpty();
+    }
+
     private void forEachOperation(java.util.function.BiConsumer<String, JsonNode> check) throws Exception {
         contract().path("paths").fields().forEachRemaining(path -> path.getValue().fields().forEachRemaining(
                 method -> check.accept(method.getKey().toUpperCase() + " " + path.getKey(), method.getValue())));
