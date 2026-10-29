@@ -23,10 +23,10 @@ class BookLookupConfigurationTest {
     }
 
     @Test
-    void shouldUseOpenLibraryWhenEnabled() {
+    void shouldUseBrasilApiWhenEnabled() {
         runner.withPropertyValues("app.isbn-lookup.enabled=true")
                 .run(context -> assertThat(context.getBean(BookLookup.class))
-                        .isInstanceOf(OpenLibraryBookLookup.class));
+                        .isInstanceOf(BrasilApiBookLookup.class));
     }
 
     @Test
@@ -34,7 +34,7 @@ class BookLookupConfigurationTest {
         runner.run(context -> {
             var properties = context.getBean(IsbnLookupProperties.class);
             assertThat(properties.enabled()).isFalse();
-            assertThat(properties.baseUrl()).isEqualTo("https://openlibrary.org");
+            assertThat(properties.baseUrl()).isEqualTo("https://brasilapi.com.br");
             assertThat(properties.connectionTimeout()).hasSeconds(2);
             assertThat(properties.timeout()).hasSeconds(3);
             assertThat(properties.cacheTtl()).hasMinutes(10);

@@ -19,18 +19,17 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * RF06, RNF19: the Open Library adapter against a simulated HTTP server (the JDK's own), never the real network. A good
+ * RF06, RNF19: the BrasilAPI adapter against a simulated HTTP server (the JDK's own), never the real network. A good
  * answer is mapped to the catalog's language; an empty, slow, failing or malformed one comes back as empty, without
  * an exception; and an answer is kept for a short time, but a failure is not.
  */
-class OpenLibraryBookLookupTest {
+class BrasilApiBookLookupTest {
 
     private static final Isbn ISBN = new Isbn("9780000000309");
-    private static final String KEY = "ISBN:9780000000309";
 
     private HttpServer server;
     private final AtomicInteger requests = new AtomicInteger();
-    private final AtomicReference<String> lastQuery = new AtomicReference<>();
+    private final AtomicReference<String> lastPath = new AtomicReference<>();
     private final AtomicReference<String> lastUserAgent = new AtomicReference<>();
     private volatile int status = 200;
     private volatile String body = "{}";
@@ -57,9 +56,9 @@ class OpenLibraryBookLookupTest {
     @BeforeEach
     void startServer() throws IOException {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        server.createContext("/api/books", exchange -> {
+        server.createContext("/api/isbn/v1", exchange -> {
             requests.incrementAndGet();
-            lastQuery.set(exchange.getRequestURI().getRawQuery());
+            lastPath.set(exchange.getRequestURI().getRawPath());
             lastUserAgent.set(exchange.getRequestHeaders().getFirst("User-Agent"));
             try {
                 Thread.sleep(delayMillis);
@@ -85,18 +84,18 @@ class OpenLibraryBookLookupTest {
         server.stop(0);
     }
 
-    private OpenLibraryBookLookup lookup(Duration timeout) {
+    private BrasilApiBookLookup lookup(Duration timeout) {
         var properties = new IsbnLookupProperties(true, "http://127.0.0.1:" + server.getAddress().getPort() + "/",
                 Duration.ofSeconds(1), timeout, Duration.ofMinutes(10), 100);
-        return new OpenLibraryBookLookup(properties, clock);
+        return new BrasilApiBookLookup(properties, clock);
     }
 
-    private OpenLibraryBookLookup lookup() {
+    private BrasilApiBookLookup lookup() {
         return lookup(Duration.ofSeconds(2));
     }
 
     private static String book(String fields) {
-        return "{\"" + KEY + "\": {" + fields + "}}";
+        return "{" + fields + "}";
     }
 
     // the good answer
@@ -104,10 +103,9 @@ class OpenLibraryBookLookupTest {
     @Test
     void shouldMapAKnownIsbnToTheCatalogsLanguage() {
         body = book("""
-                "title": "Dom Casmurro", "subtitle": "romance",
-                "authors": [{"name": "Machado de Assis", "url": "x"}, {"name": "Outro Autor"}],
-                "publishers": [{"name": "Editora Garnier"}, {"name": "Outra"}],
-                "publish_date": "March 5, 1899"
+                "isbn": "9780000000309", "title": "Dom Casmurro", "subtitle": "romance",
+                "authors": ["Machado de Assis", "Outro Autor"], "publisher": "Editora Garnier", "year": 1899,
+                "provider": "cbl"
                 """);
 
         var info = lookup().findByIsbn(ISBN).orElseThrow();
@@ -120,7 +118,7 @@ class OpenLibraryBookLookupTest {
 
     @Test
     void shouldAcceptABookWithOnlyATitle() {
-        body = book("\"title\": \"Só o título\"");
+        body = book("\"title\": \"Só o título\", \"subtitle\": null, \"authors\": [], \"publisher\": null, \"year\": null");
 
         var info = lookup().findByIsbn(ISBN).orElseThrow();
 
@@ -131,10 +129,9 @@ class OpenLibraryBookLookupTest {
     }
 
     @Test
-    void shouldIgnoreADateWithoutAYearAndNamesThatAreNotText() {
+    void shouldIgnoreFieldsOfTheWrongTypeAndBlankNames() {
         body = book("""
-                "title": "T", "authors": [{"name": 5}, {"x": "y"}, {"name": "  "}], "publishers": "no",
-                "publish_date": "unknown"
+                "title": "T", "authors": [5, {"x": "y"}, "  "], "publisher": 7, "year": "unknown"
                 """);
 
         var info = lookup().findByIsbn(ISBN).orElseThrow();
@@ -145,27 +142,35 @@ class OpenLibraryBookLookupTest {
     }
 
     @Test
+    void shouldAcceptAYearSentAsText() {
+        body = book("\"title\": \"T\", \"year\": \"2009\"");
+
+        assertThat(lookup().findByIsbn(ISBN).orElseThrow().publicationYear()).isEqualTo(2009);
+    }
+
+    @Test
     void shouldAskForTheNormalizedIsbnAndIdentifyItself() {
         body = book("\"title\": \"T\"");
 
         lookup().findByIsbn(new Isbn("978-0-00-000030-9"));
 
-        assertThat(lastQuery.get()).contains("bibkeys=" + KEY).contains("jscmd=data").contains("format=json");
+        assertThat(lastPath.get()).isEqualTo("/api/isbn/v1/9780000000309");
         assertThat(lastUserAgent.get()).startsWith("BooksManager/");
     }
 
     // what is not a book
 
     @Test
-    void anEmptyAnswerMeansTheSourceDoesNotKnowTheIsbn() {
-        body = "{}";
+    void aNotFoundStatusMeansTheSourceDoesNotKnowTheIsbn() {
+        status = 404;
+        body = "{\"message\": \"ISBN não encontrado\", \"type\": \"not_found\"}";
 
         assertThat(lookup().findByIsbn(ISBN)).isEmpty();
     }
 
     @Test
     void shouldNotSuggestABookWithoutATitle() {
-        body = book("\"authors\": [{\"name\": \"A\"}]");
+        body = book("\"authors\": [\"A\"]");
 
         assertThat(lookup().findByIsbn(ISBN)).isEmpty();
     }
@@ -182,6 +187,17 @@ class OpenLibraryBookLookupTest {
 
         assertThat(found).isEmpty();
         assertThat(Duration.ofNanos(System.nanoTime() - started)).isLessThan(Duration.ofSeconds(2));
+    }
+
+    @Test
+    void anInvalidIsbnStatusShouldCountAsUnavailableAndNotBeKept() {
+        status = 400;
+        var lookup = lookup();
+
+        lookup.findByIsbn(ISBN);
+        lookup.findByIsbn(ISBN);
+
+        assertThat(requests.get()).isEqualTo(2);
     }
 
     @Test
@@ -209,8 +225,7 @@ class OpenLibraryBookLookupTest {
 
     @Test
     void anUnexpectedShapeShouldBeTreatedAsNoBook() {
-        for (var strange : new String[] {"[]", "null", "\"text\"", "{\"" + KEY + "\": []}", "{\"" + KEY + "\": 5}",
-                "{\"" + KEY + "\": {\"title\": 7}}"}) {
+        for (var strange : new String[] {"[]", "null", "\"text\"", "5", "{}", "{\"title\": 7}"}) {
             body = strange;
             assertThat(lookup().findByIsbn(ISBN)).as(strange).isEmpty();
         }
@@ -247,7 +262,7 @@ class OpenLibraryBookLookupTest {
 
     @Test
     void shouldAlsoKeepThatTheSourceDoesNotKnowTheIsbn() {
-        body = "{}";
+        status = 404;
         var lookup = lookup();
 
         lookup.findByIsbn(ISBN);

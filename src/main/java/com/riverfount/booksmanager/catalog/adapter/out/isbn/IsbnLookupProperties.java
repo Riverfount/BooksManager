@@ -7,13 +7,13 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 /**
  * Settings of the lookup of books by ISBN (RF06), read from {@code app.isbn-lookup.*}. Off by default (RNF10) and in the
  * tests, so nothing goes out to the network by accident. The timeouts are short on purpose: a source that is slow
- * cannot hold a request thread, and the registration by hand goes on without it (RNF19). Open Library asks for no
+ * cannot hold a request thread, and the registration by hand goes on without it (RNF19). BrasilAPI asks for no
  * key, so there is no secret here.
  */
 @ConfigurationProperties(prefix = "app.isbn-lookup")
 public record IsbnLookupProperties(
         @DefaultValue("false") boolean enabled,
-        @DefaultValue("https://openlibrary.org") String baseUrl,
+        @DefaultValue("https://brasilapi.com.br") String baseUrl,
         @DefaultValue("2s") Duration connectionTimeout,
         @DefaultValue("3s") Duration timeout,
         @DefaultValue("10m") Duration cacheTtl,

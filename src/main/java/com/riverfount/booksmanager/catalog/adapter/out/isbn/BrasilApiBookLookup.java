@@ -12,23 +12,21 @@ import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Looks the book up in Open Library (RF06) with the JDK HTTP client, so no library is added. The answer of the
- * source ({@code /api/books?bibkeys=ISBN:...&jscmd=data}) is mapped to the catalog's {@link BookInfo} and its format
+ * Looks the book up in BrasilAPI (RF06) with the JDK HTTP client, so no library is added. The answer of the
+ * source ({@code /api/isbn/v1/{isbn}}) is mapped to the catalog's {@link BookInfo} and its format
  * goes no further. Whatever goes wrong (the network, a timeout, an error status, a body that is not what was
  * expected) is logged without the body and answered as empty, never thrown (RNF19). What the source answered, found
  * or not, is kept for a short time; a failure is not kept, so the next ask tries again.
  */
-class OpenLibraryBookLookup implements BookLookup {
+class BrasilApiBookLookup implements BookLookup {
 
-    private static final Logger log = LoggerFactory.getLogger(OpenLibraryBookLookup.class);
-    private static final Pattern YEAR = Pattern.compile("(?<!\\d)(\\d{4})(?!\\d)");
+    private static final Logger log = LoggerFactory.getLogger(BrasilApiBookLookup.class);
     private static final int MAX_BODY_CHARS = 1_000_000;
 
     private final HttpClient client;
@@ -37,7 +35,7 @@ class OpenLibraryBookLookup implements BookLookup {
     private final JsonMapper mapper = JsonMapper.builder().build();
     private final TtlCache<String, Optional<BookInfo>> cache;
 
-    OpenLibraryBookLookup(IsbnLookupProperties properties, Clock clock) {
+    BrasilApiBookLookup(IsbnLookupProperties properties, Clock clock) {
         this.properties = properties;
         this.baseUrl = properties.baseUrl().replaceAll("/+$", "");
         this.client = HttpClient.newBuilder().connectTimeout(properties.connectionTimeout())
@@ -56,7 +54,7 @@ class OpenLibraryBookLookup implements BookLookup {
             cache.put(isbn.value(), found);
             return found;
         } catch (IOException | RuntimeException e) {
-            log.warn("The lookup of an ISBN in Open Library failed ({}); the registration goes on by hand.",
+            log.warn("The lookup of an ISBN in BrasilAPI failed ({}); the registration goes on by hand.",
                     e.getClass().getSimpleName());
             return Optional.empty();
         } catch (InterruptedException e) {
@@ -66,11 +64,13 @@ class OpenLibraryBookLookup implements BookLookup {
     }
 
     private Optional<BookInfo> ask(String isbn) throws IOException, InterruptedException {
-        var key = "ISBN:" + isbn;
-        var uri = URI.create(baseUrl + "/api/books?bibkeys=" + key + "&format=json&jscmd=data");
+        var uri = URI.create(baseUrl + "/api/isbn/v1/" + isbn);
         var request = HttpRequest.newBuilder(uri).timeout(properties.timeout())
                 .header("Accept", "application/json").header("User-Agent", "BooksManager/1.0").GET().build();
         var response = client.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() == 404) {
+            return Optional.empty();
+        }
         if (response.statusCode() != 200) {
             throw new IOException("unexpected status " + response.statusCode());
         }
@@ -78,7 +78,7 @@ class OpenLibraryBookLookup implements BookLookup {
         if (body.length() > MAX_BODY_CHARS) {
             throw new IOException("the answer is too big");
         }
-        var book = mapper.readTree(body).path(key);
+        var book = mapper.readTree(body);
         return book.isObject() ? Optional.ofNullable(toBookInfo(book)) : Optional.empty();
     }
 
@@ -90,24 +90,20 @@ class OpenLibraryBookLookup implements BookLookup {
         }
         var subtitle = text(book.path("subtitle"));
         return new BookInfo(subtitle == null ? title : title + ": " + subtitle, names(book.path("authors")),
-                first(names(book.path("publishers"))), year(text(book.path("publish_date"))));
+                text(book.path("publisher")), year(book.path("year")));
     }
 
     private static List<String> names(JsonNode array) {
         var names = new ArrayList<String>();
         if (array.isArray()) {
             for (var item : array) {
-                var name = text(item.path("name"));
+                var name = text(item);
                 if (name != null) {
                     names.add(name);
                 }
             }
         }
         return names;
-    }
-
-    private static String first(List<String> names) {
-        return names.isEmpty() ? null : names.get(0);
     }
 
     private static String text(JsonNode node) {
@@ -118,11 +114,15 @@ class OpenLibraryBookLookup implements BookLookup {
         return value.isEmpty() ? null : value;
     }
 
-    private static Integer year(String publishDate) {
-        if (publishDate == null) {
-            return null;
+    /** The year, sent as a number or as text; anything else is not a year. */
+    private static Integer year(JsonNode node) {
+        if (node.isInt()) {
+            return node.asInt();
         }
-        var matcher = YEAR.matcher(publishDate);
-        return matcher.find() ? Integer.valueOf(matcher.group(1)) : null;
+        var text = text(node);
+        if (text != null && text.matches("\\d{4}")) {
+            return Integer.valueOf(text);
+        }
+        return null;
     }
 }
