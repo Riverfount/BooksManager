@@ -4,6 +4,7 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 
 import com.riverfount.booksmanager.shared.adapter.in.web.AdminOnly;
 import com.riverfount.booksmanager.shared.adapter.in.web.AdminOrOperator;
+import com.riverfount.booksmanager.shared.adapter.in.web.AnyProfile;
 import com.riverfount.booksmanager.shared.adapter.in.web.PublicEndpoint;
 import com.riverfount.booksmanager.shared.adapter.in.web.ReaderOnly;
 import com.tngtech.archunit.core.domain.JavaAnnotation;
@@ -23,14 +24,14 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * The rule behind RNF08: every controller says who may call it. A controller
  * (or each of its endpoint methods) carries exactly one of {@link AdminOnly},
- * {@link AdminOrOperator} or {@link PublicEndpoint}, so a new controller that
+ * {@link AdminOrOperator}, {@link AnyProfile}, {@link ReaderOnly} or {@link PublicEndpoint}, so a new controller that
  * forgets to decide fails the build instead of being open to every logged-in
  * user by accident.
  */
 final class AccessRules {
 
     private static final List<Class<? extends Annotation>> MARKERS =
-            List.of(AdminOnly.class, AdminOrOperator.class, PublicEndpoint.class, ReaderOnly.class);
+            List.of(AdminOnly.class, AdminOrOperator.class, AnyProfile.class, PublicEndpoint.class, ReaderOnly.class);
 
     private AccessRules() {
     }
@@ -60,8 +61,8 @@ final class AccessRules {
                                 + " declares more than one access marker"));
                     } else if (onClass == 0 && onMethod == 0) {
                         events.add(SimpleConditionEvent.violated(method, method.getFullName()
-                                + " is an endpoint with no access declared (@AdminOnly, @AdminOrOperator or "
-                                + "@PublicEndpoint, on the method or on its controller)"));
+                                + " is an endpoint with no access declared (@AdminOnly, @AdminOrOperator, @AnyProfile, "
+                                + "@ReaderOnly or @PublicEndpoint, on the method or on its controller)"));
                     }
                 }
             }

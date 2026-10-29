@@ -1,6 +1,6 @@
 package com.riverfount.booksmanager.user.adapter.in.web;
 
-import com.riverfount.booksmanager.shared.adapter.in.web.AdminOrOperator;
+import com.riverfount.booksmanager.shared.adapter.in.web.AnyProfile;
 import com.riverfount.booksmanager.user.application.port.in.GetUserUseCase;
 import com.riverfount.booksmanager.user.domain.User;
 import io.swagger.v3.oas.annotations.Operation;
@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
  * routes are public and ignore the {@code Authorization} header, so a route there would never
  * see the token. The literal path wins over {@code /users/{id}}, which is for administrators.
  */
-@AdminOrOperator
+@AnyProfile
 @RestController
 @RequestMapping("/api/v1/users/me")
 @Tag(name = "Current user", description = "Os dados de quem está logado, para qualquer perfil.")
@@ -38,7 +38,7 @@ class CurrentUserController {
     @GetMapping
     @Operation(summary = "Consultar o usuário logado",
             description = "Devolve o id, o login, o nome de exibição (nulo quando não há; use o login) e o perfil "
-                    + "de quem fez a requisição, lido do token. Vale para administrador e operador. Usuário "
+                    + "de quem fez a requisição, lido do token. Vale para todos os perfis (administrador, operador e leitor). Usuário "
                     + "inativado ou inexistente recebe 401, mesmo com um token ainda dentro da validade. Nunca "
                     + "traz a senha nem o hash.")
     @ApiResponses({

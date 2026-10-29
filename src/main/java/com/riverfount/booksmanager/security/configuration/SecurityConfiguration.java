@@ -5,6 +5,7 @@ import com.riverfount.booksmanager.shared.configuration.RateLimitProperties;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -47,6 +48,9 @@ public class SecurityConfiguration {
     /** The routes of the reader (Phase 6): the reader's own data, for the READER profile and nobody else. */
     private static final String READER_ROUTES = "/api/v1/me/**";
 
+    /** Who is logged in: it describes the caller, so every profile may read it (the method rule checks the role too). */
+    private static final String CURRENT_USER_ROUTE = "/api/v1/users/me";
+
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, ProblemDetailAuthenticationEntryPoint entryPoint,
             ProblemDetailAccessDeniedHandler accessDeniedHandler, JwtAuthenticationConverter converter,
@@ -64,6 +68,7 @@ public class SecurityConfiguration {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(PUBLIC_ROUTES).permitAll()
                         .requestMatchers(READER_ROUTES).hasRole("READER")
+                        .requestMatchers(HttpMethod.GET, CURRENT_USER_ROUTE).hasAnyRole("ADMIN", "OPERATOR", "READER")
                         .anyRequest().hasAnyRole("ADMIN", "OPERATOR"))
                 .exceptionHandling(handling -> handling
                         .authenticationEntryPoint(entryPoint)
