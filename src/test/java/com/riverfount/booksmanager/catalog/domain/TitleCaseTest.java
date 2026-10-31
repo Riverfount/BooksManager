@@ -127,4 +127,44 @@ class TitleCaseTest {
 
         assertThat(TitleCase.normalize(once)).isEqualTo(once);
     }
+
+    // publishers: acronyms and company suffixes are uppercase on purpose
+
+    @ParameterizedTest
+    @CsvSource(delimiter = '|', value = {
+            "LTC-LIVROS TECNICOS E CIENTIFICOS EDITORA LDA | LTC-Livros Tecnicos e Cientificos Editora LDA",
+            "EDITORA 34 | Editora 34",
+            "COMPANHIA DAS LETRAS | Companhia das Letras",
+            "EDITORA FOO LTDA | Editora Foo LTDA",
+            "BAR EDITORES S.A. | Bar Editores S.A.",
+            "BAZ LIVROS S/A | Baz Livros S/A",
+            "QUX COMERCIO EIRELI | Qux Comercio EIRELI",
+            "EDUSP | EDUSP",
+            "EDITORA FGV | Editora FGV",
+            "EDITORA UNESP | Editora UNESP"
+    })
+    void shouldKeepAcronymsAndCompanySuffixesOfAPublisherUppercase(String input, String expected) {
+        assertThat(TitleCase.normalizePublisher(input)).isEqualTo(expected);
+    }
+
+    @Test
+    void shouldNotKeepPublisherSpellingsInATitle() {
+        assertThat(TitleCase.normalize("LIVROS DA LDA")).isEqualTo("Livros da Lda");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Biblioteca Nacional", "Zahar", "LTC", "Editora Foo Ltda", "Editora 34"})
+    void shouldReturnAMixedCasePublisherUnchanged(String input) {
+        assertThat(TitleCase.normalizePublisher(input)).isEqualTo(input);
+    }
+
+    @Test
+    void shouldReturnNullPublisherAsNull() {
+        assertThat(TitleCase.normalizePublisher(null)).isNull();
+    }
+
+    @Test
+    void shouldKnowTheAcronymsInsideAHyphenatedTitleWord() {
+        assertThat(TitleCase.normalize("RELATÓRIO ONU-BRASIL")).isEqualTo("Relatório ONU-Brasil");
+    }
 }
