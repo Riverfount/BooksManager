@@ -60,7 +60,19 @@ mkdir -p "$work/certs/live/ci"
 openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=ci \
   -keyout "$work/certs/live/ci/privkey.pem" -out "$work/certs/live/ci/fullchain.pem" 2>/dev/null
 
-docker network create "$network" >/dev/null
+# An explicit subnet: some Docker versions (the one of the CI runner, for one) refuse to give a container a fixed address
+# in a network whose subnet was chosen automatically. A few candidates, in case one overlaps a network that already exists.
+subnet_prefix=""
+for n in 201 202 203 204 205 206; do
+  if docker network create --subnet "10.77.$n.0/24" "$network" >/dev/null 2>&1; then
+    subnet_prefix="10.77.$n"
+    break
+  fi
+done
+if [ -z "$subnet_prefix" ]; then
+  echo "FAIL - no free subnet (10.77.201.0/24 to 10.77.206.0/24) for the test network"
+  exit 1
+fi
 docker run --detach --name "app-$id" --network "$network" --network-alias app \
   --volume "$work/app.conf:/etc/nginx/conf.d/default.conf:ro" "$nginx_image" >/dev/null
 docker run --detach --name "web-$id" --network "$network" --network-alias web \
@@ -148,28 +160,22 @@ check "the other API routes are never limited" bash -c "for _ in \$(seq 1 12); d
 # --- an update recreates a container, and it may get ANOTHER address: the proxy must follow it ----------------------------
 # A name that Nginx resolves only once, at start, keeps the old address: the front-end (or the API) would answer 504
 # until the Nginx restarted, in the middle of an update that "only changes what changed". The container is moved to a
-# new address here, the way a recreation can. (A /16 network, as the Docker default; otherwise this is skipped.)
-subnet="$(docker network inspect --format '{{(index .IPAM.Config 0).Subnet}}' "$network")"
-if [[ "$subnet" == */16 ]]; then
-  new_prefix="$(echo "${subnet%/*}" | awk -F. '{print $1"."$2}')"
-  moved=0
-  for who in web app; do
-    moved=$((moved + 1))
-    docker network disconnect "$network" "$who-$id"
-    docker network connect --ip "$new_prefix.77.$moved" --alias "$who" "$network" "$who-$id"
+# new address here, the way a recreation can.
+moved=0
+for who in web app; do
+  moved=$((moved + 1))
+  docker network disconnect "$network" "$who-$id"
+  docker network connect --ip "$subnet_prefix.20$moved" --alias "$who" "$network" "$who-$id"
+done
+follow() {  # $1 = path, $2 = what the stand-in answers
+  for _ in $(seq 1 8); do
+    curl --silent --insecure --max-time 8 --header 'Host: ci' "https://127.0.0.1:$https_port$1" | grep -q "^$2|" && return 0
+    sleep 1
   done
-  follow() {  # $1 = path, $2 = what the stand-in answers
-    for _ in $(seq 1 8); do
-      curl --silent --insecure --max-time 8 --header 'Host: ci' "https://127.0.0.1:$https_port$1" | grep -q "^$2|" && return 0
-      sleep 1
-    done
-    return 1
-  }
-  check "the proxy follows the front-end to a new address" follow /livros WEB
-  check "the proxy follows the API to a new address" follow /api/v1/users/me API
-else
-  echo "skip - the follow-the-new-address check needs a /16 network (this one is $subnet)"
-fi
+  return 1
+}
+check "the proxy follows the front-end to a new address" follow /livros WEB
+check "the proxy follows the API to a new address" follow /api/v1/users/me API
 
 if [ "$failures" -ne 0 ]; then
   echo "$failures check(s) failed"
