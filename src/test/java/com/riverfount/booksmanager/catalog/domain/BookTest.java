@@ -496,4 +496,35 @@ class BookTest {
 
         assertThat(book.getTitle()).isEqualTo("DOM CASMURRO");
     }
+
+    @Test
+    void shouldRestoreTheCasingOfAnAllCapsPublisherOnCreateKeepingAcronyms() {
+        var book = Book.create(ISBN, "Dom Casmurro", "LTC-LIVROS TECNICOS E CIENTIFICOS EDITORA LDA", 1899, 1L,
+                Set.of(10L), FIXED_CLOCK);
+
+        assertThat(book.getPublisher()).isEqualTo("LTC-Livros Tecnicos e Cientificos Editora LDA");
+    }
+
+    @Test
+    void shouldRestoreTheCasingOfAnAllCapsPublisherOnUpdate() {
+        var book = Book.create(ISBN, "Dom Casmurro", "Editora X", 1899, 1L, Set.of(10L), FIXED_CLOCK);
+
+        book.updateDetails("Dom Casmurro", "COMPANHIA DAS LETRAS", 1899, 1L, FIXED_CLOCK);
+
+        assertThat(book.getPublisher()).isEqualTo("Companhia das Letras");
+    }
+
+    @Test
+    void shouldKeepAMixedCasePublisherAsTyped() {
+        var book = Book.create(ISBN, "Dom Casmurro", "Zahar", 1899, 1L, Set.of(10L), FIXED_CLOCK);
+
+        assertThat(book.getPublisher()).isEqualTo("Zahar");
+    }
+
+    @Test
+    void shouldNotNormalizeThePublisherOfAReconstitutedBook() {
+        var book = Book.reconstitute(1L, ISBN, "Dom Casmurro", "COMPANHIA DAS LETRAS", 1899, 1L, Set.of(10L), true);
+
+        assertThat(book.getPublisher()).isEqualTo("COMPANHIA DAS LETRAS");
+    }
 }

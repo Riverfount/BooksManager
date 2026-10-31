@@ -54,7 +54,8 @@ class BookLookupService implements LookupBookByIsbnUseCase {
                             .map(name -> new SuggestedAuthor(name, existing.get(name.toLowerCase(Locale.ROOT))))
                             .toList();
                     return BookLookupResult.found(isbn.value(), new Suggestion(
-                            TitleCase.normalize(info.title()), info.publisher(), info.publicationYear(), authors));
+                            TitleCase.normalize(info.title()), TitleCase.normalizePublisher(info.publisher()),
+                            info.publicationYear(), authors));
                 })
                 .orElseGet(() -> BookLookupResult.notFound(isbn.value()));
     }

@@ -209,4 +209,20 @@ class BookLookupServiceTest {
         assertThat(suggestion.title()).isEqualTo("Rei Arthur II");
         assertThat(suggestion.authors()).extracting(a -> a.name()).containsExactly("J.R.R. Tolkien");
     }
+
+    @Test
+    void shouldRestoreTheCasingOfAPublisherThatCameInUppercaseKeepingItsAcronyms() {
+        sourceKnows(new BookInfo("O NASCIMENTO DA INTELIGÊNCIA NA CRIANÇA", List.of("JEAN PIAGET"),
+                "LTC-LIVROS TECNICOS E CIENTIFICOS EDITORA LDA", 2024));
+
+        assertThat(service.lookup(DOM_CASMURRO).suggestion().publisher())
+                .isEqualTo("LTC-Livros Tecnicos e Cientificos Editora LDA");
+    }
+
+    @Test
+    void shouldSuggestNoPublisherWhenTheSourceHasNone() {
+        sourceKnows(new BookInfo("Dom Casmurro", List.of("Machado de Assis"), null, 1899));
+
+        assertThat(service.lookup(DOM_CASMURRO).suggestion().publisher()).isNull();
+    }
 }

@@ -14,6 +14,10 @@ import java.util.regex.Pattern;
  * as the first word, after a colon or as the last word; roman numerals and initials keep their uppercase; a few known
  * spellings (acronyms, "McDonald") are restored; the words after a hyphen or an apostrophe are capitalized too.
  *
+ * <p>A publisher goes through {@link #normalizePublisher}, the same rule with extra known spellings: acronyms and company
+ * suffixes ("LTC", "EDUSP", "LTDA", "S/A") are uppercase on purpose, and the rule cannot tell them from words once the
+ * casing is lost, so they are listed instead of guessed.
+ *
  * <p>It is a heuristic: nothing can tell "MCDONALD" from "Mcdonald" once the casing is lost, so the result is a
  * suggestion that a person can still correct. The function is pure and idempotent.
  */
@@ -52,6 +56,11 @@ public final class TitleCase {
             Map.entry("dvd", "DVD"),
             Map.entry("pdf", "PDF"));
 
+    /** Spellings of publishers only: acronyms of houses and company suffixes, kept uppercase. */
+    private static final Map<String, String> PUBLISHER_SPELLINGS = withExtraSpellings(KNOWN_SPELLINGS,
+            "ltc", "edusp", "unesp", "ufmg", "uerj", "puc", "senac", "sesc", "senai", "ftd", "ibep", "edufba",
+            "ltda", "lda", "s/a", "me", "epp", "eireli");
+
     private static final Pattern ROMAN_NUMERAL = Pattern.compile(
             "(?=[IVXLCDM]{2,})M{0,3}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})");
     private static final Pattern INITIALS = Pattern.compile("\\p{L}(\\.\\p{L})+");
@@ -60,8 +69,28 @@ public final class TitleCase {
     private TitleCase() {
     }
 
+    private static Map<String, String> withExtraSpellings(Map<String, String> base, String... uppercaseWords) {
+        var all = new java.util.HashMap<>(base);
+        for (var word : uppercaseWords) {
+            all.put(word, word.toUpperCase(Locale.ROOT));
+        }
+        return Map.copyOf(all);
+    }
+
     /** The text in title case when it is entirely uppercase; the same text otherwise (null stays null). */
     public static String normalize(String text) {
+        return normalize(text, KNOWN_SPELLINGS);
+    }
+
+    /**
+     * Like {@link #normalize}, for a publisher name: it also keeps the acronyms of publishing houses and the company
+     * suffixes uppercase ("LTC-LIVROS TECNICOS EDITORA LDA" -> "LTC-Livros Tecnicos Editora LDA").
+     */
+    public static String normalizePublisher(String publisher) {
+        return normalize(publisher, PUBLISHER_SPELLINGS);
+    }
+
+    private static String normalize(String text, Map<String, String> spellings) {
         if (text == null || !isAllCaps(text)) {
             return text;
         }
@@ -78,7 +107,7 @@ public final class TitleCase {
             if (token.isEmpty()) {
                 continue;
             }
-            result.append(convert(token, i == first, i == last, previousWord));
+            result.append(convert(token, i == first, i == last, previousWord, spellings));
             previousWord = token;
         }
         return result.toString();
@@ -106,7 +135,8 @@ public final class TitleCase {
         return -1;
     }
 
-    private static String convert(String token, boolean first, boolean last, String previousWord) {
+    private static String convert(String token, boolean first, boolean last, String previousWord,
+            Map<String, String> spellings) {
         int start = 0;
         int end = token.length();
         while (start < end && !Character.isLetterOrDigit(token.charAt(start))) {
@@ -119,12 +149,14 @@ public final class TitleCase {
             return token;
         }
         var core = token.substring(start, end);
-        return token.substring(0, start) + convertCore(core, first, last, previousWord) + token.substring(end);
+        return token.substring(0, start) + convertCore(core, first, last, previousWord, spellings)
+                + token.substring(end);
     }
 
-    private static String convertCore(String core, boolean first, boolean last, String previousWord) {
+    private static String convertCore(String core, boolean first, boolean last, String previousWord,
+            Map<String, String> spellings) {
         var lower = core.toLowerCase(Locale.ROOT);
-        var known = KNOWN_SPELLINGS.get(lower);
+        var known = spellings.get(lower);
         if (known != null) {
             return known;
         }
@@ -138,7 +170,7 @@ public final class TitleCase {
         if (CONNECTIVES.contains(lower) && !first && !last && !afterColon) {
             return lower;
         }
-        return capitalizeParts(lower);
+        return capitalizeParts(lower, spellings);
     }
 
     private static boolean isRomanNumeral(String core, boolean first, boolean last, String previousWord) {
@@ -152,11 +184,22 @@ public final class TitleCase {
         return word.toLowerCase(Locale.ROOT).replaceAll("[^\\p{L}]", "");
     }
 
-    /** Capitalizes the word and each part that follows a hyphen or an apostrophe ("d'ávila" -> "D'Ávila"). */
-    private static String capitalizeParts(String lowerWord) {
+    /**
+     * Capitalizes the word and each part that follows a hyphen or an apostrophe ("d'ávila" -> "D'Ávila"); a part with a
+     * known spelling ("onu-brasil" -> "ONU-Brasil") takes it.
+     */
+    private static String capitalizeParts(String lowerWord, Map<String, String> spellings) {
         var result = new StringBuilder(lowerWord.length());
         for (var part : SPLIT_AFTER_HYPHEN_OR_APOSTROPHE.split(lowerWord)) {
-            if (!part.isEmpty()) {
+            if (part.isEmpty()) {
+                continue;
+            }
+            var delimiter = part.endsWith("-") || part.endsWith("'") || part.endsWith("’");
+            var word = delimiter ? part.substring(0, part.length() - 1) : part;
+            var known = spellings.get(word);
+            if (known != null) {
+                result.append(known).append(delimiter ? part.substring(part.length() - 1) : "");
+            } else {
                 int firstCodePoint = part.codePointAt(0);
                 result.appendCodePoint(Character.toUpperCase(firstCodePoint));
                 result.append(part.substring(Character.charCount(firstCodePoint)));
