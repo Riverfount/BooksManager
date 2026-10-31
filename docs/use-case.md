@@ -228,6 +228,12 @@
 - Critério de aceite: traz o total das multas pendentes, a suspensão em vigor (início e dia de volta), os empréstimos ativos e atrasados e as reservas ativas, com os limites (RF31, RN15).
 - Critério de aceite: mostra só o que é do próprio leitor e nunca o motivo do bloqueio; o leitor bloqueado, suspenso ou com multa pendente consulta normalmente (RF31, RN20).
 
+**HU48 —** Como leitor, quero manter o meu telefone, o meu e-mail, os dados do meu responsável e a minha senha, para não depender do balcão para atualizar o meu contato.
+- Critério de aceite: o leitor altera o telefone e o e-mail e, se tem menos de 18 anos, os dados do responsável; nome, documento e data de nascimento aparecem só para consulta e não podem ser alterados por ele (RF32, RN22).
+- Critério de aceite: trocar o e-mail ou a senha exige a senha atual; a senha atual errada é recusada e conta para o bloqueio por conta, e a senha nova segue a política de senha (RN22, RN20, RNF13).
+- Critério de aceite: a troca de senha encerra todas as sessões do leitor, que entra de novo com a nova senha; a alteração só atinge o próprio cadastro, nunca o de outro leitor (RN20, RN22).
+- Critério de aceite: a trilha de auditoria registra quem alterou e quais campos, sem nenhum valor pessoal (RF27, RNF32).
+
 ## Referências
 
 Requisitos e regras de negócio: `docs/requisitos.md`. Entidades envolvidas: `docs/diagramas.md`.

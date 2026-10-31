@@ -352,4 +352,98 @@ class ReaderTest {
                 .hasMessageContaining("já existe um leitor")
                 .hasMessageContaining("12345678900");
     }
+
+    // own contact data (RF32, RN22)
+
+    private static Reader minor() {
+        return Reader.create("Pedro Silva", "987", "pedro@example.com", null, LocalDate.of(2012, 3, 1), GUARDIAN,
+                TODAY);
+    }
+
+    @Test
+    void shouldUpdateTheContactDataKeepingTheIdentityData() {
+        var reader = adult();
+
+        reader.updateContact("21 98888-7777", "novo@example.com", null, TODAY);
+
+        assertThat(reader.getPhone()).isEqualTo("21 98888-7777");
+        assertThat(reader.getEmail()).isEqualTo("novo@example.com");
+        assertThat(reader.getName()).isEqualTo("Maria Silva");
+        assertThat(reader.getDocument()).isEqualTo("12345678900");
+        assertThat(reader.getBirthDate()).isEqualTo(ADULT_BIRTH);
+    }
+
+    @Test
+    void shouldUpdateTheGuardianOfAMinor() {
+        var reader = minor();
+        var other = new Guardian("Carla Souza", "carla@example.com", "11 90000-1111");
+
+        reader.updateContact(null, "pedro@example.com", other, TODAY);
+
+        assertThat(reader.getGuardian()).isEqualTo(other);
+    }
+
+    @Test
+    void shouldNotChangeTheGuardianOfAnAdult() {
+        var reader = adult();
+
+        assertThatThrownBy(() -> reader.updateContact(reader.getPhone(), reader.getEmail(), GUARDIAN, TODAY))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("responsável")
+                .hasMessageContaining("18");
+        assertThat(reader.getGuardian()).isNull();
+    }
+
+    @Test
+    void shouldAllowAnAdultToKeepTheGuardianHeAlreadyHad() {
+        // the reader turned 18 and still has the guardian of the time he was a minor
+        var reader = Reader.reconstitute(5L, "Pedro Silva", "987", "pedro@example.com", null,
+                LocalDate.of(2008, 3, 1), GUARDIAN, true, false);
+
+        reader.updateContact("11 91234-5678", "pedro@example.com", GUARDIAN, TODAY);
+
+        assertThat(reader.getGuardian()).isEqualTo(GUARDIAN);
+        assertThat(reader.getPhone()).isEqualTo("11 91234-5678");
+    }
+
+    @Test
+    void shouldRequireTheGuardianOfAMinor() {
+        var reader = minor();
+
+        assertThatThrownBy(() -> reader.updateContact(null, "pedro@example.com", null, TODAY))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("responsável");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = { "sem-arroba", "a@b", "a b@c.com" })
+    void shouldRejectAnInvalidEmailOnContactUpdateAndChangeNothing(String email) {
+        var reader = adult();
+
+        assertThatThrownBy(() -> reader.updateContact("21 98888-7777", email, null, TODAY))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("e-mail");
+        assertThat(reader.getPhone()).isEqualTo("11 91234-5678");
+        assertThat(reader.getEmail()).isEqualTo("maria@example.com");
+    }
+
+    @Test
+    void shouldRejectAnInvalidPhoneOnContactUpdate() {
+        var reader = adult();
+
+        assertThatThrownBy(() -> reader.updateContact("abc", reader.getEmail(), null, TODAY))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("telefone");
+    }
+
+    @Test
+    void shouldKeepTheBlockedAndActiveStateOnContactUpdate() {
+        var reader = Reader.reconstitute(9L, "Maria Silva", "123", "maria@example.com", null, ADULT_BIRTH, null,
+                true, true);
+
+        reader.updateContact("21 98888-7777", "maria@example.com", null, TODAY);
+
+        assertThat(reader.isBlocked()).isTrue();
+        assertThat(reader.isActive()).isTrue();
+    }
 }

@@ -3,6 +3,7 @@ package com.riverfount.booksmanager.user.domain;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import java.time.LocalDate;
 import java.util.Locale;
+import java.util.Objects;
 
 /**
  * Reader of the library (RF07, RF10), separate from the system user. Holds
@@ -90,6 +91,28 @@ public class Reader {
         this.email = email;
         this.phone = phone;
         this.birthDate = birthDate;
+        this.guardian = guardian;
+    }
+
+    /**
+     * What the reader may change about themself (RF32, RN22): phone, e-mail and guardian. The identity data (name,
+     * document, birth date) and the state stay as they are. The guardian can only differ from the current one while
+     * the reader is under 18; an adult keeps the one they had. Nothing changes if any value is invalid.
+     */
+    public void updateContact(String phone, String email, Guardian guardian, LocalDate today) {
+        PersonalData.validateEmail(email, "do leitor");
+        PersonalData.validateOptionalPhone(phone, "do leitor");
+        var minor = isMinor(birthDate, today);
+        if (minor && guardian == null) {
+            throw new BusinessRuleException("o responsável é obrigatório para leitor menor de "
+                    + ADULT_AGE + " anos");
+        }
+        if (!minor && !Objects.equals(guardian, this.guardian)) {
+            throw new BusinessRuleException("o responsável só pode ser alterado enquanto o leitor tem menos de "
+                    + ADULT_AGE + " anos");
+        }
+        this.phone = phone;
+        this.email = email;
         this.guardian = guardian;
     }
 
