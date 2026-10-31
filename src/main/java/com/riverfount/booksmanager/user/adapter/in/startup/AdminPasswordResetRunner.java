@@ -55,8 +55,9 @@ class AdminPasswordResetRunner implements ApplicationRunner {
                         + "reset.");
                 case NOT_AN_ADMINISTRATOR -> log.error("The user in APP_ADMIN_LOGIN is not an administrator, so "
                         + "nothing was reset: only an administrator is recovered this way.");
-                case INACTIVE -> log.error("The administrator in APP_ADMIN_LOGIN is inactive and stays inactive (the "
-                        + "application never reactivates a user), so nothing was reset.");
+                case INACTIVE -> log.error("The administrator in APP_ADMIN_LOGIN is inactive, so nothing was reset. "
+                        + "Another administrator can reactivate it in the Users screen; then recover the password if "
+                        + "it is still needed.");
             }
         } catch (BusinessRuleException e) {
             // the policy's message names what the password lacks, never the password itself

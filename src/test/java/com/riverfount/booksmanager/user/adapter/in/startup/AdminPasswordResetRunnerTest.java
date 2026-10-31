@@ -115,10 +115,10 @@ class AdminPasswordResetRunnerTest {
     }
 
     @Test
-    void shouldSayAnInactiveAdministratorStaysInactive(CapturedOutput output) {
+    void shouldSayAnInactiveAdministratorMustBeReactivatedFirst(CapturedOutput output) {
         runWith(AdminPasswordResetResult.INACTIVE, output);
 
-        assertThat(output.getAll()).contains("is inactive and stays inactive");
+        assertThat(output.getAll()).contains("is inactive, so nothing was reset").contains("can reactivate it");
     }
 
     @Test

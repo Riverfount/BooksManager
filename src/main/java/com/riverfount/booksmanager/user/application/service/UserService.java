@@ -21,6 +21,7 @@ import com.riverfount.booksmanager.user.application.port.in.DeactivateUserUseCas
 import com.riverfount.booksmanager.user.application.port.in.GetUserUseCase;
 import com.riverfount.booksmanager.user.application.port.in.ListUsersQuery;
 import com.riverfount.booksmanager.user.application.port.in.ListUsersUseCase;
+import com.riverfount.booksmanager.user.application.port.in.ReactivateUserUseCase;
 import com.riverfount.booksmanager.user.application.port.in.ResetUserPasswordCommand;
 import com.riverfount.booksmanager.user.application.port.in.ResetUserPasswordUseCase;
 import com.riverfount.booksmanager.user.application.port.in.UnblockUserUseCase;
@@ -54,7 +55,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 class UserService implements CreateInitialAdminUseCase, AuthenticateUserUseCase, CreateUserUseCase,
         GetUserUseCase, ListUsersUseCase, UpdateUserUseCase, UnblockUserUseCase, DeactivateUserUseCase,
-        ResetUserPasswordUseCase {
+        ResetUserPasswordUseCase, ReactivateUserUseCase {
 
     private final UserRepository userRepository;
     private final PasswordHasher passwordHasher;
@@ -229,6 +230,22 @@ class UserService implements CreateInitialAdminUseCase, AuthenticateUserUseCase,
             audit.record(new AuditEvent(AuditAction.USER_DEACTIVATED, AuditTarget.USER, user.getId(), null));
         }
         refreshTokens.revokeAllOf(user.getId());
+    }
+
+    /**
+     * The user is loaded locked, like the other changes to a user. The domain decides (a reader access is refused);
+     * only a real change is saved and reported to the audit trail. The refresh tokens are not touched: the ones
+     * revoked at the inactivation stay revoked, and the user logs in again.
+     */
+    @Override
+    public User reactivate(Long id) {
+        var user = loadForUpdate(id);
+        if (!user.reactivate()) {
+            return user;
+        }
+        var saved = userRepository.save(user);
+        audit.record(new AuditEvent(AuditAction.USER_REACTIVATED, AuditTarget.USER, saved.getId(), null));
+        return saved;
     }
 
     /**

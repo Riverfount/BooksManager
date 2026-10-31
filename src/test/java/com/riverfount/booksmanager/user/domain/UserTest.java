@@ -685,4 +685,52 @@ class UserTest {
         assertThat(user.deactivateKeepingAnAdministrator(0)).isTrue();
         assertThat(user.isActive()).isFalse();
     }
+
+    // reactivation (RF09)
+
+    @Test
+    void reactivateShouldBringAnInactiveUserBackAndSayItChanged() {
+        var user = operator();
+        user.deactivate();
+
+        var changed = user.reactivate();
+
+        assertThat(changed).isTrue();
+        assertThat(user.isActive()).isTrue();
+        assertThat(user.canAuthenticate(NOW)).isTrue();
+    }
+
+    @Test
+    void reactivatingAnActiveUserChangesNothing() {
+        var user = operator();
+
+        assertThat(user.reactivate()).isFalse();
+        assertThat(user.isActive()).isTrue();
+    }
+
+    @Test
+    void reactivateShouldKeepTheHashTheProfileTheDisplayNameAndTheLoginBlock() {
+        var blockedUntil = NOW.plus(BLOCK);
+        var user = User.reconstitute(7L, "maria", HASH, Role.ADMIN, false, 3, blockedUntil, "Maria Silva");
+
+        user.reactivate();
+
+        assertThat(user.getPasswordHash()).isEqualTo(HASH);
+        assertThat(user.getRole()).isEqualTo(Role.ADMIN);
+        assertThat(user.getDisplayName()).isEqualTo("Maria Silva");
+        assertThat(user.getLogin()).isEqualTo("maria");
+        assertThat(user.getFailedLoginAttempts()).isEqualTo(3);
+        assertThat(user.getBlockedUntil()).isEqualTo(blockedUntil);
+    }
+
+    @Test
+    void aReaderAccessIsNotReactivatedBecauseItIsReopenedByANewInvitation() {
+        var inactive = User.reconstitute(8L, "ana", HASH, Role.READER, false, 0, null, null, 42L);
+        var active = User.createReaderAccess("bia", HASH, 43L);
+
+        assertThatThrownBy(inactive::reactivate).isInstanceOf(BusinessRuleException.class)
+                .hasMessage("o acesso do leitor é reaberto por um novo convite");
+        assertThatThrownBy(active::reactivate).isInstanceOf(BusinessRuleException.class);
+        assertThat(inactive.isActive()).isFalse();
+    }
 }

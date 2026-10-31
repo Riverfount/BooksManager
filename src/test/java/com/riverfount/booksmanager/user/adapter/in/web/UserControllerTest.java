@@ -36,6 +36,7 @@ import com.riverfount.booksmanager.user.application.port.in.ListUsersQuery;
 import com.riverfount.booksmanager.user.application.port.in.ListUsersUseCase;
 import com.riverfount.booksmanager.user.application.port.in.ResetUserPasswordCommand;
 import com.riverfount.booksmanager.user.application.port.in.ResetUserPasswordUseCase;
+import com.riverfount.booksmanager.user.application.port.in.ReactivateUserUseCase;
 import com.riverfount.booksmanager.user.application.port.in.UnblockUserUseCase;
 import com.riverfount.booksmanager.user.application.port.in.UpdateUserCommand;
 import com.riverfount.booksmanager.user.application.port.in.UpdateUserUseCase;
@@ -99,6 +100,9 @@ class UserControllerTest {
 
     @MockitoBean
     private DeactivateUserUseCase deactivateUserUseCase;
+
+    @MockitoBean
+    private ReactivateUserUseCase reactivateUserUseCase;
 
     @MockitoBean
     private ResetUserPasswordUseCase resetUserPasswordUseCase;
@@ -804,5 +808,56 @@ class UserControllerTest {
         mockMvc.perform(get("/api/v1/users").param("role", "BOSS")).andExpect(status().isBadRequest());
 
         then(listUsersUseCase).shouldHaveNoInteractions();
+    }
+
+    // reactivation (RF09)
+
+    private MockHttpServletRequestBuilder reactivate(String id) {
+        return post("/api/v1/users/" + id + "/reactivate").with(csrf());
+    }
+
+    @Test
+    @WithAdmin
+    void shouldReactivateAndReturn200WithTheUserAndNeverTheHash() throws Exception {
+        given(reactivateUserUseCase.reactivate(5L)).willReturn(
+                User.reconstitute(5L, "maria", HASH, Role.OPERATOR, true, 0, null, "Maria Silva"));
+
+        mockMvc.perform(reactivate("5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(5))
+                .andExpect(jsonPath("$.login").value("maria"))
+                .andExpect(jsonPath("$.role").value("OPERATOR"))
+                .andExpect(jsonPath("$.active").value(true))
+                .andExpect(jsonPath("$.passwordHash").doesNotExist())
+                .andExpect(jsonPath("$.password").doesNotExist());
+    }
+
+    @Test
+    @WithAdmin
+    void shouldReturn404ForAnUnknownUserAnd400ForANonNumericIdOnTheReactivation() throws Exception {
+        given(reactivateUserUseCase.reactivate(99L)).willThrow(new ResourceNotFoundException("usuário não encontrado: 99"));
+
+        mockMvc.perform(reactivate("99")).andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"));
+        mockMvc.perform(reactivate("abc")).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithAdmin
+    void shouldReturn422ForAReaderAccess() throws Exception {
+        given(reactivateUserUseCase.reactivate(8L)).willThrow(
+                new BusinessRuleException("o acesso do leitor é reaberto por um novo convite"));
+
+        mockMvc.perform(reactivate("8")).andExpect(status().isUnprocessableContent())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+                .andExpect(jsonPath("$.detail").value("o acesso do leitor é reaberto por um novo convite"));
+    }
+
+    @Test
+    @WithOperator
+    void anOperatorShouldBeRefusedTheReactivation() throws Exception {
+        mockMvc.perform(reactivate("5")).andExpect(status().isForbidden());
+
+        then(reactivateUserUseCase).shouldHaveNoInteractions();
     }
 }

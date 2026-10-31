@@ -175,6 +175,27 @@ public class User {
         this.active = false;
     }
 
+    /**
+     * Brings an inactivated administrator or operator back (RF09). The hash, the profile, the display name and the
+     * login lockout stay as they were: the user logs in again with the same password. Reactivating an active user
+     * changes nothing. A reader access is never reactivated: it is revoked by inactivation and reopened by a new
+     * invitation (RF30), which creates a new access, so reactivating the old one would bypass the invitation and
+     * the rule of one active access per reader.
+     *
+     * @return whether the user changed and has to be saved
+     * @throws BusinessRuleException for a reader access, active or not
+     */
+    public boolean reactivate() {
+        if (role == Role.READER) {
+            throw new BusinessRuleException("o acesso do leitor é reaberto por um novo convite");
+        }
+        if (active) {
+            return false;
+        }
+        this.active = true;
+        return true;
+    }
+
     /** Whether the user may be authenticated (RF08): active and not blocked at the given instant. */
     public boolean canAuthenticate(Instant now) {
         return active && !isBlocked(now);

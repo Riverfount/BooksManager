@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.riverfount.booksmanager.audit.application.RecordedAudit;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
+import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
 import com.riverfount.booksmanager.shared.domain.InvalidCredentialsException;
 import com.riverfount.booksmanager.user.application.port.in.AuthenticateUserCommand;
 import com.riverfount.booksmanager.user.application.port.in.AuthenticatedUser;
@@ -1183,5 +1184,86 @@ class UserServiceTest {
     void theResetCommandShouldNotShowThePasswordInItsStringForm() {
         assertThat(new ResetUserPasswordCommand(5L, NEW_PASSWORD).toString())
                 .doesNotContain(NEW_PASSWORD).contains("5");
+    }
+
+    // reactivation (RF09)
+
+    @Test
+    void shouldReactivateAnInactiveOperatorWhoCanThenLogInWithTheOldPassword() {
+        registerUser("maria", Role.OPERATOR);
+        service.deactivate(deactivation("maria", SOMEONE_ELSE));
+        assertThat(canLogIn("maria")).isFalse();
+
+        var reactivated = service.reactivate(stored("maria").getId());
+
+        assertThat(reactivated.isActive()).isTrue();
+        assertThat(canLogIn("maria")).isTrue();
+    }
+
+    @Test
+    void shouldReactivateAnInactiveAdministrator() {
+        registerUser("chefe", Role.ADMIN);
+        registerUser("outro", Role.ADMIN);
+        service.deactivate(deactivation("chefe", SOMEONE_ELSE));
+
+        service.reactivate(stored("chefe").getId());
+
+        assertThat(stored("chefe").isActive()).isTrue();
+        assertThat(stored("chefe").getRole()).isEqualTo(Role.ADMIN);
+    }
+
+    @Test
+    void shouldKeepTheRecordAsItWasAndNotTouchTheOthers() {
+        registerUser("maria", Role.OPERATOR);
+        registerUser("joao", Role.OPERATOR);
+        service.deactivate(deactivation("maria", SOMEONE_ELSE));
+        service.deactivate(deactivation("joao", SOMEONE_ELSE));
+        var before = stored("maria");
+
+        service.reactivate(before.getId());
+
+        assertThat(stored("maria").getPasswordHash()).isEqualTo(before.getPasswordHash());
+        assertThat(stored("maria").getRole()).isEqualTo(Role.OPERATOR);
+        assertThat(stored("joao").isActive()).isFalse();
+    }
+
+    @Test
+    void shouldNotReviveTheRefreshTokensRevokedAtTheInactivation() {
+        registerUser("maria", Role.OPERATOR);
+        service.deactivate(deactivation("maria", SOMEONE_ELSE));
+        revokedFor.clear();
+
+        service.reactivate(stored("maria").getId());
+
+        assertThat(revokedFor).isEmpty();
+    }
+
+    @Test
+    void reactivatingAnActiveUserIsIdempotentAndWritesNothing() {
+        registerUser("maria", Role.OPERATOR);
+        var savesBefore = repository.saves();
+
+        var result = service.reactivate(stored("maria").getId());
+
+        assertThat(result.isActive()).isTrue();
+        assertThat(repository.saves()).isEqualTo(savesBefore);
+    }
+
+    @Test
+    void shouldRefuseToReactivateAReaderAccessAndLeaveItInactive() {
+        var access = repository.save(User.reconstitute(null, "ana", "{hash}", Role.READER, false, 0, null, null, 42L));
+        var savesBefore = repository.saves();
+
+        assertThatThrownBy(() -> service.reactivate(access.getId()))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessage("o acesso do leitor é reaberto por um novo convite");
+
+        assertThat(stored("ana").isActive()).isFalse();
+        assertThat(repository.saves()).isEqualTo(savesBefore);
+    }
+
+    @Test
+    void shouldRejectTheReactivationOfAnUnknownUser() {
+        assertThatThrownBy(() -> service.reactivate(404L)).isInstanceOf(ResourceNotFoundException.class);
     }
 }
