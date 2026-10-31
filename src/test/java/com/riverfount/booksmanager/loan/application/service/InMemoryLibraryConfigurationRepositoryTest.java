@@ -22,7 +22,7 @@ class InMemoryLibraryConfigurationRepositoryTest {
     @Test
     void aChangeOnlyTakesEffectWhenItIsSaved() {
         var configuration = repository.get();
-        configuration.update(PenaltyPolicy.NONE, null, null, null, null, null, null, null, null, null);
+        configuration.update(PenaltyPolicy.NONE, null, null, null, null, null, null, null, null, null, null);
 
         assertThat(repository.get().getPenaltyPolicy()).isEqualTo(PenaltyPolicy.FINE);
 

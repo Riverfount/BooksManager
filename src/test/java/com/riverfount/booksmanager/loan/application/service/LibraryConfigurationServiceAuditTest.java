@@ -26,7 +26,7 @@ class LibraryConfigurationServiceAuditTest {
     }
 
     private static UpdateLibraryConfigurationCommand only(PenaltyPolicy policy, Integer period) {
-        return new UpdateLibraryConfigurationCommand(policy, null, null, null, null, period, null, null, null, null);
+        return new UpdateLibraryConfigurationCommand(policy, null, null, null, null, period, null, null, null, null, null);
     }
 
     @Test
@@ -45,11 +45,19 @@ class LibraryConfigurationServiceAuditTest {
     @Test
     void shouldListEveryValueOfAFullUpdateWithPlainAmounts() {
         service.update(new UpdateLibraryConfigurationCommand(PenaltyPolicy.FINE, new BigDecimal("1.50"),
-                new BigDecimal("1E+1"), 2, 100, 14, 3, 2, 3, 2));
+                new BigDecimal("1E+1"), 2, 100, 14, 3, 2, 3, 2, null));
 
         assertThat(audit.only().summary()).isEqualTo("penaltyPolicy=FINE, dailyFineAmount=1.50, fineCap=10, "
                 + "suspensionDaysPerDay=2, suspensionCapDays=100, loanPeriodDays=14, loanLimit=3, renewalLimit=2, "
                 + "reservationPickupDays=3, dueSoonNoticeDays=2");
+    }
+
+    @Test
+    void shouldReportTheAssetCodePrefixThatWasSet() {
+        service.update(new UpdateLibraryConfigurationCommand(null, null, null, null, null, null, null, null, null,
+                null, "BIB"));
+
+        assertThat(audit.only().summary()).isEqualTo("assetCodePrefix=BIB");
     }
 
     @Test

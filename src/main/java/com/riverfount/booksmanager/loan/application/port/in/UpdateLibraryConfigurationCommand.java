@@ -17,5 +17,6 @@ public record UpdateLibraryConfigurationCommand(
         Integer loanLimit,
         Integer renewalLimit,
         Integer reservationPickupDays,
-        Integer dueSoonNoticeDays) {
+        Integer dueSoonNoticeDays,
+        String assetCodePrefix) {
 }

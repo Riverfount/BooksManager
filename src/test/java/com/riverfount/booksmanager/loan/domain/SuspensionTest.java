@@ -93,7 +93,7 @@ class SuspensionTest {
     void shouldBeBuiltFromThePenaltyOfThePolicy() {
         var penalty = PenaltyPolicy.SUSPENSION.calculate(4, LibraryConfiguration.reconstitute(1L,
                 PenaltyPolicy.SUSPENSION, new java.math.BigDecimal("1.00"), new java.math.BigDecimal("10.00"), 1, 365,
-                14, 3, 2, 3, 2));
+                14, 3, 2, 3, 2, "PAT"));
 
         var suspension = Suspension.create(20L, 10L, START, penalty.suspensionDays());
 

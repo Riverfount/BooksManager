@@ -24,6 +24,14 @@ public interface CopyRepository {
     boolean existsByAssetCode(String assetCode);
 
     /**
+     * The highest number among the asset codes of the suggested format ({@code PREFIX-} and one to
+     * {@link com.riverfount.booksmanager.catalog.domain.AssetCodes#MAX_DIGITS} digits), inactive copies included; zero
+     * when there is none. A code that does not match (another prefix, letters in the number, a number too long to be a
+     * sequence) is ignored. The prefix is taken literally, never as a pattern. One query, however many copies exist.
+     */
+    long findHighestAssetCodeNumber(String prefix);
+
+    /**
      * Lists copies by active flag, optionally filtered by book, status and
      * asset code (null means no filter; the code must be the whole code, and
      * its case does not matter). The sort field is one of

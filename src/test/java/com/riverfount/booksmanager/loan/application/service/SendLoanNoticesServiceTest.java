@@ -146,7 +146,7 @@ class SendLoanNoticesServiceTest {
     void shouldFollowTheDaysOfNoticeTheLibraryConfigured() {
         lend(1L, 20L);
         var configuration = configurationRepository.getForUpdate();
-        configuration.update(null, null, null, null, null, null, null, null, null, 5);
+        configuration.update(null, null, null, null, null, null, null, null, null, 5, null);
         configurationRepository.save(configuration);
         today = DUE.minusDays(5);
 

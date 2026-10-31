@@ -46,7 +46,7 @@ class LibraryConfigurationPersistenceAdapterTest {
     void shouldSaveAndReadBackEveryField() {
         var configuration = adapter.get();
         configuration.update(PenaltyPolicy.BOTH, new BigDecimal("2.50"), new BigDecimal("30.00"), 2, 90, 21, 5, 0,
-                7, null);
+                7, null, null);
 
         var saved = adapter.save(configuration);
         var found = adapter.get();
@@ -68,7 +68,7 @@ class LibraryConfigurationPersistenceAdapterTest {
     @Test
     void shouldUpdateTheSingleRowNeverAddAnother() {
         var configuration = adapter.get();
-        configuration.update(PenaltyPolicy.NONE, null, null, null, null, null, null, null, null, null);
+        configuration.update(PenaltyPolicy.NONE, null, null, null, null, null, null, null, null, null, null);
 
         adapter.save(configuration);
 
@@ -82,7 +82,7 @@ class LibraryConfigurationPersistenceAdapterTest {
     void shouldStoreThePolicyAsTextAndTheMoneyWithTwoDecimalPlaces() {
         var configuration = adapter.get();
         configuration.update(PenaltyPolicy.SUSPENSION, new BigDecimal("0.5"), new BigDecimal("12"), null, null, null,
-                null, null, null, null);
+                null, null, null, null, null);
 
         adapter.save(configuration);
 
@@ -110,5 +110,17 @@ class LibraryConfigurationPersistenceAdapterTest {
                 .hasMessageContaining("V6");
         assertThatThrownBy(adapter::getForUpdate)
                 .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void shouldSaveAndReadBackTheAssetCodePrefix() {
+        var configuration = adapter.get();
+        assertThat(configuration.getAssetCodePrefix()).isEqualTo("PAT");
+        configuration.update(null, null, null, null, null, null, null, null, null, null, "BIB");
+
+        var saved = adapter.save(configuration);
+
+        assertThat(saved.getAssetCodePrefix()).isEqualTo("BIB");
+        assertThat(adapter.get().getAssetCodePrefix()).isEqualTo("BIB");
     }
 }

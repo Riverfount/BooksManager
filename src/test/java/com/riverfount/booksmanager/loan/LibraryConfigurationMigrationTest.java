@@ -54,7 +54,7 @@ class LibraryConfigurationMigrationTest {
 
         assertThat(columns).containsExactlyInAnyOrder("id", "penalty_policy", "daily_fine_amount", "fine_cap",
                 "suspension_days_per_day", "suspension_cap_days", "loan_period_days", "loan_limit", "renewal_limit",
-                "reservation_pickup_days", "due_soon_notice_days");
+                "reservation_pickup_days", "due_soon_notice_days", "asset_code_prefix");
     }
 
     @Test
@@ -180,5 +180,29 @@ class LibraryConfigurationMigrationTest {
 
         assertThat(jdbcTemplate.queryForObject("select fine_cap from library_configuration", BigDecimal.class))
                 .isEqualByComparingTo("5.00");
+    }
+
+    // the asset code prefix (RF26, RN16)
+
+    @Test
+    void shouldStartWithTheUsualAssetCodePrefix() {
+        assertThat(jdbcTemplate.queryForObject("select asset_code_prefix from library_configuration", String.class))
+                .isEqualTo("PAT");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"BIB", "ABCD", "ESC"})
+    void shouldAcceptAPrefixOfThreeOrFourUppercaseLetters(String prefix) {
+        jdbcTemplate.update("update library_configuration set asset_code_prefix = ?", prefix);
+
+        assertThat(jdbcTemplate.queryForObject("select asset_code_prefix from library_configuration", String.class))
+                .isEqualTo(prefix);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"PA", "PATRI", "pat", "PA1", "PA-", "PÁT", " PAT", ""})
+    void shouldRefuseAPrefixThatIsNotThreeOrFourUppercaseLetters(String prefix) {
+        assertThatThrownBy(() -> jdbcTemplate.update("update library_configuration set asset_code_prefix = ?", prefix))
+                .isInstanceOf(DataIntegrityViolationException.class);
     }
 }

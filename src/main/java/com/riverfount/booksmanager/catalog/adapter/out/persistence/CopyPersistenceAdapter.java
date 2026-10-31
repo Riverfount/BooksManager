@@ -62,6 +62,11 @@ class CopyPersistenceAdapter implements CopyRepository {
     }
 
     @Override
+    public long findHighestAssetCodeNumber(String prefix) {
+        return jpaRepository.findHighestAssetCodeNumber(prefix);
+    }
+
+    @Override
     public boolean existsByAssetCode(String assetCode) {
         return jpaRepository.existsByAssetCode(assetCode);
     }

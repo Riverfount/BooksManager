@@ -15,7 +15,7 @@ import java.math.BigDecimal;
 class InMemoryLibraryConfigurationRepository implements LibraryConfigurationRepository {
 
     private LibraryConfiguration stored = LibraryConfiguration.reconstitute(1L, PenaltyPolicy.FINE,
-            new BigDecimal("1.00"), new BigDecimal("10.00"), 1, 365, 14, 3, 2, 3, 2);
+            new BigDecimal("1.00"), new BigDecimal("10.00"), 1, 365, 14, 3, 2, 3, 2, "PAT");
     private int saves;
     private int lockedReads;
 
@@ -23,7 +23,7 @@ class InMemoryLibraryConfigurationRepository implements LibraryConfigurationRepo
         return LibraryConfiguration.reconstitute(c.getId(), c.getPenaltyPolicy(), c.getDailyFineAmount(),
                 c.getFineCap(), c.getSuspensionDaysPerDay(), c.getSuspensionCapDays(), c.getLoanPeriodDays(),
                 c.getLoanLimit(), c.getRenewalLimit(), c.getReservationPickupDays(),
-                c.getDueSoonNoticeDays());
+                c.getDueSoonNoticeDays(), "PAT");
     }
 
     @Override

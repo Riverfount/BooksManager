@@ -140,7 +140,7 @@ class ExpireReservationsServiceTest {
     @Test
     void shouldUseThePickupDaysOfTheConfiguration() {
         var configuration = configurationRepository.getForUpdate();
-        configuration.update(null, null, null, null, null, null, null, null, 5, null);
+        configuration.update(null, null, null, null, null, null, null, null, 5, null, null);
         configurationRepository.save(configuration);
         holding(BOOK, 1L, 7L, TODAY.minusDays(1));
         var next = waiting(BOOK, 2L);

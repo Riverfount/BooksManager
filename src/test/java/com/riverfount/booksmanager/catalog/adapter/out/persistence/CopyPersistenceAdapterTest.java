@@ -381,4 +381,71 @@ class CopyPersistenceAdapterTest {
 
         assertThat(adapter.countByStatus()).extracting(CopyStatusCount::status).containsOnly(CopyStatus.DAMAGED);
     }
+
+    // the highest number of the asset codes that follow the suggested format
+
+    @Test
+    void shouldFindZeroWhenNoCodeFollowsTheFormat() {
+        adapter.save(Copy.create(bookId, "LIVRO-9"));
+
+        assertThat(adapter.findHighestAssetCodeNumber("PAT")).isZero();
+    }
+
+    @Test
+    void shouldFindTheHighestNumberOfTheCodesWithThePrefix() {
+        adapter.save(Copy.create(bookId, "PAT-00001"));
+        adapter.save(Copy.create(bookId, "PAT-00007"));
+        adapter.save(Copy.create(bookId, "PAT-00003"));
+
+        assertThat(adapter.findHighestAssetCodeNumber("PAT")).isEqualTo(7);
+    }
+
+    @Test
+    void shouldCompareTheNumbersAsNumbersNotAsText() {
+        adapter.save(Copy.create(bookId, "PAT-9"));
+        adapter.save(Copy.create(bookId, "PAT-100000"));
+        adapter.save(Copy.create(bookId, "PAT-00099"));
+
+        assertThat(adapter.findHighestAssetCodeNumber("PAT")).isEqualTo(100_000);
+    }
+
+    @Test
+    void shouldIgnoreCodesOutsideTheFormatOrWithAnotherPrefix() {
+        adapter.save(Copy.create(bookId, "PAT-12A"));
+        adapter.save(Copy.create(bookId, "PAT-"));
+        adapter.save(Copy.create(bookId, "XPAT-00500"));
+        adapter.save(Copy.create(bookId, "PATX-00500"));
+        adapter.save(Copy.create(bookId, "BIB-00800"));
+        adapter.save(Copy.create(bookId, "pat-00900"));
+        adapter.save(Copy.create(bookId, "PAT-00002"));
+
+        assertThat(adapter.findHighestAssetCodeNumber("PAT")).isEqualTo(2);
+        assertThat(adapter.findHighestAssetCodeNumber("BIB")).isEqualTo(800);
+    }
+
+    @Test
+    void shouldCountInactiveCopiesBecauseTheirCodesStayTaken() {
+        var copy = adapter.save(Copy.create(bookId, "PAT-00010"));
+        copy.deactivate(false);
+        adapter.save(copy);
+
+        assertThat(adapter.findHighestAssetCodeNumber("PAT")).isEqualTo(10);
+    }
+
+    @Test
+    void shouldIgnoreANumberWithMoreThanNineDigitsSoItCannotOverflow() {
+        adapter.save(Copy.create(bookId, "PAT-" + "9".repeat(25)));
+        adapter.save(Copy.create(bookId, "PAT-1234567890"));
+        adapter.save(Copy.create(bookId, "PAT-999999999"));
+
+        assertThat(adapter.findHighestAssetCodeNumber("PAT")).isEqualTo(999_999_999L);
+    }
+
+    @Test
+    void shouldNotTreatThePrefixAsARegularExpression() {
+        adapter.save(Copy.create(bookId, "PAT-00004"));
+
+        assertThat(adapter.findHighestAssetCodeNumber("P.T")).isZero();
+        assertThat(adapter.findHighestAssetCodeNumber(".*")).isZero();
+    }
 }
