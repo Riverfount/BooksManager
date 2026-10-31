@@ -100,6 +100,6 @@ class AuditEntryTest {
 
     @Test
     void everyActionShouldHaveItsOwnName() {
-        assertThat(AuditAction.values()).extracting(Enum::name).doesNotHaveDuplicates().hasSize(31);
+        assertThat(AuditAction.values()).extracting(Enum::name).doesNotHaveDuplicates().hasSize(32);
     }
 }

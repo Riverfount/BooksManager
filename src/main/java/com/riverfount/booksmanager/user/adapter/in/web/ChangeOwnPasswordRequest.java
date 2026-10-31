@@ -4,7 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
-/** The password change of the reader of the token (RF32). The password policy is the domain's (422). */
+/** The password change of the user of the token: the reader (RF32) or the staff (RF09). The password policy is the domain's (422). */
 record ChangeOwnPasswordRequest(
         @Schema(description = "Senha atual. Se estiver errada, a troca é recusada e a tentativa conta para o "
                 + "bloqueio da conta.", example = "Cur#rent1Pass")

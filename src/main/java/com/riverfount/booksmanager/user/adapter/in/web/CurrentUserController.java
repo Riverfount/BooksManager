@@ -55,7 +55,7 @@ class CurrentUserController {
     }
 
     /** The id the token carries as its subject; without it nobody can be told apart, so the request is refused. */
-    private static Long idOf(Jwt caller) {
+    static Long idOf(Jwt caller) {
         if (caller == null || caller.getSubject() == null) {
             throw new AccessDeniedException("unknown caller");
         }
