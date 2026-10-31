@@ -264,4 +264,27 @@ class CategoryServiceTest {
     void shouldFailWhenReactivatingACategoryThatDoesNotExist() {
         assertThatThrownBy(() -> service.reactivate(999L)).isInstanceOf(ResourceNotFoundException.class);
     }
+
+    @Test
+    void shouldNotRegisterCategoryWhoseNameOnlyDiffersInCase() {
+        service.register(new RegisterCategoryCommand("Romance"));
+
+        assertThatThrownBy(() -> service.register(new RegisterCategoryCommand("romance")))
+                .isInstanceOf(BusinessRuleException.class);
+    }
+
+    @Test
+    void shouldNotRegisterAnAllCapsNameOfAnExistingCategory() {
+        service.register(new RegisterCategoryCommand("Psicologia Infantil"));
+
+        assertThatThrownBy(() -> service.register(new RegisterCategoryCommand("PSICOLOGIA INFANTIL")))
+                .isInstanceOf(BusinessRuleException.class);
+    }
+
+    @Test
+    void shouldRegisterAnAllCapsNameInTitleCase() {
+        var category = service.register(new RegisterCategoryCommand("PSICOLOGIA INFANTIL"));
+
+        assertThat(category.getName()).isEqualTo("Psicologia Infantil");
+    }
 }

@@ -306,7 +306,7 @@ class AuthorServiceTest {
         assertThat(service.update(new UpdateAuthorCommand(author.getId(), "Machado de Assis")).getName())
                 .isEqualTo("Machado de Assis");
         assertThat(service.update(new UpdateAuthorCommand(author.getId(), "MACHADO DE ASSIS")).getName())
-                .isEqualTo("MACHADO DE ASSIS");
+                .isEqualTo("Machado de Assis");
     }
 
     @Test

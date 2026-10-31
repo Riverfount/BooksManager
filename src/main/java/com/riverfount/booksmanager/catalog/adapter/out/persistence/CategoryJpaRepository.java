@@ -8,9 +8,9 @@ import org.springframework.data.jpa.repository.Query;
 
 interface CategoryJpaRepository extends JpaRepository<CategoryJpaEntity, Long> {
 
-    boolean existsByName(String name);
+    boolean existsByNameIgnoreCase(String name);
 
-    boolean existsByNameAndIdNot(String name, Long id);
+    boolean existsByNameIgnoreCaseAndIdNot(String name, Long id);
 
     Page<CategoryJpaEntity> findByActive(boolean active, Pageable pageable);
 

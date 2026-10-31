@@ -53,7 +53,7 @@ class AuthorTest {
 
     @Test
     void shouldAcceptNameWithExactlyOneHundredAndFiftyCharacters() {
-        var nameWithOneHundredAndFiftyCharacters = "A".repeat(150);
+        var nameWithOneHundredAndFiftyCharacters = "a".repeat(150);
 
         var author = Author.create(nameWithOneHundredAndFiftyCharacters);
 
@@ -140,5 +140,29 @@ class AuthorTest {
     void shouldAcceptANameNobodyActiveHas() {
         assertThatCode(() -> Author.validateNameNotTaken("Machado de Assis", null, false))
                 .doesNotThrowAnyException();
+    }
+
+    @Test
+    void shouldRestoreTheCasingOfAnAllCapsNameOnCreate() {
+        assertThat(Author.create("JEAN PIAGET").getName()).isEqualTo("Jean Piaget");
+    }
+
+    @Test
+    void shouldRestoreTheCasingOfAnAllCapsNameOnRename() {
+        var author = Author.create("Piaget");
+
+        author.rename("JEAN PIAGET");
+
+        assertThat(author.getName()).isEqualTo("Jean Piaget");
+    }
+
+    @Test
+    void shouldKeepAMixedCaseNameAsTyped() {
+        assertThat(Author.create("Ronald McDonald").getName()).isEqualTo("Ronald McDonald");
+    }
+
+    @Test
+    void shouldNotNormalizeTheNameOfAReconstitutedAuthor() {
+        assertThat(Author.reconstitute(1L, "JEAN PIAGET", true).getName()).isEqualTo("JEAN PIAGET");
     }
 }

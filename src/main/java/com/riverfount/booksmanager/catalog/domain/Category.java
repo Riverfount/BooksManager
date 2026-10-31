@@ -22,7 +22,7 @@ public class Category {
 
     public static Category create(String name) {
         validateName(name);
-        return new Category(null, name, true);
+        return new Category(null, TitleCase.normalize(name), true);
     }
 
     public static Category reconstitute(Long id, String name, boolean active) {
@@ -43,7 +43,7 @@ public class Category {
 
     public void rename(String newName) {
         validateName(newName);
-        this.name = newName;
+        this.name = TitleCase.normalize(newName);
     }
 
     public void deactivate() {
