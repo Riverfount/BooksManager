@@ -44,7 +44,7 @@ class InitialAdminRunnerTest {
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     private InitialAdminRunner runner(String login, String password) {
-        return new InitialAdminRunner(useCase, new AdminProperties(login, password));
+        return new InitialAdminRunner(useCase, new AdminProperties(login, password, null));
     }
 
     private int countUsers() {

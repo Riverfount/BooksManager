@@ -37,8 +37,21 @@ class AdminPropertiesTest {
 
     @Test
     void shouldNotShowThePasswordInItsStringForm() {
-        var properties = new AdminProperties("admin", "S3cret-Pass!");
+        var properties = new AdminProperties("admin", "S3cret-Pass!", "Reset#Pass-2026");
 
-        assertThat(properties.toString()).doesNotContain("S3cret-Pass!").contains("admin");
+        assertThat(properties.toString()).doesNotContain("S3cret-Pass!").doesNotContain("Reset#Pass-2026")
+                .contains("admin");
+    }
+
+    @Test
+    void shouldBindTheResetPasswordFromItsProperty() {
+        runner.withPropertyValues("app.admin.login=admin", "app.admin.reset-password=Reset#Pass-2026")
+                .run(context -> assertThat(context.getBean(AdminProperties.class).resetPassword())
+                        .isEqualTo("Reset#Pass-2026"));
+    }
+
+    @Test
+    void theResetPasswordShouldBeEmptyByDefaultSoNothingIsResetUnlessAskedFor() {
+        runner.run(context -> assertThat(context.getBean(AdminProperties.class).resetPassword()).isNullOrEmpty());
     }
 }
