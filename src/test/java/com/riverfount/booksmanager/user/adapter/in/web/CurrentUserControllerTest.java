@@ -71,6 +71,26 @@ class CurrentUserControllerTest {
     }
 
     @Test
+    void aReaderShouldReadItsOwnData() throws Exception {
+        given(getUserUseCase.findById(9L)).willReturn(Optional.of(
+                User.reconstitute(9L, "ana", HASH, Role.READER, true)));
+
+        mockMvc.perform(get(URL).with(caller("9", "READER")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(9))
+                .andExpect(jsonPath("$.login").value("ana"))
+                .andExpect(jsonPath("$.role").value("READER"));
+    }
+
+    @Test
+    void anInactiveReaderShouldAnswer401() throws Exception {
+        given(getUserUseCase.findById(9L)).willReturn(Optional.of(
+                User.reconstitute(9L, "ana", HASH, Role.READER, false)));
+
+        mockMvc.perform(get(URL).with(caller("9", "READER"))).andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void withoutAuthenticationShouldAnswer401() throws Exception {
         mockMvc.perform(get(URL)).andExpect(status().isUnauthorized());
     }

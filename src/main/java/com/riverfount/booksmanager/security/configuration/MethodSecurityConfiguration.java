@@ -5,7 +5,7 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 
 /**
  * Turns on the authorization by profile declared on the controllers
- * ({@code @AdminOnly}, {@code @AdminOrOperator}), checked before the method
+ * ({@code @AdminOnly}, {@code @AdminOrOperator}, {@code @AnyProfile}), checked before the method
  * runs (RNF08). Kept apart from the security chain so that the controller
  * tests, which do not load the chain, can import just this.
  */

@@ -271,10 +271,32 @@ class ReaderAccessIntegrationTest {
         grantAccess("racc-ana");
         var auth = "Bearer " + accessTokenOf(login("racc-ana", PASSWORD).andExpect(status().isOk()));
 
-        for (var path : new String[] {"/api/v1/readers", "/api/v1/users", "/api/v1/users/me", "/api/v1/books",
+        for (var path : new String[] {"/api/v1/readers", "/api/v1/users", "/api/v1/books",
                 "/api/v1/loans", "/api/v1/audit-log", "/api/v1/library-configuration"}) {
             mockMvc.perform(get(path).header("Authorization", auth)).andExpect(status().isForbidden());
         }
+    }
+
+    @Test
+    void aReaderShouldReadItsOwnProfileOnUsersMe() throws Exception {
+        var userId = grantAccess("racc-ana");
+        var auth = "Bearer " + accessTokenOf(login("racc-ana", PASSWORD).andExpect(status().isOk()));
+
+        mockMvc.perform(get("/api/v1/users/me").header("Authorization", auth))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(userId))
+                .andExpect(jsonPath("$.login").value("racc-ana"))
+                .andExpect(jsonPath("$.role").value("READER"));
+    }
+
+    @Test
+    void aReaderWhoseAccessWasRevokedShouldGet401OnUsersMeWithTheOldToken() throws Exception {
+        grantAccess("racc-ana");
+        var auth = "Bearer " + accessTokenOf(login("racc-ana", PASSWORD).andExpect(status().isOk()));
+        mockMvc.perform(delete("/api/v1/readers/" + readerId + "/access").header("Authorization", operator()))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/v1/users/me").header("Authorization", auth)).andExpect(status().isUnauthorized());
     }
 
     // revocation
