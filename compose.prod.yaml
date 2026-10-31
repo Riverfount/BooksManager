@@ -1,6 +1,7 @@
-# Production stack (RNF12, RNF18, RNF26): Nginx in front, ending the TLS, then the API, then the PostgreSQL.
-# Only the Nginx publishes ports (80 and 443); the API and the database live on a private network and cannot be
-# reached from outside. The guide is docs/implantacao.md.
+# Production stack (RNF12, RNF18, RNF26): Nginx in front, ending the TLS and serving the front-end and the API on the
+# same origin, then the front-end (static files), the API and the PostgreSQL. Only the Nginx publishes ports (80 and
+# 443); the front-end, the API and the database live on a private network and cannot be reached from outside. The
+# guide is docs/implantacao.md.
 #
 #   cp .env.prod-sample .env.prod        # fill in the real values; .env.prod is never committed
 #   docker compose --env-file .env.prod -f compose.prod.yaml up -d --build
@@ -28,6 +29,16 @@ services:
     networks:
       - backend
 
+  # The front-end (Riverfount/booksmanager-web): the static files of the app, served by an Nginx with no privileges (port
+  # 8080, on the private network). The Nginx in front sends /api/ to the app and everything else here. The image is
+  # published with the version and sha-<hash> tags and never as "latest", so the tag has no default: WEB_TAG is the
+  # version that runs, and going back is going back to a previous tag (see .env.prod-sample and the guide).
+  web:
+    image: ${WEB_IMAGE:-ghcr.io/riverfount/booksmanager-web}:${WEB_TAG:?Defina WEB_TAG no arquivo .env.prod}
+    restart: unless-stopped
+    networks:
+      - backend
+
   app:
     # The image is the one published in the registry (APP_IMAGE and IMAGE_TAG, see .env.prod-sample); "build" is the
     # alternative, to build it on the server. The tag is the version that runs, so going back is going back to a
@@ -44,7 +55,9 @@ services:
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       APP_JWT_SECRET: ${APP_JWT_SECRET:?Defina APP_JWT_SECRET no arquivo .env.prod}
-      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-}
+      # The front-end is served by this same stack, on the public address, so that is the origin a browser sends. The API
+      # answers 403 "Invalid CORS request" to an Origin it does not know, so it is allowed by default (it is the domain).
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://${DOMAIN}}
       APP_ADMIN_LOGIN: ${APP_ADMIN_LOGIN:-}
       APP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD:-}
       APP_MAIL_ENABLED: ${APP_MAIL_ENABLED:-false}
@@ -54,6 +67,10 @@ services:
       APP_MAIL_PASSWORD: ${APP_MAIL_PASSWORD:-}
       APP_MAIL_FROM: ${APP_MAIL_FROM:-}
       APP_MAIL_STARTTLS: ${APP_MAIL_STARTTLS:-true}
+      # The links of the e-mails of the readers (invitation and password reset) open screens of the front-end, which is
+      # now at the public address. Without this, the e-mails would carry the development address (localhost:5173).
+      APP_READER_ACCESS_INVITATION_URL: ${APP_READER_ACCESS_INVITATION_URL:-https://${DOMAIN}/convite?token={token}}
+      APP_READER_ACCESS_PASSWORD_RESET_URL: ${APP_READER_ACCESS_PASSWORD_RESET_URL:-https://${DOMAIN}/redefinir-senha?token={token}}
     # No "ports": the API is reached only by the Nginx, over the private network.
     networks:
       - backend
@@ -63,6 +80,8 @@ services:
     restart: unless-stopped
     depends_on:
       app:
+        condition: service_healthy
+      web:
         condition: service_healthy
     environment:
       # Filled into the configuration template by the image (only the variables listed here are replaced).
