@@ -12,6 +12,7 @@ import com.riverfount.booksmanager.TestTokens;
 import com.riverfount.booksmanager.TestcontainersConfiguration;
 import com.riverfount.booksmanager.shared.adapter.in.web.AdminOnly;
 import com.riverfount.booksmanager.shared.adapter.in.web.AdminOrOperator;
+import com.riverfount.booksmanager.shared.adapter.in.web.AnyProfile;
 import com.riverfount.booksmanager.shared.adapter.in.web.CurrentReader;
 import com.riverfount.booksmanager.shared.adapter.in.web.PublicEndpoint;
 import com.riverfount.booksmanager.shared.adapter.in.web.ReaderOnly;
@@ -262,6 +263,15 @@ class SecurityAuthorizationTest {
     }
 
     @Test
+    void theRouteOfTheLoggedUserIsOpenToEveryProfileButNotToUnknownOnes() throws Exception {
+        // the probe user (id 7) does not exist: 401 from the controller proves the chain let the profile in
+        for (var role : new String[] {"ADMIN", "OPERATOR", "READER"}) {
+            call("/api/v1/users/me", token(role)).andExpect(status().isUnauthorized());
+        }
+        assertForbiddenProblem(call("/api/v1/users/me", token("SUPERUSER")));
+    }
+
+    @Test
     void aReaderGets403OnEveryRouteThatIsNotTheirOwnWhateverTheRequest() throws Exception {
         var readerToken = reader(42L);
         var checked = 0;
@@ -271,7 +281,9 @@ class SecurityAuthorizationTest {
             var isOurs = type.getName().startsWith("com.riverfount.booksmanager");
             var isPublic = type.isAnnotationPresent(PublicEndpoint.class)
                     || handler.hasMethodAnnotation(PublicEndpoint.class);
-            if (!isOurs || isPublic) {
+            var isForEveryProfile = type.isAnnotationPresent(AnyProfile.class)
+                    || handler.hasMethodAnnotation(AnyProfile.class);
+            if (!isOurs || isPublic || isForEveryProfile) {
                 continue;
             }
             for (var pattern : entry.getKey().getPathPatternsCondition().getPatternValues()) {
