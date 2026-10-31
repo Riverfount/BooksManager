@@ -13,6 +13,19 @@ interface CopyJpaRepository extends JpaRepository<CopyJpaEntity, Long> {
 
     boolean existsByAssetCode(String assetCode);
 
+    /**
+     * The highest number among the codes {@code PREFIX-<1 to 9 digits>}, zero when there is none. The prefix is
+     * compared with plain string functions, not a regular expression, so it is taken literally; only the digits part
+     * is matched against a pattern, and nine digits at most can never overflow a bigint.
+     */
+    @Query(value = """
+            select coalesce(max(cast(substr(asset_code, length(cast(:prefix as text)) + 2) as bigint)), 0)
+            from copy
+            where left(asset_code, length(cast(:prefix as text)) + 1) = cast(:prefix as text) || '-'
+              and substr(asset_code, length(cast(:prefix as text)) + 2) ~ '^[0-9]{1,9}$'
+            """, nativeQuery = true)
+    Long findHighestAssetCodeNumber(@Param("prefix") String prefix);
+
     // a null bookId, status or assetCode means "no filter on that field"; the assetCode comes lowercase
     @Query("""
             select c from CopyJpaEntity c

@@ -7,6 +7,7 @@ import com.riverfount.booksmanager.catalog.application.port.in.ListCopiesQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.ListCopiesUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterCopyCommand;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterCopyUseCase;
+import com.riverfount.booksmanager.catalog.application.port.in.SuggestNextAssetCodeUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateCopyCommand;
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateCopyUseCase;
 import com.riverfount.booksmanager.catalog.domain.CopyStatus;
@@ -50,16 +51,19 @@ class CopyController {
     private final UpdateCopyUseCase updateCopyUseCase;
     private final DeactivateCopyUseCase deactivateCopyUseCase;
     private final ReactivateCopyUseCase reactivateCopyUseCase;
+    private final SuggestNextAssetCodeUseCase suggestNextAssetCodeUseCase;
 
     CopyController(RegisterCopyUseCase registerCopyUseCase, GetCopyUseCase getCopyUseCase,
             ListCopiesUseCase listCopiesUseCase, UpdateCopyUseCase updateCopyUseCase,
-            DeactivateCopyUseCase deactivateCopyUseCase, ReactivateCopyUseCase reactivateCopyUseCase) {
+            DeactivateCopyUseCase deactivateCopyUseCase, ReactivateCopyUseCase reactivateCopyUseCase,
+            SuggestNextAssetCodeUseCase suggestNextAssetCodeUseCase) {
         this.registerCopyUseCase = registerCopyUseCase;
         this.getCopyUseCase = getCopyUseCase;
         this.listCopiesUseCase = listCopiesUseCase;
         this.updateCopyUseCase = updateCopyUseCase;
         this.deactivateCopyUseCase = deactivateCopyUseCase;
         this.reactivateCopyUseCase = reactivateCopyUseCase;
+        this.suggestNextAssetCodeUseCase = suggestNextAssetCodeUseCase;
     }
 
     @PostMapping
@@ -120,6 +124,19 @@ class CopyController {
             @RequestParam(defaultValue = ListCopiesQuery.DEFAULT_SORT) String sort) {
         var query = new ListCopiesQuery(bookId, status, assetCode, active, PageQuery.of(page, size, sort));
         return PageResponse.from(listCopiesUseCase.list(query), CopyResponse::from);
+    }
+
+    @GetMapping("/next-asset-code")
+    @Operation(summary = "Sugerir o próximo código de patrimônio",
+            description = "Devolve o próximo código de patrimônio livre no formato da biblioteca: o prefixo da "
+                    + "configuração (padrão PAT), um hífen e o maior número já usado com esse prefixo mais um, com "
+                    + "pelo menos 5 dígitos (PAT-00006). Contam os exemplares de todo o acervo, inclusive os "
+                    + "inativos; códigos fora do formato ou de outro prefixo são ignorados, e as lacunas não são "
+                    + "preenchidas. É só uma sugestão: nada é reservado, e o exemplar pode ser cadastrado com "
+                    + "qualquer código válido.")
+    @ApiResponses(@ApiResponse(responseCode = "200", description = "Código sugerido"))
+    NextAssetCodeResponse nextAssetCode() {
+        return new NextAssetCodeResponse(suggestNextAssetCodeUseCase.suggest());
     }
 
     @GetMapping("/{id}")

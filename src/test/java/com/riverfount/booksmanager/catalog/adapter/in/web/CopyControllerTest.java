@@ -28,6 +28,7 @@ import com.riverfount.booksmanager.catalog.application.port.in.ListCopiesQuery;
 import com.riverfount.booksmanager.catalog.application.port.in.ListCopiesUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.RegisterCopyUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateCopyCommand;
+import com.riverfount.booksmanager.catalog.application.port.in.SuggestNextAssetCodeUseCase;
 import com.riverfount.booksmanager.catalog.application.port.in.UpdateCopyUseCase;
 import com.riverfount.booksmanager.catalog.domain.Copy;
 import com.riverfount.booksmanager.catalog.domain.CopyStatus;
@@ -72,6 +73,9 @@ class CopyControllerTest {
 
     @MockitoBean
     private ReactivateCopyUseCase reactivateCopyUseCase;
+
+    @MockitoBean
+    private SuggestNextAssetCodeUseCase suggestNextAssetCodeUseCase;
 
     @Test
     @WithOperator
@@ -478,5 +482,33 @@ class CopyControllerTest {
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.detail").value("o exemplar não pode ser reativado: o livro está inativo"));
+    }
+
+    @Test
+    @WithOperator
+    void shouldSuggestTheNextAssetCode() throws Exception {
+        given(suggestNextAssetCodeUseCase.suggest()).willReturn("PAT-00006");
+
+        mockMvc.perform(get("/api/v1/copies/next-asset-code"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.assetCode").value("PAT-00006"));
+    }
+
+    @Test
+    @WithAdmin
+    void anAdministratorShouldAlsoGetTheSuggestion() throws Exception {
+        given(suggestNextAssetCodeUseCase.suggest()).willReturn("PAT-00001");
+
+        mockMvc.perform(get("/api/v1/copies/next-asset-code")).andExpect(status().isOk());
+    }
+
+    @Test
+    @WithOperator
+    void theSuggestionRouteShouldNotBeTakenForACopyId() throws Exception {
+        given(suggestNextAssetCodeUseCase.suggest()).willReturn("PAT-00001");
+
+        mockMvc.perform(get("/api/v1/copies/next-asset-code")).andExpect(status().isOk());
+
+        then(getCopyUseCase).shouldHaveNoInteractions();
     }
 }

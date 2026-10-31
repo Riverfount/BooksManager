@@ -48,7 +48,7 @@ class LibraryConfigurationService implements GetLibraryConfigurationUseCase, Upd
         configuration.update(command.penaltyPolicy(), command.dailyFineAmount(), command.fineCap(),
                 command.suspensionDaysPerDay(), command.suspensionCapDays(), command.loanPeriodDays(),
                 command.loanLimit(), command.renewalLimit(), command.reservationPickupDays(),
-                command.dueSoonNoticeDays());
+                command.dueSoonNoticeDays(), command.assetCodePrefix());
         var saved = repository.save(configuration);
         audit.record(new AuditEvent(AuditAction.LIBRARY_CONFIGURATION_UPDATED, AuditTarget.LIBRARY_CONFIGURATION, null,
                 describe(command)));
@@ -68,6 +68,7 @@ class LibraryConfigurationService implements GetLibraryConfigurationUseCase, Upd
         add(changes, "renewalLimit", command.renewalLimit());
         add(changes, "reservationPickupDays", command.reservationPickupDays());
         add(changes, "dueSoonNoticeDays", command.dueSoonNoticeDays());
+        add(changes, "assetCodePrefix", command.assetCodePrefix());
         return changes.isEmpty() ? null : String.join(", ", changes);
     }
 

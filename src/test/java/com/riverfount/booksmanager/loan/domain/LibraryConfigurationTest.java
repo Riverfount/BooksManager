@@ -21,7 +21,7 @@ class LibraryConfigurationTest {
     /** The values the first migration creates (decided on 10/10/2026). */
     private static LibraryConfiguration initial() {
         return LibraryConfiguration.reconstitute(1L, PenaltyPolicy.FINE, money("1.00"), money("10.00"), 1, 365, 14,
-                3, 2, 3, 2);
+                3, 2, 3, 2, "PAT");
     }
 
     private static LibraryConfiguration with(PenaltyPolicy policy, String dailyFine, String fineCap, int daysPerDay,
@@ -34,7 +34,7 @@ class LibraryConfigurationTest {
             int daysPerDay, int suspensionCap, int period, int loanLimit, int renewalLimit, int pickupDays,
             int dueSoonNoticeDays) {
         return LibraryConfiguration.reconstitute(1L, policy, money(dailyFine), money(fineCap), daysPerDay,
-                suspensionCap, period, loanLimit, renewalLimit, pickupDays, dueSoonNoticeDays);
+                suspensionCap, period, loanLimit, renewalLimit, pickupDays, dueSoonNoticeDays, "PAT");
     }
 
     // reconstitution
@@ -73,11 +73,11 @@ class LibraryConfigurationTest {
     @Test
     void shouldRequireThePolicyAndEveryNumber() {
         assertThatThrownBy(() -> LibraryConfiguration.reconstitute(1L, null, money("1.00"), money("10.00"), 1, 365,
-                14, 3, 2, 3, 2)).isInstanceOf(BusinessRuleException.class).hasMessageContaining("política");
+                14, 3, 2, 3, 2, "PAT")).isInstanceOf(BusinessRuleException.class).hasMessageContaining("política");
         assertThatThrownBy(() -> LibraryConfiguration.reconstitute(1L, PenaltyPolicy.FINE, null, money("10.00"), 1,
-                365, 14, 3, 2, 3, 2)).isInstanceOf(BusinessRuleException.class).hasMessageContaining("valor diário");
+                365, 14, 3, 2, 3, 2, "PAT")).isInstanceOf(BusinessRuleException.class).hasMessageContaining("valor diário");
         assertThatThrownBy(() -> LibraryConfiguration.reconstitute(1L, PenaltyPolicy.FINE, money("1.00"), null, 1,
-                365, 14, 3, 2, 3, 2)).isInstanceOf(BusinessRuleException.class).hasMessageContaining("teto da multa");
+                365, 14, 3, 2, 3, 2, "PAT")).isInstanceOf(BusinessRuleException.class).hasMessageContaining("teto da multa");
     }
 
     // the rules (RN16), one by one
@@ -133,7 +133,7 @@ class LibraryConfigurationTest {
         assertThat(built.getFineCap().toPlainString()).isEqualTo("20.00");
 
         var configuration = initial();
-        configuration.update(null, money("2.500"), money("3E+1"), null, null, null, null, null, null, null);
+        configuration.update(null, money("2.500"), money("3E+1"), null, null, null, null, null, null, null, null);
         assertThat(configuration.getDailyFineAmount().toPlainString()).isEqualTo("2.50");
         assertThat(configuration.getFineCap().toPlainString()).isEqualTo("30.00");
     }
@@ -197,7 +197,7 @@ class LibraryConfigurationTest {
     void shouldRefuseANewDaysOfNoticeBelowOneAndKeepTheCurrentOne() {
         var configuration = initial();
 
-        assertThatThrownBy(() -> configuration.update(null, null, null, null, null, null, null, null, null, 0))
+        assertThatThrownBy(() -> configuration.update(null, null, null, null, null, null, null, null, null, 0, null))
                 .isInstanceOf(BusinessRuleException.class)
                 .hasMessageContaining("antecedência do aviso de vencimento");
         assertThat(configuration.getDueSoonNoticeDays()).isEqualTo(2);
@@ -216,7 +216,7 @@ class LibraryConfigurationTest {
     void shouldChangeOnlyTheValuesInformed() {
         var configuration = initial();
 
-        configuration.update(PenaltyPolicy.BOTH, null, null, null, null, 21, null, null, null, null);
+        configuration.update(PenaltyPolicy.BOTH, null, null, null, null, 21, null, null, null, null, null);
 
         assertThat(configuration.getPenaltyPolicy()).isEqualTo(PenaltyPolicy.BOTH);
         assertThat(configuration.getLoanPeriodDays()).isEqualTo(21);
@@ -233,7 +233,7 @@ class LibraryConfigurationTest {
     void shouldChangeEveryValueWhenAllAreInformed() {
         var configuration = initial();
 
-        configuration.update(PenaltyPolicy.SUSPENSION, money("2.50"), money("30.00"), 2, 90, 7, 5, 0, 1, 4);
+        configuration.update(PenaltyPolicy.SUSPENSION, money("2.50"), money("30.00"), 2, 90, 7, 5, 0, 1, 4, null);
 
         assertThat(configuration.getPenaltyPolicy()).isEqualTo(PenaltyPolicy.SUSPENSION);
         assertThat(configuration.getDailyFineAmount()).isEqualByComparingTo("2.50");
@@ -251,7 +251,7 @@ class LibraryConfigurationTest {
     void updatingWithNothingInformedChangesNothing() {
         var configuration = initial();
 
-        configuration.update(null, null, null, null, null, null, null, null, null, null);
+        configuration.update(null, null, null, null, null, null, null, null, null, null, null);
 
         assertThat(configuration).usingRecursiveComparison().isEqualTo(initial());
     }
@@ -262,7 +262,7 @@ class LibraryConfigurationTest {
 
         // the first values are fine; the last one (a zero loan limit) is not
         assertThatThrownBy(() -> configuration.update(PenaltyPolicy.NONE, money("2.00"), money("20.00"), 3, 30, 10,
-                0, 1, 2, 3)).isInstanceOf(BusinessRuleException.class);
+                0, 1, 2, 3, null)).isInstanceOf(BusinessRuleException.class);
 
         assertThat(configuration).usingRecursiveComparison().isEqualTo(initial());
     }
@@ -272,13 +272,13 @@ class LibraryConfigurationTest {
         var configuration = initial();
 
         // the cap stays at 10.00, so a daily fine of 20.00 would exceed it
-        assertThatThrownBy(() -> configuration.update(null, money("20.00"), null, null, null, null, null, null, null, null))
+        assertThatThrownBy(() -> configuration.update(null, money("20.00"), null, null, null, null, null, null, null, null, null))
                 .isInstanceOf(BusinessRuleException.class)
                 .hasMessageContaining("teto da multa");
         assertThat(configuration.getDailyFineAmount()).isEqualByComparingTo("1.00");
 
         // raising both together is fine
-        configuration.update(null, money("20.00"), money("50.00"), null, null, null, null, null, null, null);
+        configuration.update(null, money("20.00"), money("50.00"), null, null, null, null, null, null, null, null);
         assertThat(configuration.getDailyFineAmount()).isEqualByComparingTo("20.00");
     }
 
@@ -286,8 +286,62 @@ class LibraryConfigurationTest {
     void shouldNotChangeTheId() {
         var configuration = initial();
 
-        configuration.update(PenaltyPolicy.NONE, null, null, null, null, null, null, null, null, null);
+        configuration.update(PenaltyPolicy.NONE, null, null, null, null, null, null, null, null, null, null);
 
         assertThat(configuration.getId()).isEqualTo(1L);
+    }
+
+    // the asset code prefix (RF26, RN16)
+
+    @Test
+    void shouldExposeTheAssetCodePrefix() {
+        assertThat(initial().getAssetCodePrefix()).isEqualTo("PAT");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"BIB", "ABCD", "esc", "Bib"})
+    void shouldAcceptAPrefixOfThreeOrFourLettersKeepingItUppercase(String prefix) {
+        var configuration = initial();
+
+        configuration.update(null, null, null, null, null, null, null, null, null, null, prefix);
+
+        assertThat(configuration.getAssetCodePrefix()).isEqualTo(prefix.toUpperCase());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"PA", "PATRI", "PA1", "PA-", "PÁT", " PAT", "PA T", ""})
+    void shouldRefuseAPrefixThatIsNotThreeOrFourLettersAndKeepTheCurrentOne(String prefix) {
+        var configuration = initial();
+
+        assertThatThrownBy(() -> configuration.update(null, null, null, null, null, null, null, null, null, null,
+                prefix)).isInstanceOf(BusinessRuleException.class).hasMessageContaining("prefixo do código de patrimônio");
+
+        assertThat(configuration.getAssetCodePrefix()).isEqualTo("PAT");
+    }
+
+    @Test
+    void shouldKeepThePrefixWhenTheUpdateDoesNotSendOne() {
+        var configuration = initial();
+
+        configuration.update(PenaltyPolicy.NONE, null, null, null, null, null, null, null, null, null, null);
+
+        assertThat(configuration.getAssetCodePrefix()).isEqualTo("PAT");
+    }
+
+    @Test
+    void shouldNotChangeAnythingWhenThePrefixIsInvalidEvenIfTheOtherValuesAreFine() {
+        var configuration = initial();
+
+        assertThatThrownBy(() -> configuration.update(PenaltyPolicy.NONE, null, null, null, null, 30, null, null,
+                null, null, "AB")).isInstanceOf(BusinessRuleException.class);
+
+        assertThat(configuration).usingRecursiveComparison().isEqualTo(initial());
+    }
+
+    @Test
+    void shouldRequireThePrefixOnReconstitution() {
+        assertThatThrownBy(() -> LibraryConfiguration.reconstitute(1L, PenaltyPolicy.FINE, money("1.00"),
+                money("10.00"), 1, 365, 14, 3, 2, 3, 2, null))
+                .isInstanceOf(BusinessRuleException.class).hasMessageContaining("prefixo do código de patrimônio");
     }
 }

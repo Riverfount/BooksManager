@@ -32,11 +32,15 @@ record LibraryConfigurationResponse(
         int reservationPickupDays,
         @Schema(requiredMode = REQUIRED, example = "2",
                 description = "Antecedência, em dias, do aviso por e-mail de que o empréstimo vai vencer")
-        int dueSoonNoticeDays) {
+        int dueSoonNoticeDays,
+        @Schema(requiredMode = REQUIRED, example = "PAT",
+                description = "Prefixo dos códigos de patrimônio sugeridos (PAT-00001): de 3 a 4 letras maiúsculas")
+        String assetCodePrefix) {
 
     static LibraryConfigurationResponse from(LibraryConfiguration c) {
         return new LibraryConfigurationResponse(c.getPenaltyPolicy(), c.getDailyFineAmount(), c.getFineCap(),
                 c.getSuspensionDaysPerDay(), c.getSuspensionCapDays(), c.getLoanPeriodDays(), c.getLoanLimit(),
-                c.getRenewalLimit(), c.getReservationPickupDays(), c.getDueSoonNoticeDays());
+                c.getRenewalLimit(), c.getReservationPickupDays(), c.getDueSoonNoticeDays(),
+                c.getAssetCodePrefix());
     }
 }

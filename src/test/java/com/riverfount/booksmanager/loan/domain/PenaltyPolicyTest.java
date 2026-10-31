@@ -27,12 +27,12 @@ class PenaltyPolicyTest {
 
     private static LibraryConfiguration initial() {
         return LibraryConfiguration.reconstitute(1L, PenaltyPolicy.FINE, new BigDecimal("1.00"),
-                new BigDecimal("10.00"), 1, 365, 14, 3, 2, 3, 2);
+                new BigDecimal("10.00"), 1, 365, 14, 3, 2, 3, 2, "PAT");
     }
 
     private static LibraryConfiguration configuration(String dailyFine, String fineCap, int daysPerDay, int cap) {
         return LibraryConfiguration.reconstitute(1L, PenaltyPolicy.FINE, new BigDecimal(dailyFine),
-                new BigDecimal(fineCap), daysPerDay, cap, 14, 3, 2, 3, 2);
+                new BigDecimal(fineCap), daysPerDay, cap, 14, 3, 2, 3, 2, "PAT");
     }
 
     // FINE
@@ -201,11 +201,11 @@ class PenaltyPolicyTest {
         var configuration = initial();
 
         var asFine = configuration.getPenaltyPolicy().calculate(4, configuration);
-        configuration.update(PenaltyPolicy.SUSPENSION, null, null, null, null, null, null, null, null, null);
+        configuration.update(PenaltyPolicy.SUSPENSION, null, null, null, null, null, null, null, null, null, null);
         var asSuspension = configuration.getPenaltyPolicy().calculate(4, configuration);
-        configuration.update(PenaltyPolicy.BOTH, null, null, null, null, null, null, null, null, null);
+        configuration.update(PenaltyPolicy.BOTH, null, null, null, null, null, null, null, null, null, null);
         var asBoth = configuration.getPenaltyPolicy().calculate(4, configuration);
-        configuration.update(PenaltyPolicy.NONE, null, null, null, null, null, null, null, null, null);
+        configuration.update(PenaltyPolicy.NONE, null, null, null, null, null, null, null, null, null, null);
         var asNone = configuration.getPenaltyPolicy().calculate(4, configuration);
 
         assertThat(asFine.hasFine()).isTrue();
@@ -221,7 +221,7 @@ class PenaltyPolicyTest {
     void changingTheNumbersInTheConfigurationChangesTheOutcome() {
         var configuration = initial();
         configuration.update(null, new BigDecimal("2.50"), new BigDecimal("20.00"), null, null, null, null, null,
-                null, null);
+                null, null, null);
 
         assertThat(PenaltyPolicy.FINE.calculate(3, configuration).fineAmount()).isEqualByComparingTo("7.50");
         assertThat(PenaltyPolicy.FINE.calculate(9, configuration).fineAmount()).isEqualByComparingTo("20.00");

@@ -49,7 +49,7 @@ class LibraryConfigurationControllerTest {
 
     private static LibraryConfiguration initial() {
         return LibraryConfiguration.reconstitute(1L, PenaltyPolicy.FINE, new BigDecimal("1.00"),
-                new BigDecimal("10.00"), 1, 365, 14, 3, 2, 3, 2);
+                new BigDecimal("10.00"), 1, 365, 14, 3, 2, 3, 2, "PAT");
     }
 
     private static MockHttpServletRequestBuilder edit(String json) {
@@ -75,7 +75,8 @@ class LibraryConfigurationControllerTest {
                 .andExpect(jsonPath("$.loanLimit").value(3))
                 .andExpect(jsonPath("$.renewalLimit").value(2))
                 .andExpect(jsonPath("$.reservationPickupDays").value(3))
-                .andExpect(jsonPath("$.dueSoonNoticeDays").value(2));
+                .andExpect(jsonPath("$.dueSoonNoticeDays").value(2))
+                .andExpect(jsonPath("$.assetCodePrefix").value("PAT"));
     }
 
     @Test
@@ -190,5 +191,17 @@ class LibraryConfigurationControllerTest {
 
         then(getUseCase).should(never()).get();
         then(updateUseCase).should(never()).update(any());
+    }
+
+    @Test
+    @WithAdmin
+    void shouldHandTheAssetCodePrefixToTheUseCase() throws Exception {
+        given(updateUseCase.update(any())).willReturn(initial());
+
+        mockMvc.perform(edit("{\"assetCodePrefix\":\"bib\"}")).andExpect(status().isOk());
+
+        var captor = ArgumentCaptor.forClass(UpdateLibraryConfigurationCommand.class);
+        then(updateUseCase).should().update(captor.capture());
+        assertThat(captor.getValue().assetCodePrefix()).isEqualTo("bib");
     }
 }

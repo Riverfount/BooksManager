@@ -21,7 +21,8 @@ import java.math.BigDecimal;
  *   <li>the suspension days per day of delay, the suspension cap, the loan
  *       period, the loan limit, the reservation pickup period and the days of
  *       notice before a due date are at least one; the renewal limit is not
- *       negative (zero means no renewals).</li>
+ *       negative (zero means no renewals);</li>
+ *   <li>the asset code prefix has 3 to 4 letters, A to Z, and is kept in uppercase (a lowercase one is uppercased).</li>
  * </ul>
  */
 public class LibraryConfiguration {
@@ -29,6 +30,7 @@ public class LibraryConfiguration {
     /** What the {@code numeric(10, 2)} columns of the database hold. */
     static final BigDecimal MAX_AMOUNT = new BigDecimal("99999999.99");
     private static final int MONEY_SCALE = 2;
+    private static final java.util.regex.Pattern ASSET_CODE_PREFIX = java.util.regex.Pattern.compile("[A-Z]{3,4}");
 
     private final Long id;
     private PenaltyPolicy penaltyPolicy;
@@ -41,10 +43,13 @@ public class LibraryConfiguration {
     private int renewalLimit;
     private int reservationPickupDays;
     private int dueSoonNoticeDays;
+    private String assetCodePrefix;
 
     private LibraryConfiguration(Long id, PenaltyPolicy penaltyPolicy, BigDecimal dailyFineAmount,
             BigDecimal fineCap, int suspensionDaysPerDay, int suspensionCapDays, int loanPeriodDays, int loanLimit,
-            int renewalLimit, int reservationPickupDays, int dueSoonNoticeDays) {
+            int renewalLimit, int reservationPickupDays, int dueSoonNoticeDays,
+            String assetCodePrefix) {
+        var normalizedPrefix = normalizedAssetCodePrefix(assetCodePrefix);
         validate(penaltyPolicy, dailyFineAmount, fineCap, suspensionDaysPerDay, suspensionCapDays, loanPeriodDays,
                 loanLimit, renewalLimit, reservationPickupDays, dueSoonNoticeDays);
         this.id = id;
@@ -58,14 +63,15 @@ public class LibraryConfiguration {
         this.renewalLimit = renewalLimit;
         this.reservationPickupDays = reservationPickupDays;
         this.dueSoonNoticeDays = dueSoonNoticeDays;
+        this.assetCodePrefix = normalizedPrefix;
     }
 
     public static LibraryConfiguration reconstitute(Long id, PenaltyPolicy penaltyPolicy, BigDecimal dailyFineAmount,
             BigDecimal fineCap, int suspensionDaysPerDay, int suspensionCapDays, int loanPeriodDays, int loanLimit,
-            int renewalLimit, int reservationPickupDays, int dueSoonNoticeDays) {
+            int renewalLimit, int reservationPickupDays, int dueSoonNoticeDays, String assetCodePrefix) {
         return new LibraryConfiguration(id, penaltyPolicy, dailyFineAmount, fineCap, suspensionDaysPerDay,
                 suspensionCapDays, loanPeriodDays, loanLimit, renewalLimit, reservationPickupDays,
-                dueSoonNoticeDays);
+                dueSoonNoticeDays, assetCodePrefix);
     }
 
     /**
@@ -77,7 +83,8 @@ public class LibraryConfiguration {
      */
     public void update(PenaltyPolicy penaltyPolicy, BigDecimal dailyFineAmount, BigDecimal fineCap,
             Integer suspensionDaysPerDay, Integer suspensionCapDays, Integer loanPeriodDays, Integer loanLimit,
-            Integer renewalLimit, Integer reservationPickupDays, Integer dueSoonNoticeDays) {
+            Integer renewalLimit, Integer reservationPickupDays, Integer dueSoonNoticeDays,
+            String assetCodePrefix) {
         var newPolicy = penaltyPolicy != null ? penaltyPolicy : this.penaltyPolicy;
         var newDailyFine = dailyFineAmount != null ? dailyFineAmount : this.dailyFineAmount;
         var newFineCap = fineCap != null ? fineCap : this.fineCap;
@@ -88,6 +95,7 @@ public class LibraryConfiguration {
         var newRenewalLimit = renewalLimit != null ? renewalLimit : this.renewalLimit;
         var newPickup = reservationPickupDays != null ? reservationPickupDays : this.reservationPickupDays;
         var newNoticeDays = dueSoonNoticeDays != null ? dueSoonNoticeDays : this.dueSoonNoticeDays;
+        var newPrefix = assetCodePrefix != null ? normalizedAssetCodePrefix(assetCodePrefix) : this.assetCodePrefix;
         validate(newPolicy, newDailyFine, newFineCap, newDaysPerDay, newSuspensionCap, newPeriod, newLoanLimit,
                 newRenewalLimit, newPickup, newNoticeDays);
         this.penaltyPolicy = newPolicy;
@@ -100,6 +108,7 @@ public class LibraryConfiguration {
         this.renewalLimit = newRenewalLimit;
         this.reservationPickupDays = newPickup;
         this.dueSoonNoticeDays = newNoticeDays;
+        this.assetCodePrefix = newPrefix;
     }
 
     private static void validate(PenaltyPolicy policy, BigDecimal dailyFineAmount, BigDecimal fineCap,
@@ -146,6 +155,18 @@ public class LibraryConfiguration {
         if (dueSoonNoticeDays < 1) {
             throw new BusinessRuleException("a antecedência do aviso de vencimento deve ser de pelo menos 1 dia");
         }
+    }
+
+    /** The prefix in uppercase; it must have 3 to 4 letters, A to Z. */
+    private static String normalizedAssetCodePrefix(String prefix) {
+        if (prefix == null) {
+            throw new BusinessRuleException("o prefixo do código de patrimônio é obrigatório");
+        }
+        var normalized = prefix.toUpperCase(java.util.Locale.ROOT);
+        if (!ASSET_CODE_PREFIX.matcher(normalized).matches()) {
+            throw new BusinessRuleException("o prefixo do código de patrimônio deve ter de 3 a 4 letras, de A a Z");
+        }
+        return normalized;
     }
 
     /**
@@ -204,6 +225,11 @@ public class LibraryConfiguration {
 
     public int getReservationPickupDays() {
         return reservationPickupDays;
+    }
+
+    /** The prefix of the asset codes the library suggests (e.g. {@code PAT} for {@code PAT-00001}), in uppercase. */
+    public String getAssetCodePrefix() {
+        return assetCodePrefix;
     }
 
     /** How many days before the due date the reader is told by e-mail that the loan is about to fall due. */

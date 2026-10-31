@@ -44,5 +44,8 @@ record UpdateLibraryConfigurationRequest(
         @Schema(description = "Antecedência, em dias, do aviso por e-mail de que o empréstimo vai vencer "
                 + "(opcional): pelo menos 1", example = "2")
         @JsonDeserialize(using = WholeNumberDeserializer.class)
-        Integer dueSoonNoticeDays) {
+        Integer dueSoonNoticeDays,
+        @Schema(description = "Prefixo dos códigos de patrimônio sugeridos (opcional): de 3 a 4 letras, de A a Z; "
+                + "minúsculas são guardadas em maiúsculas", example = "PAT")
+        String assetCodePrefix) {
 }

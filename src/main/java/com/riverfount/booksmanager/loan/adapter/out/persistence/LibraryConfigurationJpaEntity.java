@@ -54,13 +54,17 @@ class LibraryConfigurationJpaEntity {
     @Column(name = "due_soon_notice_days", nullable = false)
     private int dueSoonNoticeDays;
 
+    @Column(name = "asset_code_prefix", nullable = false, length = 4)
+    private String assetCodePrefix;
+
     protected LibraryConfigurationJpaEntity() {
         // required by JPA
     }
 
     LibraryConfigurationJpaEntity(Short id, PenaltyPolicy penaltyPolicy, BigDecimal dailyFineAmount,
             BigDecimal fineCap, int suspensionDaysPerDay, int suspensionCapDays, int loanPeriodDays, int loanLimit,
-            int renewalLimit, int reservationPickupDays, int dueSoonNoticeDays) {
+            int renewalLimit, int reservationPickupDays, int dueSoonNoticeDays,
+            String assetCodePrefix) {
         this.id = id;
         this.penaltyPolicy = penaltyPolicy;
         this.dailyFineAmount = dailyFineAmount;
@@ -72,6 +76,7 @@ class LibraryConfigurationJpaEntity {
         this.renewalLimit = renewalLimit;
         this.reservationPickupDays = reservationPickupDays;
         this.dueSoonNoticeDays = dueSoonNoticeDays;
+        this.assetCodePrefix = assetCodePrefix;
     }
 
     Short getId() {
@@ -116,5 +121,9 @@ class LibraryConfigurationJpaEntity {
 
     int getDueSoonNoticeDays() {
         return dueSoonNoticeDays;
+    }
+
+    String getAssetCodePrefix() {
+        return assetCodePrefix;
     }
 }

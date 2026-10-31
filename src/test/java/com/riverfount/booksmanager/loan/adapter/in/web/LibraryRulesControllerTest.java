@@ -44,7 +44,7 @@ class LibraryRulesControllerTest {
 
     private void givenTheConfiguration() {
         given(getUseCase.get()).willReturn(LibraryConfiguration.reconstitute(1L, PenaltyPolicy.FINE,
-                new BigDecimal("1.00"), new BigDecimal("10.00"), 1, 365, 14, 3, 2, 3, 2));
+                new BigDecimal("1.00"), new BigDecimal("10.00"), 1, 365, 14, 3, 2, 3, 2, "PAT"));
     }
 
     @Test

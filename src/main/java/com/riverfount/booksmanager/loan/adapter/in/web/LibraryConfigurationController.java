@@ -69,7 +69,7 @@ class LibraryConfigurationController {
         var configuration = updateUseCase.update(new UpdateLibraryConfigurationCommand(request.penaltyPolicy(),
                 request.dailyFineAmount(), request.fineCap(), request.suspensionDaysPerDay(),
                 request.suspensionCapDays(), request.loanPeriodDays(), request.loanLimit(), request.renewalLimit(),
-                request.reservationPickupDays(), request.dueSoonNoticeDays()));
+                request.reservationPickupDays(), request.dueSoonNoticeDays(), request.assetCodePrefix()));
         return LibraryConfigurationResponse.from(configuration);
     }
 }

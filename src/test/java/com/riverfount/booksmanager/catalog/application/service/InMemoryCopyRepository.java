@@ -2,6 +2,7 @@ package com.riverfount.booksmanager.catalog.application.service;
 
 import com.riverfount.booksmanager.catalog.application.port.out.CopyRepository;
 import com.riverfount.booksmanager.catalog.application.port.out.CopyStatusCount;
+import com.riverfount.booksmanager.catalog.domain.AssetCodes;
 import com.riverfount.booksmanager.catalog.domain.Copy;
 import com.riverfount.booksmanager.catalog.domain.CopyStatus;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
@@ -45,6 +46,17 @@ class InMemoryCopyRepository implements CopyRepository {
     public Map<Long, Copy> findAllByIds(Set<Long> ids) {
         return copies.values().stream().filter(copy -> ids.contains(copy.getId()))
                 .collect(Collectors.toMap(Copy::getId, copy -> copy));
+    }
+
+    @Override
+    public long findHighestAssetCodeNumber(String prefix) {
+        var format = java.util.regex.Pattern.compile(
+                "^" + java.util.regex.Pattern.quote(prefix) + "-([0-9]{1," + AssetCodes.MAX_DIGITS + "})$");
+        return copies.values().stream()
+                .map(copy -> format.matcher(copy.getAssetCode()))
+                .filter(java.util.regex.Matcher::matches)
+                .mapToLong(matcher -> Long.parseLong(matcher.group(1)))
+                .max().orElse(0L);
     }
 
     @Override

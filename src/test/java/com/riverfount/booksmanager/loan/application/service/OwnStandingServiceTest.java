@@ -90,7 +90,7 @@ class OwnStandingServiceTest {
     @Test
     void shouldTakeTheLimitsFromTheConfiguration() {
         var configuration = configurationRepository.getForUpdate();
-        configuration.update(null, null, null, null, null, null, 5, null, null, null);
+        configuration.update(null, null, null, null, null, null, 5, null, null, null, null);
         configurationRepository.save(configuration);
 
         var standing = standing(ME);

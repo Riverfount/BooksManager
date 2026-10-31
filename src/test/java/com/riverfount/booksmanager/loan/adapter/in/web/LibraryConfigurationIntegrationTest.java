@@ -72,7 +72,8 @@ class LibraryConfigurationIntegrationTest {
                 .andExpect(jsonPath("$.loanLimit").value(3))
                 .andExpect(jsonPath("$.renewalLimit").value(2))
                 .andExpect(jsonPath("$.reservationPickupDays").value(3))
-                .andExpect(jsonPath("$.dueSoonNoticeDays").value(2));
+                .andExpect(jsonPath("$.dueSoonNoticeDays").value(2))
+                .andExpect(jsonPath("$.assetCodePrefix").value("PAT"));
     }
 
     @Test
@@ -153,7 +154,8 @@ class LibraryConfigurationIntegrationTest {
     void aValueThatBreaksARuleGets422AndChangesNothing() throws Exception {
         for (var json : new String[] {"{\"loanPeriodDays\":0}", "{\"loanLimit\":-1}", "{\"renewalLimit\":-1}",
                 "{\"dailyFineAmount\":-1}", "{\"dailyFineAmount\":1.001}", "{\"fineCap\":0}",
-                "{\"dailyFineAmount\":20}", "{\"suspensionCapDays\":0}"}) {
+                "{\"dailyFineAmount\":20}", "{\"suspensionCapDays\":0}", "{\"assetCodePrefix\":\"AB\"}",
+                "{\"assetCodePrefix\":\"PATRI\"}", "{\"assetCodePrefix\":\"PA1\"}"}) {
             var body = edit("ADMIN", json).andExpect(status().isUnprocessableContent())
                     .andReturn().getResponse().getContentAsString();
             assertThat(body).as(json).contains("\"status\":422").doesNotContain("Exception");
@@ -183,5 +185,17 @@ class LibraryConfigurationIntegrationTest {
 
         assertThat(jdbcTemplate.queryForObject("select loan_period_days from library_configuration", Integer.class))
                 .isEqualTo(14);
+    }
+
+    @Test
+    void anAdministratorShouldChangeThePrefixAndItIsKeptInUppercase() throws Exception {
+        edit("ADMIN", "{\"assetCodePrefix\":\"bib\"}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.assetCodePrefix").value("BIB"));
+
+        assertThat(jdbcTemplate.queryForObject("select asset_code_prefix from library_configuration", String.class))
+                .isEqualTo("BIB");
+        mockMvc.perform(get(URL).header("Authorization", token("ADMIN")))
+                .andExpect(jsonPath("$.assetCodePrefix").value("BIB"));
     }
 }
