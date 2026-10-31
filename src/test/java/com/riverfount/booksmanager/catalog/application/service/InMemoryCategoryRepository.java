@@ -49,13 +49,13 @@ class InMemoryCategoryRepository implements CategoryRepository {
 
     @Override
     public boolean existsByName(String name) {
-        return categories.values().stream().anyMatch(category -> category.getName().equals(name));
+        return categories.values().stream().anyMatch(category -> category.getName().equalsIgnoreCase(name));
     }
 
     @Override
     public boolean existsByNameAndIdNot(String name, Long id) {
         return categories.values().stream()
-                .anyMatch(category -> category.getName().equals(name) && !category.getId().equals(id));
+                .anyMatch(category -> category.getName().equalsIgnoreCase(name) && !category.getId().equals(id));
     }
 
     @Override

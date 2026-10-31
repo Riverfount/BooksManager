@@ -259,13 +259,13 @@ class BookPersistenceAdapterTest {
     void shouldTreatLikeWildcardsInTheTitleFilterLiterally() {
         saveBook("9788533302273", "100% Java", categoryId, Set.of(authorId1));
         saveBook("9788535914849", "100 Java", categoryId, Set.of(authorId1));
-        saveBook("9788525406958", "A_B", categoryId, Set.of(authorId1));
+        saveBook("9788525406958", "A_b", categoryId, Set.of(authorId1));
         saveBook("9788532530806", "AxB", categoryId, Set.of(authorId1));
 
         assertThat(adapter.findAll(new BookFilter("%", null, null, null), true, byTitle()).items())
                 .extracting(Book::getTitle).containsExactly("100% Java");
         assertThat(adapter.findAll(new BookFilter("_", null, null, null), true, byTitle()).items())
-                .extracting(Book::getTitle).containsExactly("A_B");
+                .extracting(Book::getTitle).containsExactly("A_b");
     }
 
     @Test

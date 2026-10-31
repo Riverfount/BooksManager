@@ -66,7 +66,7 @@ class CategoryTest {
 
     @Test
     void shouldAcceptNameWithExactlyOneHundredCharacters() {
-        var nameWithOneHundredCharacters = "A".repeat(100);
+        var nameWithOneHundredCharacters = "a".repeat(100);
 
         var category = Category.create(nameWithOneHundredCharacters);
 
@@ -126,5 +126,29 @@ class CategoryTest {
         category.reactivate();
 
         assertThat(category.isActive()).isTrue();
+    }
+
+    @Test
+    void shouldRestoreTheCasingOfAnAllCapsNameOnCreate() {
+        assertThat(Category.create("PSICOLOGIA INFANTIL").getName()).isEqualTo("Psicologia Infantil");
+    }
+
+    @Test
+    void shouldRestoreTheCasingOfAnAllCapsNameOnRename() {
+        var category = Category.create("Psicologia");
+
+        category.rename("PSICOLOGIA DA EDUCAÇÃO");
+
+        assertThat(category.getName()).isEqualTo("Psicologia da Educação");
+    }
+
+    @Test
+    void shouldKeepAMixedCaseNameAsTyped() {
+        assertThat(Category.create("Ficção Científica").getName()).isEqualTo("Ficção Científica");
+    }
+
+    @Test
+    void shouldNotNormalizeTheNameOfAReconstitutedCategory() {
+        assertThat(Category.reconstitute(1L, "FICÇÃO", true).getName()).isEqualTo("FICÇÃO");
     }
 }

@@ -46,8 +46,13 @@ class CatalogMigrationTest {
     }
 
     @Test
-    void categoryNameShouldBeUnique() {
-        assertThat(hasUniqueConstraint("category", "name")).isTrue();
+    void categoryNameShouldBeUniqueIgnoringCase() {
+        // V20 replaced the plain unique constraint by a unique index on lower(name)
+        var definition = jdbcTemplate.queryForObject(
+                "select indexdef from pg_indexes where tablename = 'category' and indexname = 'uq_category_name_lower'",
+                String.class);
+
+        assertThat(definition).startsWith("CREATE UNIQUE INDEX").contains("lower((name)::text)");
     }
 
     @Test

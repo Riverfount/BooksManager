@@ -52,12 +52,12 @@ class CategoryPersistenceAdapter implements CategoryRepository {
 
     @Override
     public boolean existsByName(String name) {
-        return jpaRepository.existsByName(name);
+        return jpaRepository.existsByNameIgnoreCase(name);
     }
 
     @Override
     public boolean existsByNameAndIdNot(String name, Long id) {
-        return jpaRepository.existsByNameAndIdNot(name, id);
+        return jpaRepository.existsByNameIgnoreCaseAndIdNot(name, id);
     }
 
     @Override

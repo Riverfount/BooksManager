@@ -8,6 +8,7 @@ import com.riverfount.booksmanager.catalog.application.port.out.AuthorRepository
 import com.riverfount.booksmanager.catalog.application.port.out.BookLookup;
 import com.riverfount.booksmanager.catalog.application.port.out.BookRepository;
 import com.riverfount.booksmanager.catalog.domain.Isbn;
+import com.riverfount.booksmanager.catalog.domain.TitleCase;
 import com.riverfount.booksmanager.shared.domain.BusinessRuleException;
 import com.riverfount.booksmanager.shared.domain.InvalidQueryException;
 import java.util.HashMap;
@@ -47,12 +48,13 @@ class BookLookupService implements LookupBookByIsbnUseCase {
         }
         return bookLookup.findByIsbn(isbn)
                 .map(info -> {
-                    var existing = existingAuthorsByName(info.authors());
-                    var authors = info.authors().stream()
+                    var authorNames = info.authors().stream().map(TitleCase::normalize).toList();
+                    var existing = existingAuthorsByName(authorNames);
+                    var authors = authorNames.stream()
                             .map(name -> new SuggestedAuthor(name, existing.get(name.toLowerCase(Locale.ROOT))))
                             .toList();
-                    return BookLookupResult.found(isbn.value(),
-                            new Suggestion(info.title(), info.publisher(), info.publicationYear(), authors));
+                    return BookLookupResult.found(isbn.value(), new Suggestion(
+                            TitleCase.normalize(info.title()), info.publisher(), info.publicationYear(), authors));
                 })
                 .orElseGet(() -> BookLookupResult.notFound(isbn.value()));
     }

@@ -207,7 +207,7 @@ class BookTest {
 
     @Test
     void shouldAcceptTitleWithExactlyTwoHundredAndFiftyFiveCharacters() {
-        var titleWithTwoHundredAndFiftyFiveCharacters = "A".repeat(255);
+        var titleWithTwoHundredAndFiftyFiveCharacters = "a".repeat(255);
 
         var book = Book.create(ISBN, titleWithTwoHundredAndFiftyFiveCharacters, "Editora X", 1899, 1L,
                 Set.of(10L), FIXED_CLOCK);
@@ -464,5 +464,36 @@ class BookTest {
                 java.util.List.of(Author.reconstitute(10L, "Machado de Assis", false)));
 
         assertThat(book.isActive()).isTrue();
+    }
+
+    @Test
+    void shouldRestoreTheCasingOfAnAllCapsTitleOnCreate() {
+        var book = Book.create(ISBN, "O NASCIMENTO DA INTELIGÊNCIA NA CRIANÇA", "Editora X", 1899, 1L,
+                Set.of(10L), FIXED_CLOCK);
+
+        assertThat(book.getTitle()).isEqualTo("O Nascimento da Inteligência na Criança");
+    }
+
+    @Test
+    void shouldRestoreTheCasingOfAnAllCapsTitleOnUpdate() {
+        var book = Book.create(ISBN, "Dom Casmurro", "Editora X", 1899, 1L, Set.of(10L), FIXED_CLOCK);
+
+        book.updateDetails("O CORTIÇO", "Editora X", 1890, 1L, FIXED_CLOCK);
+
+        assertThat(book.getTitle()).isEqualTo("O Cortiço");
+    }
+
+    @Test
+    void shouldKeepAMixedCaseTitleAsTyped() {
+        var book = Book.create(ISBN, "Rei Arthur II", "Editora X", 1899, 1L, Set.of(10L), FIXED_CLOCK);
+
+        assertThat(book.getTitle()).isEqualTo("Rei Arthur II");
+    }
+
+    @Test
+    void shouldNotNormalizeTheTitleOfAReconstitutedBook() {
+        var book = Book.reconstitute(1L, ISBN, "DOM CASMURRO", "Editora X", 1899, 1L, Set.of(10L), true);
+
+        assertThat(book.getTitle()).isEqualTo("DOM CASMURRO");
     }
 }

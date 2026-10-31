@@ -86,7 +86,7 @@ class BookLookupServiceTest {
         var suggested = service.lookup(DOM_CASMURRO).suggestion().authors();
 
         assertThat(suggested).extracting(a -> a.name(), a -> a.existingAuthorId())
-                .containsExactly(org.assertj.core.groups.Tuple.tuple("MACHADO DE ASSIS", machado.getId()),
+                .containsExactly(org.assertj.core.groups.Tuple.tuple("Machado de Assis", machado.getId()),
                         org.assertj.core.groups.Tuple.tuple("Outro Autor", null));
     }
 
@@ -175,5 +175,38 @@ class BookLookupServiceTest {
         given(bookLookup.findByIsbn(new Isbn("080442957X"))).willReturn(Optional.empty());
 
         assertThat(service.lookup("0-8044-2957-X").outcome()).isEqualTo(Outcome.NOT_FOUND);
+    }
+
+    // casing of the source
+
+    @Test
+    void shouldRestoreTheCasingOfATitleAndAuthorsThatCameInUppercase() {
+        sourceKnows(new BookInfo("O NASCIMENTO DA INTELIGÊNCIA NA CRIANÇA", List.of("JEAN PIAGET"), "Zahar", 1970));
+
+        var suggestion = service.lookup(DOM_CASMURRO).suggestion();
+
+        assertThat(suggestion.title()).isEqualTo("O Nascimento da Inteligência na Criança");
+        assertThat(suggestion.authors()).extracting(a -> a.name()).containsExactly("Jean Piaget");
+    }
+
+    @Test
+    void shouldStillIdentifyAnExistingAuthorWhenTheSourceNameCameInUppercase() {
+        var piaget = authors.save(Author.create("Jean Piaget"));
+        sourceKnows(new BookInfo("O NASCIMENTO DA INTELIGÊNCIA NA CRIANÇA", List.of("JEAN PIAGET"), "Zahar", 1970));
+
+        var suggested = service.lookup(DOM_CASMURRO).suggestion().authors();
+
+        assertThat(suggested).extracting(a -> a.name(), a -> a.existingAuthorId())
+                .containsExactly(org.assertj.core.api.Assertions.tuple("Jean Piaget", piaget.getId()));
+    }
+
+    @Test
+    void shouldLeaveAMixedCaseSuggestionUntouched() {
+        sourceKnows(new BookInfo("Rei Arthur II", List.of("J.R.R. Tolkien"), "Garnier", 1899));
+
+        var suggestion = service.lookup(DOM_CASMURRO).suggestion();
+
+        assertThat(suggestion.title()).isEqualTo("Rei Arthur II");
+        assertThat(suggestion.authors()).extracting(a -> a.name()).containsExactly("J.R.R. Tolkien");
     }
 }

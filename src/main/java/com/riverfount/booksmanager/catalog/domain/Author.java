@@ -22,7 +22,7 @@ public class Author {
 
     public static Author create(String name) {
         validateName(name);
-        return new Author(null, name, true);
+        return new Author(null, TitleCase.normalize(name), true);
     }
 
     public static Author reconstitute(Long id, String name, boolean active) {
@@ -31,7 +31,7 @@ public class Author {
 
     public void rename(String newName) {
         validateName(newName);
-        this.name = newName;
+        this.name = TitleCase.normalize(newName);
     }
 
     /**

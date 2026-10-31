@@ -53,7 +53,7 @@ public class Book {
         validatePublisher(publisher);
         validatePublicationYearRequired(publicationYear);
         validatePublicationYear(publicationYear, clock);
-        return new Book(null, isbn, title, publisher, publicationYear, categoryId, authorIds, true);
+        return new Book(null, isbn, TitleCase.normalize(title), publisher, publicationYear, categoryId, authorIds, true);
     }
 
     public static Book reconstitute(Long id, Isbn isbn, String title, String publisher, Integer publicationYear,
@@ -79,7 +79,7 @@ public class Book {
         validateCategory(categoryId);
         validatePublisher(publisher);
         validatePublicationYear(publicationYear, clock);
-        this.title = title;
+        this.title = TitleCase.normalize(title);
         this.publisher = publisher;
         this.publicationYear = publicationYear;
         this.categoryId = categoryId;

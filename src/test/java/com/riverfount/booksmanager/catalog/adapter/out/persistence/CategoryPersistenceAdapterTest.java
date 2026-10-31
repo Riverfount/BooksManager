@@ -185,4 +185,22 @@ class CategoryPersistenceAdapterTest {
 
         assertThat(result.items()).extracting(Category::getId).containsExactly(second.getId(), first.getId());
     }
+
+    @Test
+    void existsByNameShouldIgnoreCase() {
+        var romance = adapter.save(Category.create("Romance"));
+        adapter.save(Category.create("Suspense"));
+
+        assertThat(adapter.existsByName("ROMANCE")).isTrue();
+        assertThat(adapter.existsByNameAndIdNot("romance", romance.getId())).isFalse();
+        assertThat(adapter.existsByNameAndIdNot("romance", -1L)).isTrue();
+    }
+
+    @Test
+    void shouldTranslateTheCaseInsensitiveUniqueIndexViolationIntoBusinessRuleException() {
+        adapter.save(Category.create("Romance"));
+
+        assertThatThrownBy(() -> adapter.save(Category.create("romance")))
+                .isInstanceOf(BusinessRuleException.class);
+    }
 }
