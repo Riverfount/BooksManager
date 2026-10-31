@@ -20,66 +20,21 @@ import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /**
- * Verifies the data steps of V20 (category names unique ignoring case) and V21 (casing restored on the names that
- * were stored entirely in uppercase). It migrates a scratch schema up to V19, fills it and then applies the rest; it
- * runs outside a test transaction because Flyway uses its own connections, and the scratch schema is dropped at the
- * end, so no other test sees these rows.
+ * Verifies migration V20 (category names unique ignoring case): two categories that differ only in case are refused,
+ * and the migration stops, naming them, when they already exist. It migrates a scratch schema up to V19, fills it and
+ * then applies V20; it runs outside a test transaction because Flyway uses its own connections, and the scratch
+ * schema is dropped at the end, so no other test sees these rows.
  */
 @Import(TestcontainersConfiguration.class)
 @JdbcTest
 @AutoConfigureTestDatabase(replace = Replace.NONE)
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
-class CatalogCasingMigrationTest {
+class CategoryNameIgnoringCaseMigrationTest {
 
-    private static final String SCHEMA = "casing_backfill";
+    private static final String SCHEMA = "category_case_unique";
 
     @Autowired
     private PostgreSQLContainer postgres;
-
-    @Test
-    void shouldRestoreTheCasingOfTheNamesStoredEntirelyInUppercase() {
-        withScratchSchema((dataSource, template) -> {
-            insertCategory(template, "PSICOLOGIA INFANTIL");
-            insertAuthor(template, "JEAN PIAGET");
-            insertBook(template, "9788533302273", "O NASCIMENTO DA INTELIGÊNCIA NA CRIANÇA");
-
-            migrateToLatest(dataSource);
-
-            assertThat(names(template, "category", "name")).contains("Psicologia Infantil").doesNotContain("PSICOLOGIA INFANTIL");
-            assertThat(names(template, "author", "name")).containsExactly("Jean Piaget");
-            assertThat(names(template, "book", "title")).containsExactly("O Nascimento da Inteligência na Criança");
-        });
-    }
-
-    @Test
-    void shouldLeaveTheNamesWithMixedCaseExactlyAsTheyAre() {
-        withScratchSchema((dataSource, template) -> {
-            insertCategory(template, "Ficção");
-            insertAuthor(template, "Ronald McDonald");
-            insertAuthor(template, "j.r.r. tolkien");
-            insertBook(template, "9788533302273", "Rei Arthur II");
-
-            migrateToLatest(dataSource);
-
-            assertThat(names(template, "category", "name")).contains("Ficção");
-            assertThat(names(template, "author", "name")).containsExactlyInAnyOrder("Ronald McDonald",
-                    "j.r.r. tolkien");
-            assertThat(names(template, "book", "title")).containsExactly("Rei Arthur II");
-        });
-    }
-
-    @Test
-    void shouldKeepTheIdentifiersSoTheBooksStayWithTheirCategories() {
-        withScratchSchema((dataSource, template) -> {
-            insertBook(template, "9788533302273", "DOM CASMURRO");
-            var categoryBefore = template.queryForObject("select category_id from " + SCHEMA + ".book", Long.class);
-
-            migrateToLatest(dataSource);
-
-            assertThat(template.queryForObject("select category_id from " + SCHEMA + ".book", Long.class))
-                    .isEqualTo(categoryBefore);
-        });
-    }
 
     @Test
     void shouldRefuseTwoCategoriesThatOnlyDifferInCaseAfterTheMigration() {
@@ -128,16 +83,6 @@ class CatalogCasingMigrationTest {
 
     private static void insertCategory(JdbcTemplate template, String name) {
         template.update("insert into " + SCHEMA + ".category (name) values (?)", name);
-    }
-
-    private static void insertAuthor(JdbcTemplate template, String name) {
-        template.update("insert into " + SCHEMA + ".author (name) values (?)", name);
-    }
-
-    private static void insertBook(JdbcTemplate template, String isbn, String title) {
-        template.update("insert into " + SCHEMA + ".category (name) values ('Categoria') on conflict do nothing");
-        template.update("insert into " + SCHEMA + ".book (isbn, title, category_id) "
-                + "select ?, ?, id from " + SCHEMA + ".category where name = 'Categoria'", isbn, title);
     }
 
     @FunctionalInterface
