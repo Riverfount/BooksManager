@@ -1,21 +1,25 @@
 # Guia de implantação
 
-Como colocar o Books Manager (a API) em um servidor, atrás de HTTPS, e como atualizá-lo, voltar atrás e fazer o backup do banco. É a implantação mínima da v1.0 (RNF12, RNF18, RNF26): **um servidor Linux, o Docker e três contêineres**. O front-end é outro repositório e fica fora deste guia.
+Como colocar o Books Manager (a API e o front-end) em um servidor, atrás de HTTPS, e como atualizá-lo, voltar atrás e fazer o backup do banco. É a implantação mínima da v1.0 (RNF12, RNF18, RNF26): **um servidor Linux, o Docker e quatro contêineres**. O front-end é outro repositório (`booksmanager-web`), mas roda nesta pilha, **na mesma origem da API**: ele chama `/api/...` com endereços relativos, e o cookie do refresh token (`SameSite=Strict`) só vale entre origens do mesmo site.
 
 ## 1. O que sobe
 
 ```
-internet ──► Nginx (portas 80 e 443) ──► API (porta 8080, só na rede interna) ──► PostgreSQL (só na rede interna)
+                                      ┌──► front-end (porta 8080, só na rede interna)    "/" e as telas do app
+internet ──► Nginx (portas 80 e 443) ─┤
+                                      └──► API (porta 8080, só na rede interna) ──► PostgreSQL (só na rede interna)
+                                           "/api/", "/actuator/", "/v3/" e "/swagger-ui"
 ```
 
 | Serviço | O que faz |
 |---|---|
-| `nginx` | Termina o TLS (HTTPS), redireciona a porta 80 para a 443, manda os cabeçalhos HSTS e `X-Forwarded-*` e repassa tudo para a API. É o **único** que publica portas. |
+| `nginx` | Termina o TLS (HTTPS), redireciona a porta 80 para a 443, manda os cabeçalhos de segurança (HSTS e outros) e `X-Forwarded-*`, e **divide as rotas**: o que a API responde (`/api/`, `/actuator/`, `/v3/` e `/swagger-ui`) vai para a API, e todo o resto para o front-end. É o **único** que publica portas. |
+| `web` | O front-end: os arquivos estáticos do app, servidos por um Nginx sem privilégios (a imagem do repositório `booksmanager-web`, publicada no registro). Não é alcançável de fora. Não repete os cabeçalhos de segurança, que o `nginx` da frente já manda. |
 | `app` | A API (a imagem publicada no registro, ou construída pelo `Dockerfile`; perfil `prod`). Não é alcançável de fora. |
 | `postgres` | O banco (PostgreSQL 17), com os dados em um volume do Docker. Não é alcançável de fora. A busca sem acentos usa a extensão `unaccent`, criada pela migração V15; a imagem oficial `postgres:17` já a traz. Se usar um banco gerenciado, confira que ele permite `create extension unaccent` (é uma extensão "confiável" desde o PostgreSQL 13). |
 | `certbot` | Só para emitir e renovar o certificado do Let's Encrypt. Não sobe com o `up` (veja a seção 4). |
 
-Os arquivos: `compose.prod.yaml` (a pilha), `deploy/nginx/nginx.conf.template` (o Nginx) e `.env.prod-sample` (o modelo das variáveis). Nenhum deles tem segredo.
+Os arquivos: `compose.prod.yaml` (a pilha), `deploy/nginx/nginx.conf.template` (o Nginx), `deploy/nginx/test-routing.sh` (o teste das rotas e dos limites do Nginx, que roda no CI) e `.env.prod-sample` (o modelo das variáveis). Nenhum deles tem segredo.
 
 > **Atenção.** A pilha de produção tem o próprio nome de projeto (`booksmanager-prod`), de propósito: o `compose.yaml` de desenvolvimento é o projeto `booksmanager`, e com o mesmo nome os dois dividiriam contêineres e o volume do banco. **Nunca rode `docker compose down -v` em produção**: o `-v` apaga o volume com os dados.
 
@@ -43,13 +47,20 @@ Os arquivos: `compose.prod.yaml` (a pilha), `deploy/nginx/nginx.conf.template` (
    | `DOMAIN` | O domínio, sem `http://` (o mesmo do certificado). |
    | `POSTGRES_PASSWORD` | Uma senha longa e aleatória: `openssl rand -base64 24`. |
    | `APP_JWT_SECRET` | Segredo dos tokens, com ao menos 32 bytes: `openssl rand -base64 48`. A aplicação não sobe sem ele. |
-   | `APP_CORS_ALLOWED_ORIGINS` | A origem do front-end, com `https` e sem barra no fim. |
+   | `WEB_TAG` | A **versão do front-end** que roda (por exemplo `1.0.0`). Não tem valor padrão: a imagem é publicada com a versão e o hash do commit, nunca como `latest`, e a pilha não sobe sem esta variável. |
+| `APP_CORS_ALLOWED_ORIGINS` | A origem pública, com `https` e sem barra no fim (o domínio acima). Como o front-end é servido pela própria pilha, o padrão, se ficar vazia, já é `https://<DOMAIN>`. Mantenha-a igual ao endereço público: a API responde **403 "Invalid CORS request"** a uma requisição de navegador cuja origem ela não conhece. |
    | `APP_ADMIN_LOGIN` e `APP_ADMIN_PASSWORD` | O primeiro administrador. É criado na subida **só se não houver nenhum usuário**; depois que ele existe, a senha pode sair do arquivo. |
    | `LETSENCRYPT_DIR` | Onde está o certificado (veja a seção 4). |
 
    `POSTGRES_DB` e `POSTGRES_USER` têm valores que servem como estão.
 
-   **A imagem da API:** `APP_IMAGE` e `IMAGE_TAG` dizem qual imagem roda. O modelo já aponta para o registro (`ghcr.io/riverfount/booksmanager`); troque `IMAGE_TAG` pela **versão publicada** que você quer (por exemplo `1.0.0`; veja a seção 6.1 para ver o que existe). Para construir a imagem no próprio servidor, em vez de puxá-la, deixe `APP_IMAGE` vazio, escolha qualquer `IMAGE_TAG` e suba com `--build` (passo 4).
+   **As imagens:** `APP_IMAGE` e `IMAGE_TAG` dizem qual imagem da API roda, e `WEB_IMAGE` e `WEB_TAG` qual imagem do front-end.
+
+   **A imagem da API:** O modelo já aponta para o registro (`ghcr.io/riverfount/booksmanager`); troque `IMAGE_TAG` pela **versão publicada** que você quer (por exemplo `1.0.0`; veja a seção 6.1 para ver o que existe). Para construir a imagem no próprio servidor, em vez de puxá-la, deixe `APP_IMAGE` vazio, escolha qualquer `IMAGE_TAG` e suba com `--build` (passo 4).
+
+   **A imagem do front-end:** o modelo aponta para o registro (`ghcr.io/riverfount/booksmanager-web`); ponha em `WEB_TAG` a **versão publicada** que você quer, a que combina com a da API (seção 6.2). Para construí-la no servidor, clone o repositório `booksmanager-web`, rode `docker build -t booksmanager-web:<tag> .` nele e use `WEB_IMAGE=booksmanager-web` com essa `<tag>`.
+
+   **Os links dos e-mails do leitor** (convite e redefinição de senha) abrem telas do front-end, que agora está no endereço público: por padrão são montados a partir de `DOMAIN` (`https://<DOMAIN>/convite?token={token}` e `https://<DOMAIN>/redefinir-senha?token={token}`), e não é preciso configurar nada. Só defina `APP_READER_ACCESS_INVITATION_URL` e `APP_READER_ACCESS_PASSWORD_RESET_URL` se quiser apontar para outro lugar, e mantenha o `{token}`.
 
    **E-mail (opcional, RF28):** por padrão nada é enviado. Para ligar os avisos, preencha `APP_MAIL_ENABLED=true`, `APP_MAIL_HOST` (o SMTP do seu provedor) e `APP_MAIL_FROM` (o remetente); `APP_MAIL_PORT` (587), `APP_MAIL_STARTTLS` (`true`), `APP_MAIL_USERNAME` e `APP_MAIL_PASSWORD` (só se o servidor pedir). A porta 465 (TLS direto) não é suportada: use 587 com STARTTLS. Um servidor de e-mail fora do ar não derruba nada: o envio é feito depois do commit, com tempos curtos, e a falha só vai para o log (RNF19). O health check não olha o e-mail.
 
@@ -58,11 +69,11 @@ Os arquivos: `compose.prod.yaml` (a pilha), `deploy/nginx/nginx.conf.template` (
 4. **Suba a pilha.** Puxe a imagem do registro (ela é pública, não precisa de login) e suba:
 
    ```
-   docker compose --env-file .env.prod -f compose.prod.yaml pull app
+   docker compose --env-file .env.prod -f compose.prod.yaml pull app web
    docker compose --env-file .env.prod -f compose.prod.yaml up -d
    ```
 
-   O `pull` vem antes de propósito: se a versão de `IMAGE_TAG` não existe no registro (um erro de digitação, por exemplo), ele **falha com uma mensagem clara**. Sem ele, o `up` não encontra a imagem e, em silêncio, **a constrói no servidor** com esse nome, e você acredita estar rodando uma versão publicada que não é.
+   O `pull` vem antes de propósito: se a versão de `IMAGE_TAG` (ou de `WEB_TAG`) não existe no registro (um erro de digitação, por exemplo), ele **falha com uma mensagem clara**. Sem ele, o `up` não encontra a imagem e, em silêncio, **a constrói no servidor** com esse nome, e você acredita estar rodando uma versão publicada que não é.
 
    Para **construir a imagem no servidor** de propósito (com `APP_IMAGE` vazio, o que leva alguns minutos), pule o `pull` e use `up -d --build`.
 
@@ -136,7 +147,7 @@ Para ensaiar a renovação sem trocar nada, use `renew --dry-run` no lugar de `r
 ## 5. Conferir que está tudo certo
 
 ```
-# os três serviços de pé; app e postgres "healthy"
+# os quatro serviços de pé; app, web e postgres "healthy"
 docker compose --env-file .env.prod -f compose.prod.yaml ps
 
 # a saúde, por HTTPS (200 e {"status":"UP"...}); o banco entra nessa conta
@@ -150,7 +161,13 @@ curl -sI https://biblioteca.escola.org.br/actuator/health | grep -i strict-trans
 
 # o Swagger (a documentação da API)
 # abra no navegador: https://biblioteca.escola.org.br/swagger-ui.html
+
+# o front-end, na mesma origem: a raiz e um link direto devolvem o app (200, text/html)
+curl -sI https://biblioteca.escola.org.br/ | head -1
+curl -sI https://biblioteca.escola.org.br/livros | head -1
 ```
+
+E, **num navegador**, abra `https://biblioteca.escola.org.br/`, entre com o administrador e **recarregue a página** numa tela interna (por exemplo `/usuarios`): a sessão deve continuar (o cookie do refresh token é enviado) e a tabela carregar. Um `curl` sem o cabeçalho `Origin` não prova isso: o navegador o manda, e a API recusa (403) se o endereço que ela enxerga não bater com o dele.
 
 E, com o token de um login, confira que o `Location` das criações vem em `https` com o domínio público (e não `http://app:8080/...`): crie qualquer coisa (por exemplo uma categoria) e olhe o cabeçalho `Location` da resposta `201`.
 
@@ -158,7 +175,7 @@ Se algo não subir, `docker compose --env-file .env.prod -f compose.prod.yaml lo
 
 ## 6. Atualização e volta atrás
 
-A etiqueta da imagem (`IMAGE_TAG`) é a versão que está rodando, e voltar atrás é voltar a uma etiqueta anterior, **sem reconstruir nada**: cada versão publicada continua no registro. **Faça um backup antes de cada atualização** (seção 7): as migrações do banco só andam para a frente.
+As etiquetas das imagens (`IMAGE_TAG`, a da API, e `WEB_TAG`, a do front-end) são as versões que estão rodando, e voltar atrás é voltar a etiquetas anteriores, **sem reconstruir nada**: cada versão publicada continua no registro. **Faça um backup antes de cada atualização** (seção 7): as migrações do banco só andam para a frente.
 
 **Atualizar** (a versão já está publicada, seção 6.1):
 
@@ -167,12 +184,13 @@ cd /opt/booksmanager
 
 # 1. backup (seção 7)
 
-# 2. os arquivos de implantação (o Compose e o Nginx) e a versão nova
+# 2. os arquivos de implantação (o Compose e o Nginx) e as versões novas (veja a seção 6.2 para saber quais andam juntas)
 git pull
-sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=<versao-nova>/" .env.prod
+sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=<versao-nova-da-api>/" .env.prod
+sed -i "s/^WEB_TAG=.*/WEB_TAG=<versao-nova-do-front>/" .env.prod
 
-# 3. puxa a imagem e troca só o que mudou (a aplicação reinicia, o banco e o Nginx não)
-docker compose --env-file .env.prod -f compose.prod.yaml pull app
+# 3. puxa as imagens e troca só o que mudou (a API e o front-end reiniciam; o banco e o Nginx não)
+docker compose --env-file .env.prod -f compose.prod.yaml pull app web
 docker compose --env-file .env.prod -f compose.prod.yaml up -d
 
 # 4. conferência (seção 5)
@@ -180,19 +198,22 @@ docker compose --env-file .env.prod -f compose.prod.yaml up -d
 
 A aplicação executa as migrações novas do Flyway sozinha na subida.
 
+**O que esperar durante a troca** (medido numa pilha de teste): o **front-end continua respondendo** o tempo todo; a **API fica fora uns 7 a 10 segundos**, o tempo de a única instância dela reiniciar (um 502 nas chamadas nesse intervalo). O Nginx **não é reiniciado** e acompanha os contêineres novos sozinho: ele consulta o DNS do Docker a cada poucos segundos (`resolver` no template), então um contêiner recriado com outro endereço não deixa o Nginx apontando para o antigo.
+
 **Voltar atrás** (a versão nova deu problema):
 
 ```
 # as versões que já passaram por este servidor
 docker images --format '{{.Tag}}  (criada {{.CreatedSince}})' "$(grep '^APP_IMAGE=' .env.prod | cut -d= -f2)"
 
-# volta para a versão anterior; o pull traz a imagem do registro se ela não está mais no servidor
-sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=<versao-anterior>/" .env.prod
-docker compose --env-file .env.prod -f compose.prod.yaml pull app
+# volta para as versões anteriores; o pull traz a imagem do registro se ela não está mais no servidor
+sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=<versao-anterior-da-api>/" .env.prod
+sed -i "s/^WEB_TAG=.*/WEB_TAG=<versao-anterior-do-front>/" .env.prod
+docker compose --env-file .env.prod -f compose.prod.yaml pull app web
 docker compose --env-file .env.prod -f compose.prod.yaml up -d
 ```
 
-**Construindo no servidor** (com `APP_IMAGE` vazio): em vez do `pull`, use `git pull`, uma etiqueta nova (por exemplo o hash do commit, `git rev-parse --short HEAD`) em `IMAGE_TAG` e `up -d --build`. Voltar atrás é voltar a uma etiqueta que ainda existe no servidor (`docker images booksmanager`).
+**Construindo no servidor** (com `APP_IMAGE` vazio): em vez do `pull`, use `git pull`, uma etiqueta nova (por exemplo o hash do commit, `git rev-parse --short HEAD`) em `IMAGE_TAG` e `up -d --build`. Voltar atrás é voltar a uma etiqueta que ainda existe no servidor (`docker images booksmanager`). A imagem do front-end é construída no repositório dele (seção 3), e a volta atrás é igual.
 
 > **Se a versão nova já tinha aplicado uma migração**, a versão antiga pode não funcionar com o banco novo. Nesse caso, volte a etiqueta **e** restaure o backup feito antes da atualização (seção 7.4): o que foi gravado depois do backup se perde. Por isso o backup antes de atualizar não é opcional.
 
@@ -215,13 +236,24 @@ O workflow:
 
 Ele usa só o `GITHUB_TOKEN` do próprio workflow, com a permissão de gravar pacotes apenas no job que publica; nenhum segredo foi acrescentado ao repositório, e a imagem não leva nenhum (a configuração vem do ambiente, como na seção 3).
 
-**Na primeira publicação**, o GitHub cria o pacote como **privado**. Para o servidor puxar sem login, torne-o público uma vez: no GitHub, *Packages* → `booksmanager` → *Package settings* → *Change visibility* → *Public*. Isso não tem como ser feito pelo workflow. Depois, confira de qualquer máquina, sem login:
+**O front-end** é publicado do mesmo jeito, pelo workflow do repositório dele (`booksmanager-web`), com a mesma regra (uma tag `v*` de um commit da `main`) e as mesmas duas etiquetas (a versão e o hash), em `ghcr.io/riverfount/booksmanager-web`, depois de passar nos mesmos checks e no teste de fumaça da imagem. As duas versões não precisam ser iguais (seção 6.2).
+
+**Na primeira publicação** de cada imagem, o GitHub cria o pacote como **privado**. Para o servidor puxar sem login, torne-o público uma vez: no GitHub, *Packages* → `booksmanager` (e `booksmanager-web`) → *Package settings* → *Change visibility* → *Public*. Isso não tem como ser feito pelo workflow. Depois, confira de qualquer máquina, sem login:
 
 ```
 docker pull ghcr.io/riverfount/booksmanager:1.0.0
 ```
 
 > Se preferir manter o pacote privado, o servidor precisa de um `docker login ghcr.io` com um token de leitura de pacotes (`read:packages`), guardado só nele.
+
+### 6.2 Quais versões do front-end e da API andam juntas
+
+As duas imagens são publicadas **separadamente** (cada repositório tem o próprio workflow e as próprias etiquetas). A ponte entre elas é o **contrato OpenAPI** da API. A tabela de mudanças da API (em `docs/projeto.md`, seção "Interface e API") classifica cada mudança de contrato:
+
+- **"Compatível"** (só acrescenta: um campo, uma rota, um valor novo): o front-end antigo continua funcionando com a API nova. Nesse caso, **atualize primeiro a API**, e o front-end depois, quando quiser as telas novas.
+- **"Muda o comportamento"** ou **"Quebra a entrada"**: o front-end antigo pode deixar de funcionar com a API nova. Atualize **as duas na mesma operação** (como no `up -d` acima, que troca as duas imagens de uma vez), e para voltar atrás, volte as duas.
+
+Antes de atualizar, leia as linhas da tabela entre a versão que roda e a nova. No desenvolvimento, quem avisa é o `npm run api:types` do front-end: o `tsc` aponta o que quebrou.
 
 ## 7. Backup e restauração (`pg_dump`)
 
@@ -324,9 +356,9 @@ Toda tentativa de login recusada é registrada, e a API não limita a taxa de re
 
 ### 8.2 O limite de tentativas de login e do acesso do leitor (Nginx)
 
-O `deploy/nginx/nginx.conf.template` limita o `POST /api/v1/auth/login` a **5 tentativas por minuto por endereço de origem, com uma rajada de 5** (RNF13, RF27). Quem erra a senha algumas vezes não é barrado; um programa que tenta senhas em série passa a gerar poucas linhas por minuto na trilha. Passou do limite, a resposta é **429** (`application/problem+json`, com `Retry-After: 12`), e o log do Nginx registra `limiting requests` (nível `warn`). Só o login é contado: as demais rotas, inclusive o `/auth/refresh`, não têm limite.
+O `deploy/nginx/nginx.conf.template` (uma única `location` para tudo o que a API responde, com os limites escritos uma vez) limita o `POST /api/v1/auth/login` a **5 tentativas por minuto por endereço de origem, com uma rajada de 5** (RNF13, RF27). Quem erra a senha algumas vezes não é barrado; um programa que tenta senhas em série passa a gerar poucas linhas por minuto na trilha. Passou do limite, a resposta é **429** (`application/problem+json`, com `Retry-After: 12`), e o log do Nginx registra `limiting requests` (nível `warn`). Só o login é contado: as demais rotas, inclusive o `/auth/refresh`, não têm limite.
 
-Isto complementa o bloqueio da conta (que protege cada usuário) e não o substitui.
+Isto complementa o bloqueio da conta (que protege cada usuário) e não o substitui. O front-end e as demais rotas nunca são limitados. Os limites, a divisão das rotas, o que a API recebe (`Host` e `X-Forwarded-*`) e os cabeçalhos de segurança são conferidos pelo `deploy/nginx/test-routing.sh` (roda no CI): ele sobe o template **de verdade** na frente de dois servidores de mentira e confere cada caminho, inclusive as formas de tentar escapar do limite (`//api/...`, `/%61pi/...`).
 
 **As rotas públicas do acesso do leitor** (Fase 6, RNF31) têm o mesmo limite, em uma zona à parte (`reader_access`): `POST /api/v1/auth/accept-invitation`, `/forgot-password` e `/reset-password`, **5 por minuto por endereço, com rajada de 5**, também com 429 em `application/problem+json`. Elas ficam abertas a quem tem um link ou um endereço de e-mail, e o `forgot-password` manda um e-mail a cada pedido. Os outros limites desse acesso são da aplicação, não do Nginx: **120 requisições por minuto por leitor** em `/api/v1/me/**` e **3 pedidos de "esqueci a senha" por hora por e-mail** (`app.rate-limit.*` no `application.properties`; contados em memória, o que vale para uma instância da API, como na pilha de produção). Para conferir o Nginx: `for i in $(seq 1 10); do curl -sk -o /dev/null -w '%{http_code} ' -X POST https://<DOMAIN>/api/v1/auth/forgot-password -H 'Content-Type: application/json' -d '{"email":"x@example.com"}'; done` mostra uns 6 códigos 204 e depois 429.
 
@@ -344,8 +376,12 @@ Isto complementa o bloqueio da conta (que protege cada usuário) e não o substi
 | A `app` fica `unhealthy` ou reiniciando | Veja `logs app`: quase sempre é a senha do banco diferente da usada na criação do volume (a senha só vale na primeira criação do banco), ou `APP_JWT_SECRET` ausente ou curto. |
 | O `Location` das criações sai com `http://` | O Nginx não está na frente, ou a API foi publicada direto na rede e a requisição não vem de um proxy em endereço interno. Confira que só o Nginx publica portas. |
 | O navegador não conecta pela 443 | Firewall do servidor ou do provedor sem a porta 443 liberada. |
-| O navegador do front-end bloqueia as chamadas (CORS) | `APP_CORS_ALLOWED_ORIGINS` não é exatamente a origem do front-end (com `https`, sem barra no fim). |
+| O login do navegador responde **403 "Invalid CORS request"** (mas o `curl` entra) | O navegador manda o cabeçalho `Origin`, e a API só aceita se ele for o mesmo endereço que ela enxerga (`Host` e `X-Forwarded-*`, vindos do Nginx) ou estiver em `APP_CORS_ALLOWED_ORIGINS`. Confira que `DOMAIN` é o endereço que se digita no navegador e que `APP_CORS_ALLOWED_ORIGINS` (ou o padrão) é `https://<DOMAIN>`, sem barra no fim. |
+| `required variable WEB_TAG is missing a value` | Falta a versão do front-end em `WEB_TAG` no `.env.prod` (não há `latest`). |
+| A tela fica em branco, ou a raiz dá 502 ou 504 | O contêiner `web` não está saudável (`docker compose ... ps` e `logs web`), ou a versão de `WEB_TAG` não existe no registro. A API (`/actuator/health`) pode estar bem. |
+| Um link direto (por exemplo `/livros`) dá 404 | O pedido não passou pelo Nginx da pilha: o `web` só responde direito atrás dele. Confira que só o `nginx` publica portas. |
 
 ## 10. O que este guia ainda não cobre
 
-- O **front-end**, que é outro repositório.
+- Uma **política de segurança de conteúdo (CSP)** para o front-end: ainda não está configurada, e o `index.html` carrega as **fontes do Google Fonts** (um serviço de terceiros). Para um servidor sem acesso à internet, ou com CSP, isso precisa de decisão própria.
+- **Mais de uma instância** da API (ou do front-end): a pilha tem uma de cada, e durante a atualização a API fica fora por alguns segundos (seção 6).
