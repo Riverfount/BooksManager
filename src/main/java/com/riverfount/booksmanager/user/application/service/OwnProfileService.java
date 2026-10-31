@@ -48,7 +48,7 @@ class OwnProfileService implements GetOwnProfileUseCase, UpdateOwnProfileUseCase
     private final RevokeRefreshTokensUseCase refreshTokens;
     private final RecordAuditEventUseCase audit;
     private final Clock clock;
-    private final LoginLockoutProperties lockout;
+    private final CurrentPasswordConfirmation confirmation;
 
     OwnProfileService(ReaderRepository readerRepository, UserRepository userRepository, PasswordHasher passwordHasher,
             RevokeRefreshTokensUseCase refreshTokens, RecordAuditEventUseCase audit, Clock clock,
@@ -59,7 +59,7 @@ class OwnProfileService implements GetOwnProfileUseCase, UpdateOwnProfileUseCase
         this.refreshTokens = refreshTokens;
         this.audit = audit;
         this.clock = clock;
-        this.lockout = lockout;
+        this.confirmation = new CurrentPasswordConfirmation(userRepository, passwordHasher, audit, clock, lockout);
     }
 
     @Override
@@ -116,35 +116,11 @@ class OwnProfileService implements GetOwnProfileUseCase, UpdateOwnProfileUseCase
         audit.record(new AuditEvent(AuditAction.READER_PASSWORD_CHANGED, AuditTarget.USER, user.getId(), null));
     }
 
-    /**
-     * The locked access of the reader, after the current password is proved. A wrong one is counted like a wrong login
-     * and refused; while the lockout is in force nothing is checked, so this route is no way around it.
-     */
+    /** The locked access of the reader, after the current password is proved (see {@link CurrentPasswordConfirmation}). */
     private User confirmCurrentPassword(Long readerId, String currentPassword) {
         var user = userRepository.findActiveByReaderIdForUpdate(readerId)
                 .orElseThrow(() -> new ResourceNotFoundException("acesso do leitor não encontrado"));
-        var now = Instant.now(clock);
-        if (!user.canAuthenticate(now)) {
-            throw new BusinessRuleException(
-                    "a conta está bloqueada temporariamente por tentativas de senha erradas; tente mais tarde");
-        }
-        if (!passwordHasher.matches(currentPassword, user.getPasswordHash())) {
-            var counted = user.registerFailedLogin(now, lockout.maxFailedAttempts(), lockout.blockDuration());
-            if (counted) {
-                userRepository.save(user);
-            }
-            audit.record(new AuditEvent(AuditAction.LOGIN_FAILURE, AuditTarget.USER, user.getId(),
-                    "senha atual incorreta"));
-            if (counted && user.isBlocked(now)) {
-                audit.record(new AuditEvent(AuditAction.LOGIN_LOCKOUT, AuditTarget.USER, user.getId(),
-                        "bloqueado até " + user.getBlockedUntil().truncatedTo(ChronoUnit.SECONDS) + " após "
-                                + lockout.maxFailedAttempts() + " tentativas erradas"));
-            }
-            throw new BusinessRuleException("a senha atual está incorreta");
-        }
-        if (user.registerSuccessfulLogin()) {
-            userRepository.save(user);
-        }
+        confirmation.confirm(user, currentPassword);
         return user;
     }
 
