@@ -341,4 +341,37 @@ class UserServiceAuditTest {
         assertThat(audit.only().action()).isEqualTo(AuditAction.LOGIN_FAILURE);
         assertThat(audit.only().summary()).isEqualTo("usuário inativo");
     }
+
+    // reactivation (RF09, RF27)
+
+    @Test
+    void shouldReportTheReactivationOfAUserWithoutAnySecret() {
+        var user = repository.save(User.reconstitute(null, "maria", "{h}hash", Role.OPERATOR, false));
+
+        service.reactivate(user.getId());
+
+        var recorded = audit.all().getFirst();
+        assertThat(audit.all()).hasSize(1);
+        assertThat(recorded.asCaller()).isTrue();
+        assertThat(recorded.event().action()).isEqualTo(AuditAction.USER_REACTIVATED);
+        assertThat(recorded.event().target()).isEqualTo(AuditTarget.USER);
+        assertThat(recorded.event().targetId()).isEqualTo(user.getId());
+        assertThat(recorded.event().summary()).isNull();
+        assertThat(String.valueOf(recorded.event())).doesNotContain("{h}hash");
+    }
+
+    @Test
+    void shouldReportNothingWhenTheUserWasAlreadyActiveOrWhenItIsRefused() {
+        var active = repository.save(User.reconstitute(null, "maria", "{h}hash", Role.OPERATOR, true));
+        var reader = repository.save(User.reconstitute(null, "ana", "{h}hash", Role.READER, false, 0, null, null, 42L));
+
+        service.reactivate(active.getId());
+        try {
+            service.reactivate(reader.getId());
+        } catch (RuntimeException expected) {
+            // refused, as it should be
+        }
+
+        assertThat(audit.isEmpty()).isTrue();
+    }
 }

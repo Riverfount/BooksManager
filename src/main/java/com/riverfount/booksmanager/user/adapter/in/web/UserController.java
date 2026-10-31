@@ -11,6 +11,7 @@ import com.riverfount.booksmanager.user.application.port.in.DeactivateUserUseCas
 import com.riverfount.booksmanager.user.application.port.in.GetUserUseCase;
 import com.riverfount.booksmanager.user.application.port.in.ListUsersQuery;
 import com.riverfount.booksmanager.user.application.port.in.ListUsersUseCase;
+import com.riverfount.booksmanager.user.application.port.in.ReactivateUserUseCase;
 import com.riverfount.booksmanager.user.application.port.in.ResetUserPasswordCommand;
 import com.riverfount.booksmanager.user.application.port.in.ResetUserPasswordUseCase;
 import com.riverfount.booksmanager.user.application.port.in.UnblockUserUseCase;
@@ -59,12 +60,14 @@ class UserController {
     private final UnblockUserUseCase unblockUserUseCase;
     private final DeactivateUserUseCase deactivateUserUseCase;
     private final ResetUserPasswordUseCase resetUserPasswordUseCase;
+    private final ReactivateUserUseCase reactivateUserUseCase;
     private final Clock clock;
 
     UserController(CreateUserUseCase createUserUseCase, GetUserUseCase getUserUseCase,
             ListUsersUseCase listUsersUseCase, UpdateUserUseCase updateUserUseCase,
             UnblockUserUseCase unblockUserUseCase, DeactivateUserUseCase deactivateUserUseCase,
-            ResetUserPasswordUseCase resetUserPasswordUseCase, Clock clock) {
+            ResetUserPasswordUseCase resetUserPasswordUseCase, ReactivateUserUseCase reactivateUserUseCase,
+            Clock clock) {
         this.createUserUseCase = createUserUseCase;
         this.getUserUseCase = getUserUseCase;
         this.listUsersUseCase = listUsersUseCase;
@@ -72,6 +75,7 @@ class UserController {
         this.unblockUserUseCase = unblockUserUseCase;
         this.deactivateUserUseCase = deactivateUserUseCase;
         this.resetUserPasswordUseCase = resetUserPasswordUseCase;
+        this.reactivateUserUseCase = reactivateUserUseCase;
         this.clock = clock;
     }
 
@@ -224,6 +228,28 @@ class UserController {
     })
     void resetPassword(@PathVariable Long id, @Valid @RequestBody ResetUserPasswordRequest request) {
         resetUserPasswordUseCase.resetPassword(new ResetUserPasswordCommand(id, request.password()));
+    }
+
+    @PostMapping("/{id}/reactivate")
+    @Operation(summary = "Reativar usuário",
+            description = "Reativa um administrador ou operador inativado, só para administrador: o usuário volta a "
+                    + "poder entrar com a mesma senha de antes (se a esqueceu, o administrador a redefine em `PUT "
+                    + "/api/v1/users/{id}/password`). Os refresh tokens revogados na inativação continuam revogados, "
+                    + "e o bloqueio por tentativas de login não muda (use o desbloqueio). Reativar quem já está ativo "
+                    + "devolve 200 sem efeito. O acesso de um leitor não é reativado aqui (422): ele é reaberto por um "
+                    + "novo convite. A reativação fica registrada na auditoria.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Usuário reativado (ou já estava ativo)"),
+            @ApiResponse(responseCode = "404", description = "Usuário não encontrado",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "422",
+                    description = "O acesso de um leitor não é reativado: é reaberto por um novo convite",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    UserResponse reactivate(@PathVariable Long id) {
+        return UserResponse.from(reactivateUserUseCase.reactivate(id), Instant.now(clock));
     }
 
     @DeleteMapping("/{id}")

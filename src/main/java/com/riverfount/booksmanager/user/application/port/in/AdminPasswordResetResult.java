@@ -10,7 +10,7 @@ public enum AdminPasswordResetResult {
     NOT_FOUND,
     /** The user is an operator or a reader: only an administrator is recovered this way; nothing changed. */
     NOT_AN_ADMINISTRATOR,
-    /** The administrator is inactive, and a user is never reactivated by the application; nothing changed. */
+    /** The administrator is inactive; nothing changed. Another administrator reactivates it first (RF09). */
     INACTIVE,
     /** The stored password already is the new one (a restart with the variable still set); nothing changed. */
     ALREADY_UP_TO_DATE

@@ -18,7 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Recovers the access of the administrator who forgot the password, from the environment at startup (RF08, RF09), for
  * when no other administrator can reset it in the Users screen. Only an active administrator is touched: an operator,
- * a reader, an unknown login or an inactive administrator (a user is never reactivated by the application) is left as
+ * a reader, an unknown login or an inactive administrator (reactivating it is a separate, deliberate act by another administrator) is left as
  * it is. The password, the login block and the refresh tokens change in one transaction, so a failure leaves none of
  * them changed; the audit trail gets the fact with no actor (nobody is authenticated at startup) and never a login,
  * a password or a hash. If the stored password already is the new one, as in a restart with the variable still set,
