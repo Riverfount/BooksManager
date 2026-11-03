@@ -371,4 +371,16 @@ As capturas são do front-end rodando com a API e dados fictícios.
 
 ## 10. Checklist do nível essencial
 
-_A conferência item a item entra aqui antes da entrega._
+- [x] O sistema sobe sem erros seguindo a seção 5 (Como executar)
+- [x] Cadastro completo de livros (cadastrar, listar, editar e inativar), com validação
+- [x] Cadastro completo de categorias (cadastrar, listar, editar e inativar), com validação
+- [x] Empréstimos ligados a leitores e exemplares (e exemplares ligados a livros e livros a categorias), com busca do leitor e do exemplar no formulário
+- [x] Regra de negócio 1: o empréstimo é recusado, com todos os motivos de uma vez, para leitor bloqueado, suspenso ou com multa pendente e para exemplar indisponível.
+- [x] Regra de negócio 2: a renovação é recusada quando há reserva esperando na fila do livro (e quando o leitor está bloqueado ou no limite de renovações).
+- [x] Login com 3 perfis (administrador, operador e leitor), senhas criptografadas com BCrypt e acesso conforme o perfil
+- [x] Painel com os indicadores na página inicial
+- [x] Repositório no GitHub com commits frequentes
+- [x] README com a visão do projeto, como executar, usuários de teste, funcionalidades e telas
+- [x] Quadro Kanban atualizado
+
+Observações sobre a adaptação ao projeto: livros, categorias e leitores com histórico são **inativados e nunca excluídos** (RN14), por isso "inativar" no lugar de "excluir"; o sistema tem um terceiro perfil, o leitor, além do administrador e do operador; e as regras 1 e 2 são as RN03/RN05/RN11 (recusa de empréstimo) e a RN07 (renovação). O front-end, em repositório próprio, e o Swagger da API (`/swagger-ui.html`) são os dois lugares onde cada item pode ser conferido.
