@@ -219,26 +219,28 @@ docker compose --env-file .env.prod -f compose.prod.yaml up -d
 
 ### 6.1 Publicar uma versão (quem mantém o projeto)
 
-A imagem é publicada pelo workflow `.github/workflows/publish-image.yml` quando se envia uma **tag de versão** para o GitHub. Nada é publicado a partir de um branch ou de uma pull request.
+A imagem é publicada pelo workflow `.github/workflows/publish-image.yml` quando uma **release é publicada** no GitHub. Criar a release de uma versão nova cria a tag junto; enviar só a tag, um rascunho de release, um branch ou uma pull request não publica nada.
 
 ```
 git switch main && git pull
-git tag v1.0.0          # ou v1.0.0-rc.1, para uma pré-versão
-git push origin v1.0.0
+gh release create v1.0.0 --target main --title "Books Manager 1.0.0" --notes-file notas.md
+# pré-versão: gh release create v1.0.0-rc.1 --target main --prerelease --title ... --notes-file ...
 ```
+
+Pela interface: *Releases* → *Draft a new release* → em *Choose a tag*, digite a versão (`v1.0.0`) e escolha *Create new tag on publish*, com o alvo `main` → título e notas → *Publish release* (ou *Set as a pre-release*, para `v1.0.0-rc.1`). O botão *Save draft* não publica nada.
 
 O workflow:
 
 1. roda o mesmo `./mvnw verify` do CI; se falhar, **nada é publicado**;
-2. confere que a tag tem o formato `v1.2.3` (ou `v1.2.3-rc.1`) e que o commit dela **já está na `main`**;
+2. confere que a tag da release tem o formato `v1.2.3` (ou `v1.2.3-rc.1`) e que o commit dela **já está na `main`**;
 3. constrói a imagem, faz uma varredura de vulnerabilidades (Trivy), que **só avisa** no log e não impede a publicação;
 4. publica em `ghcr.io/riverfount/booksmanager` com duas etiquetas: a **versão** (`1.0.0`, a tag sem o `v`) e o **hash do commit** (`sha-1a2b3c4`). Não existe `latest`: quem implanta sempre nomeia uma versão.
 
 Ele usa só o `GITHUB_TOKEN` do próprio workflow, com a permissão de gravar pacotes apenas no job que publica; nenhum segredo foi acrescentado ao repositório, e a imagem não leva nenhum (a configuração vem do ambiente, como na seção 3).
 
-**O front-end** é publicado do mesmo jeito, pelo workflow do repositório dele (`booksmanager-web`), com a mesma regra (uma tag `v*` de um commit da `main`) e as mesmas duas etiquetas (a versão e o hash), em `ghcr.io/riverfount/booksmanager-web`, depois de passar nos mesmos checks e no teste de fumaça da imagem. As duas versões não precisam ser iguais (seção 6.2).
+**O front-end** é publicado do mesmo jeito, pelo workflow do repositório dele (`booksmanager-web`), com a mesma regra (a release de uma tag `v*` de um commit da `main`) e as mesmas duas etiquetas (a versão e o hash), em `ghcr.io/riverfount/booksmanager-web`, depois de passar nos mesmos checks e no teste de fumaça da imagem. As duas versões não precisam ser iguais (seção 6.2).
 
-**Na primeira publicação** de cada imagem, o GitHub cria o pacote como **privado**. Para o servidor puxar sem login, torne-o público uma vez: no GitHub, *Packages* → `booksmanager` (e `booksmanager-web`) → *Package settings* → *Change visibility* → *Public*. Isso não tem como ser feito pelo workflow. Depois, confira de qualquer máquina, sem login:
+**Na primeira publicação** de cada imagem, o GitHub pode criar o pacote como **privado** (no ensaio com `v1.0.0-rc.1`, em 03/11/2026, os dois nasceram **públicos**, ligados a um repositório público; confira de qualquer forma). Se vier privado e o servidor precisar puxar sem login, torne-o público uma vez: no GitHub, *Packages* → `booksmanager` (e `booksmanager-web`) → *Package settings* → *Change visibility* → *Public*. Isso não tem como ser feito pelo workflow. Depois, confira de qualquer máquina, sem login:
 
 ```
 docker pull ghcr.io/riverfount/booksmanager:1.0.0
