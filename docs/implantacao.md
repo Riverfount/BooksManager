@@ -227,6 +227,14 @@ gh release create v1.0.0 --target main --title "Books Manager 1.0.0" --notes-fil
 # pré-versão: gh release create v1.0.0-rc.1 --target main --prerelease --title ... --notes-file ...
 ```
 
+Atalho, com as conferências antes de criar (`main` atualizada e sem alterações, a versão no formato aceito, a tag e a release ainda inexistentes) e uma pergunta de confirmação:
+
+```
+make release VERSION=v1.0.0 NOTES=notas.md                  # título padrão: Books Manager 1.0.0
+make release VERSION=v1.0.0-rc.2 NOTES=notas.md PRERELEASE=1 TITLE="Books Manager 1.0.0 rc 2"
+make release VERSION=v1.0.0 NOTES=notas.md DRY_RUN=1       # só mostra o comando
+```
+
 Pela interface: *Releases* → *Draft a new release* → em *Choose a tag*, digite a versão (`v1.0.0`) e escolha *Create new tag on publish*, com o alvo `main` → título e notas → *Publish release* (ou *Set as a pre-release*, para `v1.0.0-rc.1`). O botão *Save draft* não publica nada.
 
 O workflow:
