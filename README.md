@@ -11,7 +11,7 @@
 
 ## 1. Sobre o projeto
 
-O Books Manager é uma **API REST** para organizar o acervo e os empréstimos de uma biblioteca escolar ou comunitária de pequeno porte. Este repositório contém o back-end (Java + Spring Boot); o front-end será um projeto separado em React + Tailwind CSS, que consome essa API.
+O Books Manager é uma **API REST** para organizar o acervo e os empréstimos de uma biblioteca escolar ou comunitária de pequeno porte. Este repositório contém o back-end (Java + Spring Boot). O front-end é um projeto separado, em React + Tailwind CSS ([`booksmanager-web`](https://github.com/Riverfount/booksmanager-web)), que consome essa API só por HTTP/JSON; as telas da seção 9 são dele.
 
 ### 1.1 Problema
 Bibliotecas desse porte costumam controlar livros e empréstimos em cadernos, planilhas ou mensagens de WhatsApp. Com isso, é difícil saber quais livros estão disponíveis, quem está com cada exemplar e quais devoluções estão atrasadas. As multas são calculadas à mão e não há histórico confiável do que foi emprestado.
@@ -22,15 +22,19 @@ Oferecer ao bibliotecário uma forma simples de cadastrar o acervo, registrar em
 ### 1.3 Para quem
 Bibliotecários, que operam o sistema no dia a dia, e o administrador, que gerencia usuários e parâmetros. O leitor tem um acesso limitado, por convite (Fase 6, concluída na API): a API concede e revoga esse acesso e deixa o leitor entrar e recuperar a senha, e as rotas do leitor ficam todas sob `/api/v1/me`, só para o perfil `READER`, que não alcança nenhuma rota administrativa: consultar o acervo, reservar e cancelar a própria reserva, ver e renovar os próprios empréstimos e ver a própria situação (multas, suspensão e se pode emprestar), sempre só com o que é dele.
 
-### 1.4 O que o sistema vai fazer
-- Cadastrar livros, autores, categorias, exemplares e leitores
-- Registrar empréstimos, devoluções e renovações
-- Calcular e controlar multas por atraso
+### 1.4 O que o sistema faz
+- Cadastrar livros, autores, categorias, exemplares e leitores (o que tem histórico é inativado, nunca excluído)
+- Registrar empréstimos, devoluções (com a condição do exemplar) e renovações
+- Calcular multas e suspensões por atraso, conforme a política configurável da biblioteca
+- Reservar livros sem exemplar disponível, com fila de espera e expiração automática
 - Pesquisar o acervo e mostrar a disponibilidade
-- Listar os empréstimos em atraso
+- Mostrar um painel e relatórios (atrasos, livros mais emprestados e situação do acervo, com exportação em PDF e CSV)
+- Gerir os usuários do sistema (administrador e operador) e guardar uma trilha de auditoria
+- Dar ao leitor um acesso por convite, só para consultar o acervo, reservar e renovar o que é dele
+- Avisar o leitor por e-mail (vencimento e exemplar reservado disponível)
 
 ### 1.5 Estado atual
-A Fase 1 (Catálogo) está concluída na API: livros, autores, categorias e exemplares têm cadastro, consulta, listagem paginada, edição e inativação. A pesquisa de livros, com a quantidade de exemplares disponíveis, é a própria listagem com filtros. A Fase 2 (Leitores e acesso) está concluída na API: os leitores têm cadastro, consulta, listagem paginada, edição, inativação e bloqueio (`/api/v1/readers`), e há login com JWT, autorização por perfil e a gestão dos usuários do sistema (`/api/v1/users`); a Fase 3 (empréstimos, multas e suspensões) está concluída na API: configuração da biblioteca, empréstimo, devolução com a penalidade da política configurada, renovação, consultas e histórico, pagamento e abono de multas, suspensões e o relatório de atrasos (`/api/v1/loans`, `/fines`, `/suspensions`, `/reports` e `/library-configuration`). A Fase 4 (complementos) está concluída na API: as reservas (reservar, consultar, cancelar, a fila, a retirada do exemplar guardado e a expiração automática às 03:00), o registro de perda ou dano na devolução, os relatórios de livros mais emprestados e da situação do acervo, e a implantação mínima, com a imagem de contêiner, o perfil de produção, o `compose` de produção com Nginx e HTTPS e o [guia de implantação](docs/implantacao.md). Com isso, todos os requisitos de prioridade M e S estão na API; a Fase 5 (evolução) está em andamento: as notificações por e-mail, a importação por ISBN a exportação dos relatórios em CSV e em PDF e a trilha de auditoria já estão na API. A Fase 6 (acesso do leitor, por convite) também está concluída na API, com a revisão de segurança feita (acesso cruzado entre leitores e escalada de perfil). O plano completo e a situação de cada fase estão em [`docs/projeto.md`](docs/projeto.md), seção "Plano de desenvolvimento".
+A API cobre todos os requisitos de prioridade M e S, inclusive o acesso do leitor (Fase 6), com a revisão de segurança feita. O front-end (repositório `booksmanager-web`) tem as telas da operação, da administração e da área do leitor, e os dois rodam juntos pela pilha de produção, na mesma origem. O build (`./mvnw verify`) roda os testes, o ArchUnit, o contrato OpenAPI e exige 95% de cobertura. O plano completo e a situação de cada fase estão em [`docs/projeto.md`](docs/projeto.md), seção "Plano de desenvolvimento".
 
 ---
 
@@ -54,12 +58,46 @@ O front-end (React + Tailwind CSS) é um projeto separado ([`booksmanager-web`](
 
 ---
 
-## 4. Como executar
+## 4. Usuários de teste
+
+Para ter os três perfis no ambiente de desenvolvimento, copie o `.env-sample` para `.env` e preencha com estes valores (descartáveis, só para teste local; todos cumprem a política de senha, então a aplicação sobe com eles):
+
+| Perfil | Login | Senha | O que alcança |
+|---|---|---|---|
+| `ADMIN` | `admin` | `Adm1n#Teste123` | Tudo: catálogo, leitores, empréstimos, relatórios, usuários, configuração da biblioteca e auditoria |
+| `OPERATOR` | `operador` | `0per@dor#Teste1` | O dia a dia: catálogo, leitores, empréstimos, multas, reservas e relatórios (inclusive o painel); não alcança usuários, configuração nem auditoria (403) |
+| `READER` | `leitor` | `Le1tor#Teste9` | Só a própria área, em `/api/v1/me` (empréstimos, reservas e situação); nenhuma rota administrativa (403) |
+
+```
+APP_ADMIN_LOGIN=admin
+APP_ADMIN_PASSWORD=Adm1n#Teste123
+APP_OPERATOR_LOGIN=operador
+APP_OPERATOR_PASSWORD=0per@dor#Teste1
+APP_READER_LOGIN=leitor
+APP_READER_PASSWORD=Le1tor#Teste9
+APP_READER_NAME=Lucas Leitor
+APP_READER_DOCUMENT=390.533.447-05
+APP_READER_EMAIL=lucas.leitor@example.com
+APP_READER_BIRTH_DATE=1995-04-12
+```
+
+Para entrar, faça `POST /api/v1/auth/login` com `{"login": "operador", "password": "0per@dor#Teste1"}` (por exemplo, no Swagger) e use o `accessToken` da resposta no botão **Authorize**; sem token, as rotas internas respondem 401. **Nunca use estas senhas em produção**: lá, escolha senhas próprias ou deixe as variáveis do operador e do leitor vazias.
+
+No front-end, entre pela tela de login (`http://localhost:5173/login`) com os mesmos login e senha: o administrador e o operador vão para o painel, e o leitor para a área do leitor.
+
+---
+
+## 5. Como executar
 
 ### Requisitos
 - JDK 25
 - Docker em execução (usado para subir o PostgreSQL e para os testes com Testcontainers)
 - Uma IDE (IntelliJ IDEA ou VS Code com o *Extension Pack for Java*)
+
+### O sistema completo (back-end e front-end)
+1. **API.** Preencha o `.env` com os usuários de teste da seção 4 e rode `./mvnw spring-boot:run` (o Docker sobe o PostgreSQL). A API fica em `http://localhost:8080`.
+2. **Front-end.** Em outra pasta, clone [`booksmanager-web`](https://github.com/Riverfount/booksmanager-web), rode `npm install` e `npm run dev`, e abra `http://localhost:5173`. O Vite repassa `/api` para a API, então não é preciso configurar CORS nem endereço.
+3. Entre com um dos usuários da seção 4. Em produção, o Nginx serve o front e a API na mesma origem ([`docs/implantacao.md`](docs/implantacao.md)).
 
 ### No GitHub Codespaces (recomendado)
 1. No repositório, clique em **Code → Codespaces → Create codespace on main** (ou abra o Codespace existente).
@@ -227,29 +265,8 @@ Ninguém da equipe tem "esqueci minha senha" por e-mail (o usuário da equipe n�
 
 Só um administrador **ativo** é recuperado assim: se o login for de um operador, de um leitor, não existir ou for de um administrador inativo (outro administrador o reativa antes, na tela **Usuários** ou por `POST /api/v1/users/{id}/reactivate`), nada muda, a aplicação sobe normalmente e o log traz uma mensagem fixa que diz o motivo (sem repetir login nem senha). Uma senha que não cumpre a política também não derruba a subida: o log diz o que falta. Se a senha da variável já for a do administrador, nada é escrito. A variável é uma credencial no ambiente, então use-a só quando precisar. **Mantenha sempre pelo menos dois administradores**, para que um redefina a senha do outro pela tela.
 
-#### Usuários de teste (um por perfil)
-Para ter os três perfis no ambiente de desenvolvimento, copie o `.env-sample` para `.env` e preencha com estes valores (descartáveis, só para teste local; todos cumprem a política de senha, então a aplicação sobe com eles):
-
-| Perfil | Login | Senha | O que alcança |
-|---|---|---|---|
-| `ADMIN` | `admin` | `Adm1n#Teste123` | Tudo: catálogo, leitores, empréstimos, relatórios, usuários, configuração da biblioteca e auditoria |
-| `OPERATOR` | `operador` | `0per@dor#Teste1` | O dia a dia: catálogo, leitores, empréstimos, multas, reservas e relatórios (inclusive o painel); não alcança usuários, configuração nem auditoria (403) |
-| `READER` | `leitor` | `Le1tor#Teste9` | Só a própria área, em `/api/v1/me` (empréstimos, reservas e situação); nenhuma rota administrativa (403) |
-
-```
-APP_ADMIN_LOGIN=admin
-APP_ADMIN_PASSWORD=Adm1n#Teste123
-APP_OPERATOR_LOGIN=operador
-APP_OPERATOR_PASSWORD=0per@dor#Teste1
-APP_READER_LOGIN=leitor
-APP_READER_PASSWORD=Le1tor#Teste9
-APP_READER_NAME=Lucas Leitor
-APP_READER_DOCUMENT=390.533.447-05
-APP_READER_EMAIL=lucas.leitor@example.com
-APP_READER_BIRTH_DATE=1995-04-12
-```
-
-Para entrar, faça `POST /api/v1/auth/login` com `{"login": "operador", "password": "0per@dor#Teste1"}` (por exemplo, no Swagger) e use o `accessToken` da resposta no botão **Authorize**; sem token, as rotas internas respondem 401. **Nunca use estas senhas em produção**: lá, escolha senhas próprias ou deixe as variáveis do operador e do leitor vazias.
+#### Usuários de teste
+Os usuários de teste (um por perfil) e as variáveis que os criam estão na seção 4.
 
 ### Verificação de saúde
 A rota pública **http://localhost:8080/actuator/health** informa se a aplicação e o banco estão no ar (200 com `UP`, ou 503 com `DOWN` se a conexão com o banco falhar). É o único endpoint do Actuator exposto.
@@ -264,7 +281,7 @@ O PostgreSQL é executado em um container Docker, definido no arquivo **compose.
 
 ---
 
-## 5. Tecnologias
+## 6. Tecnologias
 
 As versões abaixo refletem o que está declarado no **pom.xml** e no **compose.yaml** nesta versão do projeto.
 
@@ -281,7 +298,77 @@ As versões abaixo refletem o que está declarado no **pom.xml** e no **compose.
 | Apoio ao desenvolvimento | Spring Boot DevTools · Spring Boot Docker Compose |
 | Ambiente | Docker Compose · Maven 3.9.16 (wrapper) · Git/GitHub · GitHub Actions |
 
-O front-end (React + Tailwind CSS) é um projeto separado deste back-end, em repositório próprio, e o acompanhamento dele acontece lá. Suas ferramentas (build, TypeScript/JavaScript, roteamento, cliente HTTP) ainda não foram definidas.
+O front-end tem repositório próprio (seção 7).
 
-## 6. Uso de inteligência artificial
+## 7. Front-end
+
+O front-end fica em [`booksmanager-web`](https://github.com/Riverfount/booksmanager-web): Vite · React 19 · TypeScript · Tailwind CSS 4 · React Router · TanStack Query · openapi-fetch (tipos gerados do OpenAPI desta API) · React Hook Form + Zod · Vitest. Ele não tem regra de negócio: tudo o que decide é a API.
+
+## 8. Uso de inteligência artificial
 Utilizei o Claude (Anthropic) como apoio no planejamento inicial do projeto, para discutir a arquitetura, definir a stack tecnológica e organizar as ideias deste documento. As decisões e a implementação são de minha responsabilidade.
+
+## 9. Funcionalidades e telas
+
+### Funcionalidades
+- Cadastro de livros, autores, categorias, exemplares e leitores, com validação e inativação no lugar de exclusão.
+- Empréstimo, devolução e renovação, com as regras de bloqueio (exemplar indisponível, leitor bloqueado, suspenso ou com multa pendente, limite de empréstimos e de renovações).
+- Multas e suspensões por atraso, calculadas na devolução pela política configurável (multa, suspensão, as duas ou nenhuma).
+- Reservas com fila de espera, exemplar guardado para quem reservou e expiração automática.
+- Painel e relatórios, com exportação em PDF e CSV.
+- Três perfis: o administrador faz tudo (inclusive usuários, configuração e auditoria); o operador cuida do dia a dia; o leitor, por convite, vê o acervo e cuida só do que é dele.
+
+### Telas
+
+As capturas são do front-end rodando com a API e dados fictícios.
+
+**Tela de login**
+
+![Tela de login](docs/screenshots/login.png)
+
+**Painel com os indicadores do acervo e dos empréstimos**
+
+![Painel com os indicadores do acervo e dos empréstimos](docs/screenshots/dashboard.png)
+
+**Livros e exemplares, com a disponibilidade de cada título**
+
+![Livros e exemplares, com a disponibilidade de cada título](docs/screenshots/books.png)
+
+**Empréstimos: em aberto, atrasados e devolvidos, e o formulário de novo empréstimo**
+
+![Empréstimos: em aberto, atrasados e devolvidos, e o formulário de novo empréstimo](docs/screenshots/loans.png)
+
+**Regra de negócio: empréstimo recusado, com todos os motivos de uma vez (leitor suspenso e com multa pendente)**
+
+![Regra de negócio: empréstimo recusado, com todos os motivos de uma vez (leitor suspenso e com multa pendente)](docs/screenshots/loan-refused.png)
+
+**Regra de negócio: renovação recusada (leitor bloqueado)**
+
+![Regra de negócio: renovação recusada (leitor bloqueado)](docs/screenshots/renewal-refused.png)
+
+**Reservas: a fila de espera por livro**
+
+![Reservas: a fila de espera por livro](docs/screenshots/reservations.png)
+
+**Multas e suspensões geradas por devolução em atraso**
+
+![Multas e suspensões geradas por devolução em atraso](docs/screenshots/fines.png)
+
+**Relatórios: empréstimos em atraso, mais emprestados e situação do acervo**
+
+![Relatórios: empréstimos em atraso, mais emprestados e situação do acervo](docs/screenshots/reports.png)
+
+**Trilha de auditoria (só administrador)**
+
+![Trilha de auditoria (só administrador)](docs/screenshots/audit.png)
+
+**Área do leitor: a própria situação (limites, multas e se pode emprestar)**
+
+![Área do leitor: a própria situação (limites, multas e se pode emprestar)](docs/screenshots/reader-area.png)
+
+**Área do leitor: as próprias reservas**
+
+![Área do leitor: as próprias reservas](docs/screenshots/reader-reservations.png)
+
+## 10. Checklist do nível essencial
+
+_A conferência item a item entra aqui antes da entrega._
