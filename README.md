@@ -120,6 +120,9 @@ Os comandos mais usados do dia a dia também estão disponíveis como alvos do `
 | `make up` | `docker compose up -d` |
 | `make down` | `docker compose down` |
 | `make clean` | `./mvnw clean` |
+| `make release VERSION=v1.0.0 NOTES=notas.md` | `gh release create` com as conferências antes (veja abaixo e a seção 6.1 do [guia de implantação](docs/implantacao.md)) |
+
+**`make release`** cria a release no GitHub, o ato que publica a imagem. `VERSION` e `NOTES` (o arquivo Markdown das notas) são obrigatórios; `TITLE` é opcional (padrão: `Books Manager 1.0.0`) e `PRERELEASE=1` marca uma pré-versão. Antes de criar, confere que o `gh` está instalado, que a versão tem o formato aceito pelo workflow, que o arquivo existe, que você está na `main`, sem alterações e igual à `origin/main`, e que a tag e a release ainda não existem. Mostra o que vai publicar e pergunta antes (`YES=1` pula a pergunta; `DRY_RUN=1` só mostra o comando).
 
 ### Executar em contêiner
 A API também vira uma imagem de contêiner (`Dockerfile`, em duas etapas: a construção usa o Temurin 25 JDK e a imagem final só a JRE 25 e o jar). A imagem **não tem segredos**: toda a configuração entra por variáveis de ambiente, e o contêiner roda como o usuário `app` (uid 10001), sem privilégios de administrador. Ela precisa de um PostgreSQL à parte.
