@@ -231,7 +231,7 @@ Atalho, com as conferências antes de criar (`main` atualizada e sem alteraçõe
 
 ```
 make release VERSION=v1.0.0 NOTES=notas.md                  # título padrão: Books Manager 1.0.0
-make release VERSION=v1.0.0-rc.2 NOTES=notas.md PRERELEASE=1 TITLE="Books Manager 1.0.0 rc 2"
+make release VERSION=v1.0.0-rc.2 NOTES=notas.md PRERELEASE=1 TITLE="Books Manager 1.0.0 rc 2"   # versão com sufixo exige PRERELEASE=1
 make release VERSION=v1.0.0 NOTES=notas.md DRY_RUN=1       # só mostra o comando
 ```
 
