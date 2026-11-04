@@ -290,7 +290,7 @@ As versões abaixo refletem o que está declarado no **pom.xml** e no **compose.
 
 | Área | Tecnologias |
 |---|---|
-| Linguagem e framework | Java 25 · Spring Boot 4.1.1 |
+| Linguagem e framework | Java 25 · Spring Boot 4.1.2 |
 | Web | Spring MVC (API REST) |
 | Persistência | Spring Data JPA (Hibernate) · PostgreSQL 17 · Flyway |
 | Segurança e validação | Spring Security · Bean Validation |
