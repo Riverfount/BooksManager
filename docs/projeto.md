@@ -42,7 +42,7 @@ Valores conferidos com o `pom.xml` do projeto e atualizados pelas decisões regi
 | Área | Tecnologia | Observação |
 | --- | --- | --- |
 | Linguagem | Java 25 | Versão definida para o projeto. |
-| Framework | Spring Boot 4.1.1 | Gerenciador de versões das demais dependências. |
+| Framework | Spring Boot 4.1.2 | Gerenciador de versões das demais dependências. |
 | Build | Maven (wrapper `mvnw`) | |
 | Web | Spring MVC (`starter-webmvc`) | Controllers REST (JSON) e adaptadores de entrada da API. |
 | Interface | React e Tailwind CSS | Em **repositório próprio**, separado deste backend (decidido em 10/10/2026). Ferramenta de build e linguagem (por exemplo, Vite e TypeScript) a definir. |
