@@ -40,6 +40,10 @@ release: ## Cria a release e publica a imagem: make release VERSION=v1.0.0 NOTES
 	@command -v gh >/dev/null || { echo "Erro: instale o GitHub CLI (gh)."; exit 1; }
 	@test -n "$(VERSION)" || { echo "Erro: informe VERSION, por exemplo: make release VERSION=v1.0.0 NOTES=notas.md"; exit 1; }
 	@echo "$(VERSION)" | grep -Eq '$(RELEASE_VERSION_RE)' || { echo "Erro: VERSION deve ser como v1.0.0 ou v1.0.0-rc.1 (recebido: $(VERSION))."; exit 1; }
+	@case "$(VERSION)" in \
+		*-*) test -n "$(PRERELEASE)" || { echo "Erro: $(VERSION) tem sufixo, então é uma pré-versão: acrescente PRERELEASE=1."; exit 1; } ;; \
+		*) test -z "$(PRERELEASE)" || { echo "Erro: $(VERSION) é uma versão final: não use PRERELEASE=1."; exit 1; } ;; \
+	esac
 	@test -n "$(NOTES)" || { echo "Erro: informe NOTES, o arquivo Markdown das notas da versão."; exit 1; }
 	@test -f "$(NOTES)" || { echo "Erro: o arquivo de notas '$(NOTES)' não existe."; exit 1; }
 	@test "$$(git branch --show-current)" = main || { echo "Erro: a release sai da main; você está em '$$(git branch --show-current)'."; exit 1; }
