@@ -99,7 +99,10 @@ No front-end, entre pela tela de login (`http://localhost:5173/login`) com os me
 2. **Front-end.** Em outra pasta, clone [`booksmanager-web`](https://github.com/Riverfount/booksmanager-web), rode `npm install` e `npm run dev`, e abra `http://localhost:5173`. O Vite repassa `/api` para a API, então não é preciso configurar CORS nem endereço.
 3. Entre com um dos usuários da seção 4. Em produção, o Nginx serve o front e a API na mesma origem ([`docs/implantacao.md`](docs/implantacao.md)).
 
-### No GitHub Codespaces (recomendado)
+### No GitHub Codespaces
+
+> **Observação:** o projeto inteiro foi desenvolvido no IntelliJ IDEA e no WebStorm. O GitHub Codespaces não foi usado nem testado; os passos abaixo vêm do modelo do curso e não foram verificados neste projeto. O caminho testado é o da seção seguinte, "No computador".
+
 1. No repositório, clique em **Code → Codespaces → Create codespace on main** (ou abra o Codespace existente).
 2. Aguarde a preparação do ambiente.
 3. Crie o arquivo **.env** a partir do **.env-sample** e preencha ao menos o **APP_JWT_SECRET** (veja a seção "Configuração e segredos"). No terminal, execute o comando **./mvnw spring-boot:run**. O Spring Boot sobe o container do PostgreSQL automaticamente a partir do arquivo **compose.yaml**.
