@@ -11,6 +11,7 @@ record RegisterCategoryRequest(
         @NotBlank(message = "o nome é obrigatório")
         @Size(max = Category.MAX_NAME_LENGTH, message = "o nome deve ter até " + Category.MAX_NAME_LENGTH
                 + " caracteres")
-        @Pattern(regexp = "^\\S(.*\\S)?$", message = "o nome não pode ter espaços nas pontas")
+        // an empty or blank text is for @NotBlank to report (#368); this only flags spaces around a text with content
+        @Pattern(regexp = "^(\\s*|\\S(.*\\S)?)$", message = "o nome não pode ter espaços nas pontas")
         String name) {
 }

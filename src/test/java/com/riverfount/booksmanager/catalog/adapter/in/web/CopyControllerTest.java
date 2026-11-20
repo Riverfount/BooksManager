@@ -511,4 +511,26 @@ class CopyControllerTest {
 
         then(getCopyUseCase).shouldHaveNoInteractions();
     }
+
+    @Test
+    @WithOperator
+    void shouldReportOnlyTheRequiredMessageForAnEmptyOrBlankAssetCode() throws Exception { // #368
+        for (var value : new String[] {"", "   "}) {
+            mockMvc.perform(post("/api/v1/copies")
+                            .with(csrf())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"bookId\":1,\"assetCode\":\"%s\"}".formatted(value)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errors.length()").value(1))
+                    .andExpect(jsonPath("$.errors[0].field").value("assetCode"))
+                    .andExpect(jsonPath("$.errors[0].message").value("o código de patrimônio é obrigatório"));
+        }
+        mockMvc.perform(post("/api/v1/copies")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"bookId\":1,\"assetCode\":\"%s\"}".formatted(" x")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.length()").value(1))
+                .andExpect(jsonPath("$.errors[0].message").value("o código de patrimônio não pode ter espaços nas pontas"));
+    }
 }
