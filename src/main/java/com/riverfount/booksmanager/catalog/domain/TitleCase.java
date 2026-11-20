@@ -59,6 +59,8 @@ public final class TitleCase {
     /** Spellings of publishers only: acronyms of houses and company suffixes, kept uppercase. */
     private static final Map<String, String> PUBLISHER_SPELLINGS = withExtraSpellings(KNOWN_SPELLINGS,
             "ltc", "edusp", "unesp", "ufmg", "uerj", "puc", "senac", "sesc", "senai", "ftd", "ibep", "edufba",
+            // #346: confirmed against the ISBN lookup (real books); "mt" is the state of SEBRAE-MT
+            "edufscar", "eduerj", "ipea", "sebrae", "mt",
             "ltda", "lda", "s/a", "me", "epp", "eireli");
 
     private static final Pattern ROMAN_NUMERAL = Pattern.compile(

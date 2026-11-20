@@ -141,7 +141,13 @@ class TitleCaseTest {
             "QUX COMERCIO EIRELI | Qux Comercio EIRELI",
             "EDUSP | EDUSP",
             "EDITORA FGV | Editora FGV",
-            "EDITORA UNESP | Editora UNESP"
+            "EDITORA UNESP | Editora UNESP",
+            // #346: names as the ISBN lookup (BrasilAPI, provider cbl) returned them for real books
+            "EDUFSCAR | EDUFSCAR", // ISBN 9788576003533, Bacia hidrográfica do Rio Jaguari Mirim
+            "EDUERJ | EDUERJ", // ISBN 9788575113660, Identidade social e contato linguístico no português brasileiro
+            "IPEA | IPEA", // ISBN 9788578112370, Brasil em desenvolvimento 2014
+            "SEBRAE | SEBRAE", // ISBN 9788573335972, Negócios sociais
+            "SEBRAE-MT | SEBRAE-MT" // ISBN 9788573610772, Primeiros passos para sustentabilidade nos negócios
     })
     void shouldKeepAcronymsAndCompanySuffixesOfAPublisherUppercase(String input, String expected) {
         assertThat(TitleCase.normalizePublisher(input)).isEqualTo(expected);
