@@ -70,6 +70,10 @@ jobs:
       - name: Check the backup scripts
         run: shellcheck -x deploy/backup/*.sh
 
+      # Issue #375: the demo seed script (scripts/) gets the same check as the deploy scripts.
+      - name: Check the demo seed script
+        run: shellcheck -x scripts/*.sh
+
       # Shows the numbers on the run page, also when the coverage check fails.
       - name: Coverage summary
         if: always()
