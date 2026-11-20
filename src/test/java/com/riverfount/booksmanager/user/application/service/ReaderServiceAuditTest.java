@@ -95,8 +95,35 @@ class ReaderServiceAuditTest {
     }
 
     @Test
+    void shouldReportTheReactivationOnlyWhenTheStateChanges() { // #367
+        var id = reader();
+        service.reactivate(id); // already active: nothing to report
+        service.deactivate(id);
+
+        var reactivated = service.reactivate(id);
+        service.reactivate(id);
+
+        assertThat(reactivated.isActive()).isTrue();
+        assertThat(audit.actions()).containsExactly(AuditAction.READER_DEACTIVATED, AuditAction.READER_REACTIVATED);
+        assertThat(audit.all().getLast().event().targetId()).isEqualTo(id);
+        assertThat(audit.all().getLast().event().summary()).isNull();
+    }
+
+    @Test
+    void shouldNotGiveTheAccessBackOnReactivation() { // a new invitation reopens it (Phase 6)
+        var id = reader();
+        service.deactivate(id);
+        revokedAccessOf.clear();
+
+        service.reactivate(id);
+
+        assertThat(revokedAccessOf).isEmpty();
+    }
+
+    @Test
     void shouldReportNothingForAReaderThatDoesNotExist() {
         assertThatThrownBy(() -> service.block(999L)).isInstanceOf(ResourceNotFoundException.class);
+        assertThatThrownBy(() -> service.reactivate(999L)).isInstanceOf(ResourceNotFoundException.class);
         assertThatThrownBy(() -> service.unblock(999L)).isInstanceOf(ResourceNotFoundException.class);
         assertThatThrownBy(() -> service.deactivate(999L)).isInstanceOf(ResourceNotFoundException.class);
 

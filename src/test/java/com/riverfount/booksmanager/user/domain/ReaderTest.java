@@ -315,6 +315,32 @@ class ReaderTest {
         assertThat(reader.isActive()).isFalse();
     }
 
+    // reactivation (#367)
+
+    @Test
+    void shouldReactivateAnInactiveReaderKeepingItBlockedIfItWas() {
+        var reader = adult();
+        reader.block();
+        reader.deactivate();
+
+        reader.reactivate();
+
+        assertThat(reader.isActive()).isTrue();
+        assertThat(reader.isBlocked()).isTrue();
+    }
+
+    @Test
+    void reactivateShouldBeIdempotent() {
+        var reader = adult();
+
+        reader.reactivate();
+        reader.deactivate();
+        reader.reactivate();
+        reader.reactivate();
+
+        assertThat(reader.isActive()).isTrue();
+    }
+
     // borrowing (RN11)
 
     @Test
