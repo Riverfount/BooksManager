@@ -11,6 +11,7 @@ import com.riverfount.booksmanager.shared.domain.PageResult;
 import com.riverfount.booksmanager.shared.domain.ResourceNotFoundException;
 import com.riverfount.booksmanager.user.application.port.in.ListReadersQuery;
 import com.riverfount.booksmanager.user.application.port.in.ListReadersUseCase;
+import com.riverfount.booksmanager.user.application.port.in.ReactivateReaderUseCase;
 import com.riverfount.booksmanager.user.application.port.in.RegisterReaderCommand;
 import com.riverfount.booksmanager.user.application.port.in.RegisterReaderUseCase;
 import com.riverfount.booksmanager.user.application.port.in.RevokeReaderAccessUseCase;
@@ -36,7 +37,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 class ReaderService implements RegisterReaderUseCase, GetReaderUseCase, ListReadersUseCase,
-        UpdateReaderUseCase, DeactivateReaderUseCase, BlockReaderUseCase, UnblockReaderUseCase {
+        UpdateReaderUseCase, DeactivateReaderUseCase, ReactivateReaderUseCase, BlockReaderUseCase, UnblockReaderUseCase {
 
     private final ReaderRepository readerRepository;
     private final Clock clock;
@@ -102,6 +103,18 @@ class ReaderService implements RegisterReaderUseCase, GetReaderUseCase, ListRead
         }
         // an inactive reader cannot keep the access (Phase 6); idempotent, so it also cleans up what was left behind
         readerAccess.revoke(id);
+    }
+
+    @Override
+    public Reader reactivate(Long id) {
+        var reader = loadExisting(id);
+        var wasInactive = !reader.isActive();
+        reader.reactivate();
+        var saved = readerRepository.save(reader);
+        if (wasInactive) {
+            audit.record(new AuditEvent(AuditAction.READER_REACTIVATED, AuditTarget.READER, id, null));
+        }
+        return saved;
     }
 
     @Override

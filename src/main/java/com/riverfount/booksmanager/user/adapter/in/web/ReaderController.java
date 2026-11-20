@@ -1,5 +1,6 @@
 package com.riverfount.booksmanager.user.adapter.in.web;
 
+import com.riverfount.booksmanager.shared.adapter.in.web.AdminOnly;
 import com.riverfount.booksmanager.shared.adapter.in.web.AdminOrOperator;
 import com.riverfount.booksmanager.shared.adapter.in.web.PageResponse;
 import com.riverfount.booksmanager.shared.domain.PageQuery;
@@ -9,6 +10,7 @@ import com.riverfount.booksmanager.user.application.port.in.DeactivateReaderUseC
 import com.riverfount.booksmanager.user.application.port.in.GetReaderUseCase;
 import com.riverfount.booksmanager.user.application.port.in.ListReadersQuery;
 import com.riverfount.booksmanager.user.application.port.in.ListReadersUseCase;
+import com.riverfount.booksmanager.user.application.port.in.ReactivateReaderUseCase;
 import com.riverfount.booksmanager.user.application.port.in.RegisterReaderCommand;
 import com.riverfount.booksmanager.user.application.port.in.RegisterReaderUseCase;
 import com.riverfount.booksmanager.user.application.port.in.UnblockReaderUseCase;
@@ -50,11 +52,12 @@ class ReaderController {
     private final DeactivateReaderUseCase deactivateReaderUseCase;
     private final BlockReaderUseCase blockReaderUseCase;
     private final UnblockReaderUseCase unblockReaderUseCase;
+    private final ReactivateReaderUseCase reactivateReaderUseCase;
 
     ReaderController(RegisterReaderUseCase registerReaderUseCase, GetReaderUseCase getReaderUseCase,
             ListReadersUseCase listReadersUseCase, UpdateReaderUseCase updateReaderUseCase,
             DeactivateReaderUseCase deactivateReaderUseCase, BlockReaderUseCase blockReaderUseCase,
-            UnblockReaderUseCase unblockReaderUseCase) {
+            UnblockReaderUseCase unblockReaderUseCase, ReactivateReaderUseCase reactivateReaderUseCase) {
         this.registerReaderUseCase = registerReaderUseCase;
         this.getReaderUseCase = getReaderUseCase;
         this.listReadersUseCase = listReadersUseCase;
@@ -62,6 +65,7 @@ class ReaderController {
         this.deactivateReaderUseCase = deactivateReaderUseCase;
         this.blockReaderUseCase = blockReaderUseCase;
         this.unblockReaderUseCase = unblockReaderUseCase;
+        this.reactivateReaderUseCase = reactivateReaderUseCase;
     }
 
     @PostMapping
@@ -190,6 +194,24 @@ class ReaderController {
     })
     void deactivate(@PathVariable Long id) {
         deactivateReaderUseCase.deactivate(id);
+    }
+
+    @AdminOnly
+    @PostMapping("/{id}/reactivate")
+    @Operation(summary = "Reativar leitor",
+            description = "Reativa um leitor inativado, só para administrador: ele volta à listagem padrão e a poder "
+                    + "fazer empréstimos e reservas (RN11), se não estiver bloqueado, suspenso ou com pendências. "
+                    + "O bloqueio não muda (um leitor que estava bloqueado volta bloqueado; use o desbloqueio) e o "
+                    + "acesso ao sistema, revogado na inativação, não volta: é reaberto por um novo convite. "
+                    + "Reativar quem já está ativo devolve 200 sem efeito. A reativação fica registrada na auditoria.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Leitor reativado (ou já estava ativo)"),
+            @ApiResponse(responseCode = "404", description = "Leitor não encontrado",
+                    content = @Content(mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    ReaderResponse reactivate(@PathVariable Long id) {
+        return ReaderResponse.from(reactivateReaderUseCase.reactivate(id));
     }
 
     @PostMapping("/{id}/block")

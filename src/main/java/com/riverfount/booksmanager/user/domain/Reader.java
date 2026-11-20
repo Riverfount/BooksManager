@@ -120,6 +120,15 @@ public class Reader {
         this.active = false;
     }
 
+    /**
+     * Brings an inactive reader back (RF07). Idempotent. The blocked flag is not touched (a reader that was blocked
+     * when inactivated comes back blocked), and the access to the system is not given back here: it was revoked
+     * on inactivation and a new invitation reopens it.
+     */
+    public void reactivate() {
+        this.active = true;
+    }
+
     public void block() {
         if (blocked) {
             return;

@@ -30,6 +30,7 @@ import com.riverfount.booksmanager.user.application.port.in.DeactivateReaderUseC
 import com.riverfount.booksmanager.user.application.port.in.GetReaderUseCase;
 import com.riverfount.booksmanager.user.application.port.in.ListReadersQuery;
 import com.riverfount.booksmanager.user.application.port.in.ListReadersUseCase;
+import com.riverfount.booksmanager.user.application.port.in.ReactivateReaderUseCase;
 import com.riverfount.booksmanager.user.application.port.in.RegisterReaderCommand;
 import com.riverfount.booksmanager.user.application.port.in.RegisterReaderUseCase;
 import com.riverfount.booksmanager.user.application.port.in.UnblockReaderUseCase;
@@ -82,6 +83,9 @@ class ReaderControllerTest {
 
     @MockitoBean
     private UnblockReaderUseCase unblockReaderUseCase;
+
+    @MockitoBean
+    private ReactivateReaderUseCase reactivateReaderUseCase;
 
     private MockHttpServletRequestBuilder update(long id, String json) {
         return patch("/api/v1/readers/" + id).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(json);
@@ -658,5 +662,41 @@ class ReaderControllerTest {
     @WithOperator
     void anOperatorMayCallTheRoutes() throws Exception {
         mockMvc.perform(delete("/api/v1/readers/1").with(csrf())).andExpect(status().isNoContent());
+    }
+
+    // reactivation (#367)
+
+    private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder reactivate(String id) {
+        return post("/api/v1/readers/" + id + "/reactivate").with(csrf());
+    }
+
+    @Test
+    @WithAdmin
+    void shouldReactivateAndReturn200WithTheReader() throws Exception {
+        given(reactivateReaderUseCase.reactivate(4L)).willReturn(Reader.reconstitute(4L, "Maria Silva",
+                "12345678900", "maria@example.com", null, LocalDate.of(1990, 5, 10), null, true, false));
+
+        mockMvc.perform(reactivate("4"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(4))
+                .andExpect(jsonPath("$.active").value(true));
+    }
+
+    @Test
+    @WithAdmin
+    void shouldReturn404ForAnUnknownReaderAnd400ForANonNumericIdOnTheReactivation() throws Exception {
+        given(reactivateReaderUseCase.reactivate(99L)).willThrow(new ResourceNotFoundException("leitor não encontrado: 99"));
+
+        mockMvc.perform(reactivate("99")).andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"));
+        mockMvc.perform(reactivate("abc")).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithOperator
+    void shouldRefuseTheOperatorOnTheReactivation() throws Exception {
+        mockMvc.perform(reactivate("4")).andExpect(status().isForbidden());
+
+        then(reactivateReaderUseCase).shouldHaveNoInteractions();
     }
 }
