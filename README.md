@@ -274,6 +274,24 @@ Só um administrador **ativo** é recuperado assim: se o login for de um operado
 #### Usuários de teste
 Os usuários de teste (um por perfil) e as variáveis que os criam estão na seção 4.
 
+#### Dados de demonstração
+O script `scripts/demo-seed.sh` popula uma API que acabou de subir com dados fictícios, para demonstrar o sistema e fazer o teste exploratório: 7 leitores (um menor de idade, com responsável), 10 livros com 11 exemplares, 4 empréstimos (dois em atraso), uma devolução atrasada que deixa multa pendente e suspensão (política `BOTH`) e um leitor bloqueado. Quase tudo passa pela API; só as datas de atraso são ajustadas direto no banco, porque a API só empresta com a data de hoje.
+
+**Só para demonstração: nunca rode contra produção nem contra o banco de desenvolvimento do `compose.yaml`.** O script foi feito para um PostgreSQL descartável do Testcontainers, e se protege assim:
+- recusa rodar duas vezes (para se o catálogo não estiver vazio);
+- exige exatamente um contêiner PostgreSQL do Testcontainers em execução (ou `PG_CONTAINER=<nome ou id>`) e confere que ele guarda o empréstimo que a API acabou de criar antes de alterar qualquer data.
+
+```bash
+# 1. API com banco descartável (o SPRING_DOCKER_COMPOSE_ENABLED=false evita tocar no banco do compose.yaml)
+SPRING_DOCKER_COMPOSE_ENABLED=false APP_JWT_SECRET=<descartável, 32+ bytes> \
+  APP_ADMIN_LOGIN=admin APP_ADMIN_PASSWORD=<descartável> ./mvnw spring-boot:test-run
+
+# 2. Confira no log "Database: jdbc:postgresql://localhost:<porta>/test" e, em outro terminal, popule
+ADMIN_PASSWORD=<a mesma APP_ADMIN_PASSWORD> scripts/demo-seed.sh
+```
+
+Variáveis opcionais: `API_URL` (padrão `http://localhost:8080`), `ADMIN_LOGIN` (padrão `admin`), `PG_CONTAINER`, e `OPERATOR_PASSWORD` para criar também o operador `operador` (omita se a API já subiu com `APP_OPERATOR_*`). Precisa de Docker, `curl` e `python3`.
+
 ### Verificação de saúde
 A rota pública **http://localhost:8080/actuator/health** informa se a aplicação e o banco estão no ar (200 com `UP`, ou 503 com `DOWN` se a conexão com o banco falhar). É o único endpoint do Actuator exposto.
 
