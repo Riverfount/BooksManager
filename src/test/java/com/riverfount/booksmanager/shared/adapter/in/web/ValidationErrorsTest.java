@@ -56,7 +56,15 @@ class ValidationErrorsTest {
             @Size(max = 3, message = "o código deve ter até 3 caracteres") String code,
             @Valid @NotNull(message = "o responsável é obrigatório") Guardian guardian,
             List<@NotNull(message = "o id não pode ser nulo") Long> ids,
-            LocalDate date) {
+            LocalDate date,
+            Kind kind,
+            Boolean flag,
+            Integer count,
+            java.math.BigDecimal amount) {
+    }
+
+    enum Kind {
+        BOOK, COPY
     }
 
     @RestController
@@ -135,7 +143,7 @@ class ValidationErrorsTest {
                 .andExpect(jsonPath("$.detail").value("A requisição tem campos inválidos."))
                 .andExpect(jsonPath("$.errors", hasSize(1)))
                 .andExpect(jsonPath("$.errors[0].field").value("date"))
-                .andExpect(jsonPath("$.errors[0].message").value("valor inválido"))
+                .andExpect(jsonPath("$.errors[0].message").value("data inválida: use o formato AAAA-MM-DD"))
                 .andExpect(content().string(not(containsString("31/02"))))
                 .andExpect(content().string(not(containsString("jackson"))));
     }
@@ -177,7 +185,7 @@ class ValidationErrorsTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.detail").value("A requisição tem campos inválidos."))
                 .andExpect(jsonPath("$.errors[0].field").value("id"))
-                .andExpect(jsonPath("$.errors[0].message").value("valor inválido"))
+                .andExpect(jsonPath("$.errors[0].message").value("deve ser um número inteiro"))
                 .andExpect(content().string(not(containsString("Failed to convert"))));
     }
 
@@ -196,6 +204,34 @@ class ValidationErrorsTest {
         mockMvc.perform(get("/probe/need").param("x", "abc"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value("x"))
-                .andExpect(jsonPath("$.errors[0].message").value("valor inválido"));
+                .andExpect(jsonPath("$.errors[0].message").value("deve ser um número inteiro"));
+    }
+
+    @Test
+    @WithOperator
+    void anUnknownValueOfAnEnumShouldListTheAcceptedOnes() throws Exception { // #369
+        send("{\"name\":\"Ana\",\"guardian\":{\"email\":\"a@b.com\"},\"kind\":\"DISC\"}")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors", hasSize(1)))
+                .andExpect(jsonPath("$.errors[0].field").value("kind"))
+                .andExpect(jsonPath("$.errors[0].message").value("valor inválido: use um de BOOK, COPY"))
+                .andExpect(content().string(not(containsString("Exception"))));
+    }
+
+    @Test
+    @WithOperator
+    void aTextWhereANumberOrABooleanIsExpectedShouldSayWhatIsExpected() throws Exception { // #369
+        send("{\"name\":\"Ana\",\"guardian\":{\"email\":\"a@b.com\"},\"count\":\"muitos\"}")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("count"))
+                .andExpect(jsonPath("$.errors[0].message").value("deve ser um número inteiro"));
+        send("{\"name\":\"Ana\",\"guardian\":{\"email\":\"a@b.com\"},\"amount\":\"caro\"}")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("amount"))
+                .andExpect(jsonPath("$.errors[0].message").value("deve ser um número"));
+        send("{\"name\":\"Ana\",\"guardian\":{\"email\":\"a@b.com\"},\"flag\":\"talvez\"}")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("flag"))
+                .andExpect(jsonPath("$.errors[0].message").value("deve ser verdadeiro ou falso"));
     }
 }

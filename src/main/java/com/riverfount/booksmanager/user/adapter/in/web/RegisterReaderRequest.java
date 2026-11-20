@@ -26,7 +26,7 @@ record RegisterReaderRequest(
         String email,
         @Schema(description = "Telefone do leitor (opcional)", example = "11 91234-5678")
         String phone,
-        @Schema(description = "Data de nascimento (ISO-8601), para saber se o leitor tem menos de 18 anos",
+        @Schema(description = "Data de nascimento (ISO-8601, AAAA-MM-DD), para saber se o leitor tem menos de 18 anos; não pode ser futura nem de mais de 120 anos atrás",
                 example = "1990-05-10")
         @NotNull(message = "a data de nascimento é obrigatória")
         LocalDate birthDate,

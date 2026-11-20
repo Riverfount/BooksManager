@@ -19,6 +19,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import tools.jackson.core.JacksonException;
+import tools.jackson.databind.exc.MismatchedInputException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -95,7 +96,8 @@ public class GlobalExceptionHandler {
         }
         for (Throwable cause = exception.getCause(); cause != null; cause = cause.getCause()) {
             if (cause instanceof JacksonException jackson && !jackson.getPath().isEmpty()) {
-                return invalidFields(List.of(entry(pathOf(jackson), INVALID_VALUE)));
+                var type = jackson instanceof MismatchedInputException mismatched ? mismatched.getTargetType() : null;
+                return invalidFields(List.of(entry(pathOf(jackson), expectedFor(type))));
             }
         }
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, BODY_NOT_JSON);
@@ -104,7 +106,42 @@ public class GlobalExceptionHandler {
     /** A path variable or a request parameter that is not of the expected type. */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     ProblemDetail handleTypeMismatch(MethodArgumentTypeMismatchException exception) {
-        return invalidFields(List.of(entry(exception.getName(), INVALID_VALUE)));
+        return invalidFields(List.of(entry(exception.getName(), expectedFor(exception.getRequiredType()))));
+    }
+
+    /**
+     * What a value of the type should look like, in the words of the API (#369): the date format, the accepted
+     * values of an enum, a number, true or false. It names only what the API itself accepts, never the text of the
+     * parser. Any other type keeps the generic message.
+     */
+    private static String expectedFor(Class<?> type) {
+        if (type == null) {
+            return INVALID_VALUE;
+        }
+        if (type.isEnum()) {
+            var accepted = new ArrayList<String>();
+            for (var constant : type.getEnumConstants()) {
+                accepted.add(((Enum<?>) constant).name());
+            }
+            return INVALID_VALUE + ": use um de " + String.join(", ", accepted);
+        }
+        if (java.time.LocalDate.class.isAssignableFrom(type)) {
+            return "data inválida: use o formato AAAA-MM-DD";
+        }
+        if (java.time.temporal.Temporal.class.isAssignableFrom(type)) {
+            return "data e hora inválidas: use o formato ISO-8601, como 2026-11-20T10:30:00Z";
+        }
+        if (type == Integer.class || type == int.class || type == Long.class || type == long.class
+                || type == Short.class || type == short.class) {
+            return "deve ser um número inteiro";
+        }
+        if (Number.class.isAssignableFrom(type) || type == double.class || type == float.class) {
+            return "deve ser um número";
+        }
+        if (type == Boolean.class || type == boolean.class) {
+            return "deve ser verdadeiro ou falso";
+        }
+        return INVALID_VALUE;
     }
 
     /**

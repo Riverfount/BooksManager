@@ -146,6 +146,32 @@ class ReaderTest {
         assertThat(newborn.getBirthDate()).isEqualTo(TODAY);
     }
 
+    @Test
+    void shouldRejectABirthDateOlderThanTheOldestPlausibleAge() { // #369
+        var limit = TODAY.minusYears(Reader.MAX_AGE);
+
+        assertThatThrownBy(() -> Reader.create("Maria", "123", "maria@example.com", null, limit.minusDays(1), null,
+                TODAY))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessage("a data de nascimento do leitor não pode ser de mais de " + Reader.MAX_AGE
+                        + " anos atrás");
+
+        var oldest = Reader.create("Maria", "123", "maria@example.com", null, limit, null, TODAY);
+
+        assertThat(oldest.getBirthDate()).isEqualTo(limit);
+    }
+
+    @Test
+    void shouldAlsoRefuseTheOldBirthDateOnUpdate() { // #369
+        var reader = Reader.create("Maria", "123", "maria@example.com", null, LocalDate.of(1990, 5, 10), null, TODAY);
+
+        assertThatThrownBy(() -> reader.updateDetails("Maria", "123", "maria@example.com", null,
+                LocalDate.of(1850, 1, 1), null, TODAY))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("mais de " + Reader.MAX_AGE + " anos");
+        assertThat(reader.getBirthDate()).isEqualTo(LocalDate.of(1990, 5, 10));
+    }
+
     // minor and guardian (RNF11)
 
     @Test
