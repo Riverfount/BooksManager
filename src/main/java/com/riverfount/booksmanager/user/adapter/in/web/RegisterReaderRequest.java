@@ -14,7 +14,8 @@ record RegisterReaderRequest(
         @NotBlank(message = "o nome é obrigatório")
         @Size(max = Reader.MAX_NAME_LENGTH, message = "o nome deve ter até " + Reader.MAX_NAME_LENGTH
                 + " caracteres")
-        @Pattern(regexp = "^\\S(.*\\S)?$", message = "o nome não pode ter espaços nas pontas")
+        // an empty or blank text is for @NotBlank to report (#368); this only flags spaces around a text with content
+        @Pattern(regexp = "^(\\s*|\\S(.*\\S)?)$", message = "o nome não pode ter espaços nas pontas")
         String name,
         @Schema(description = "Documento (CPF, matrícula etc.); pontuação e espaços são ignorados e as "
                 + "letras ficam em maiúsculas. Único por leitor.", example = "123.456.789-00")

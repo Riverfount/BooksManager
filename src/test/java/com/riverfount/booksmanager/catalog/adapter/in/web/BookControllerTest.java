@@ -803,4 +803,26 @@ class BookControllerTest {
                 .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")))
                 .andExpect(jsonPath("$.detail").value(containsString("tente novamente")));
     }
+
+    @Test
+    @WithOperator
+    void shouldReportOnlyTheRequiredMessageForAnEmptyOrBlankTitle() throws Exception { // #368
+        for (var value : new String[] {"", "   "}) {
+            mockMvc.perform(post("/api/v1/books")
+                            .with(csrf())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"isbn\":\"9788533302273\",\"title\":\"%s\",\"categoryId\":1,\"authorIds\":[10],\"publisher\":\"Garnier\",\"publicationYear\":1899}".formatted(value)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errors.length()").value(1))
+                    .andExpect(jsonPath("$.errors[0].field").value("title"))
+                    .andExpect(jsonPath("$.errors[0].message").value("o título é obrigatório"));
+        }
+        mockMvc.perform(post("/api/v1/books")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"isbn\":\"9788533302273\",\"title\":\"%s\",\"categoryId\":1,\"authorIds\":[10],\"publisher\":\"Garnier\",\"publicationYear\":1899}".formatted(" x")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.length()").value(1))
+                .andExpect(jsonPath("$.errors[0].message").value("o título não pode ter espaços nas pontas"));
+    }
 }

@@ -16,6 +16,7 @@ record RegisterCopyRequest(
         @Size(max = Copy.MAX_ASSET_CODE_LENGTH,
                 message = "o código de patrimônio deve ter até " + Copy.MAX_ASSET_CODE_LENGTH
                         + " caracteres")
-        @Pattern(regexp = "^\\S(.*\\S)?$", message = "o código de patrimônio não pode ter espaços nas pontas")
+        // an empty or blank text is for @NotBlank to report (#368); this only flags spaces around a text with content
+        @Pattern(regexp = "^(\\s*|\\S(.*\\S)?)$", message = "o código de patrimônio não pode ter espaços nas pontas")
         String assetCode) {
 }

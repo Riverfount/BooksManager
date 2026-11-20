@@ -699,4 +699,26 @@ class ReaderControllerTest {
 
         then(reactivateReaderUseCase).shouldHaveNoInteractions();
     }
+
+    @Test
+    @WithOperator
+    void shouldReportOnlyTheRequiredMessageForAnEmptyOrBlankReaderName() throws Exception { // #368
+        for (var value : new String[] {"", "   "}) {
+            mockMvc.perform(post("/api/v1/readers")
+                            .with(csrf())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"name\":\"%s\",\"document\":\"123\",\"email\":\"maria@example.com\",\"birthDate\":\"1990-05-10\"}".formatted(value)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errors.length()").value(1))
+                    .andExpect(jsonPath("$.errors[0].field").value("name"))
+                    .andExpect(jsonPath("$.errors[0].message").value("o nome é obrigatório"));
+        }
+        mockMvc.perform(post("/api/v1/readers")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"%s\",\"document\":\"123\",\"email\":\"maria@example.com\",\"birthDate\":\"1990-05-10\"}".formatted(" x")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.length()").value(1))
+                .andExpect(jsonPath("$.errors[0].message").value("o nome não pode ter espaços nas pontas"));
+    }
 }

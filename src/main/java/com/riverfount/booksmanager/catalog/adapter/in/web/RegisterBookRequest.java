@@ -19,7 +19,8 @@ record RegisterBookRequest(
         @NotBlank(message = "o título é obrigatório")
         @Size(max = Book.MAX_TITLE_LENGTH, message = "o título deve ter até " + Book.MAX_TITLE_LENGTH
                 + " caracteres")
-        @Pattern(regexp = "^\\S(.*\\S)?$", message = "o título não pode ter espaços nas pontas")
+        // an empty or blank text is for @NotBlank to report (#368); this only flags spaces around a text with content
+        @Pattern(regexp = "^(\\s*|\\S(.*\\S)?)$", message = "o título não pode ter espaços nas pontas")
         String title,
         @Schema(description = "Editora (obrigatória, até 255 caracteres)", example = "Garnier")
         @NotBlank(message = "a editora é obrigatória")

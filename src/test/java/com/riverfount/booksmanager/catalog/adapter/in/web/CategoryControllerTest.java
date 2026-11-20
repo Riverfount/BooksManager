@@ -476,4 +476,26 @@ class CategoryControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("application/problem+json")));
     }
+
+    @Test
+    @WithOperator
+    void shouldReportOnlyTheRequiredMessageForAnEmptyOrBlankCategoryName() throws Exception { // #368
+        for (var value : new String[] {"", "   "}) {
+            mockMvc.perform(post("/api/v1/categories")
+                            .with(csrf())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"name\":\"%s\"}".formatted(value)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errors.length()").value(1))
+                    .andExpect(jsonPath("$.errors[0].field").value("name"))
+                    .andExpect(jsonPath("$.errors[0].message").value("o nome é obrigatório"));
+        }
+        mockMvc.perform(post("/api/v1/categories")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"%s\"}".formatted(" x")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.length()").value(1))
+                .andExpect(jsonPath("$.errors[0].message").value("o nome não pode ter espaços nas pontas"));
+    }
 }

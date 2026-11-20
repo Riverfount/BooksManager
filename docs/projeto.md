@@ -183,6 +183,7 @@ O contrato da API é o OpenAPI gerado pelo SpringDoc (`/v3/api-docs`), e o front
 | 31/10/2026 | O `GET /api/v1/audit-log` passa a trazer a ação `USER_PASSWORD_CHANGED` (troca da própria senha pela equipe, com o próprio usuário como autor e alvo). | Compatível (valores novos nos enums; o front deve tolerar valores que não conhece) | #345 |
 | 20/11/2026 | `POST /api/v1/loans/{id}/renew` e `POST /api/v1/me/loans/{id}/renew`: renovar um empréstimo já encerrado responde 422 "o empréstimo já foi encerrado" (RN09) também quando o leitor tem multa, suspensão ou bloqueio; antes a mensagem trazia só os motivos do leitor. | Compatível (só a mensagem do 422) | #366 |
 | 20/11/2026 | Novo endpoint `POST /api/v1/readers/{id}/reactivate` (só `ADMIN`; 200 com o `ReaderResponse`; 404 para id inexistente; idempotente). Reativa um leitor inativado: o bloqueio não muda e o acesso ao sistema, revogado na inativação, não volta (novo convite). A reativação entra na auditoria (`READER_REACTIVATED`, migração V24). | Compatível | #367 |
+| 20/11/2026 | `POST /api/v1/authors`, `/categories`, `/copies`, `/books` e `/readers`: um nome, título ou código de patrimônio vazio ou só com espaços devolve 400 só com "é obrigatório"; antes a lista trazia também "não pode ter espaços nas pontas", que enganava. Espaços reais nas pontas de um texto com conteúdo seguem recusados com essa mensagem. | Compatível (só as mensagens do 400) | #368 |
 
 #### Listagem e paginação (RNF14)
 
