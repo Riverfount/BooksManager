@@ -76,6 +76,7 @@ class RenewLoanService implements RenewLoanUseCase {
 
         var today = LocalDate.now(clock);
 
+        loan.requireActive(); // RN09 first: a closed loan is refused for that reason, not for the reader's state
         RenewalEligibility.check(readerSituation(loan, today));
         loan.renew(today, configuration.getRenewalLimit(), configuration.getLoanPeriodDays(),
                 bookHasWaitingReservation(loan), bookIsActive(loan));
