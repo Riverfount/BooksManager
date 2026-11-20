@@ -40,7 +40,7 @@ A API cobre todos os requisitos de prioridade M e S, inclusive o acesso do leito
 
 | Versão | Data | O que mudou |
 |---|---|---|
-| 1.1.0 | 25/11/2026 (prevista) | Manutenção: chamados #366 (renovar empréstimo encerrado mostrava o motivo errado), #367 (reativar leitor inativado), #368 (mensagem enganosa para nome vazio), #369 (limite da data de nascimento e mensagens 400 mais claras), #370 (script de dados de demonstração versionado), #371 (este histórico) e #375 (ShellCheck também no script de demonstração). Os demais chamados da versão estão no [quadro do projeto](https://github.com/users/Riverfount/projects/5). |
+| 1.1.0 | 25/11/2026 (prevista) | Manutenção: chamados #366 (renovar empréstimo encerrado mostrava o motivo errado), #367 (reativar leitor inativado), #368 (mensagem enganosa para nome vazio), #369 (limite da data de nascimento e mensagens 400 mais claras), #370 (script de dados de demonstração versionado), #371 (este histórico) e #375 (ShellCheck também no script de demonstração) e, em parte, #346 (siglas de editoras confirmadas em livros reais; o chamado segue aberto para as demais). Os demais chamados da versão estão no [quadro do projeto](https://github.com/users/Riverfount/projects/5). |
 | 1.0.0 | 07/11/2026 | Primeira versão: acervo, empréstimos, multas, suspensões, reservas, relatórios, auditoria, perfis `ADMIN`, `OPERATOR` e `READER` (área do leitor) e implantação com contêiner. |
 
 Cada versão tem uma release no GitHub, com as notas completas.
