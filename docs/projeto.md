@@ -181,6 +181,7 @@ O contrato da API é o OpenAPI gerado pelo SpringDoc (`/v3/api-docs`), e o front
 | 31/10/2026 | O `GET /api/v1/audit-log` passa a trazer a ação `USER_REACTIVATED` (reativação de usuário da equipe, com o administrador que a fez como autor). | Compatível (valores novos nos enums; o front deve tolerar valores que não conhece) | #342 |
 | 31/10/2026 | Novo endpoint `POST /api/v1/users/me/password` (só `ADMIN` e `OPERATOR`; corpo `{currentPassword, newPassword}`; 204; 400 para requisição inválida; 422 para senha atual errada, conta bloqueada, usuário inativo ou nova senha fora da política; 403 para o leitor). O administrador e o operador trocam a própria senha: a senha atual errada conta para o bloqueio de login, e todas as sessões do usuário são encerradas. | Compatível (novo) | #345 |
 | 31/10/2026 | O `GET /api/v1/audit-log` passa a trazer a ação `USER_PASSWORD_CHANGED` (troca da própria senha pela equipe, com o próprio usuário como autor e alvo). | Compatível (valores novos nos enums; o front deve tolerar valores que não conhece) | #345 |
+| 20/11/2026 | `POST /api/v1/loans/{id}/renew` e `POST /api/v1/me/loans/{id}/renew`: renovar um empréstimo já encerrado responde 422 "o empréstimo já foi encerrado" (RN09) também quando o leitor tem multa, suspensão ou bloqueio; antes a mensagem trazia só os motivos do leitor. | Compatível (só a mensagem do 422) | #366 |
 
 #### Listagem e paginação (RNF14)
 

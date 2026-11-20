@@ -205,7 +205,8 @@ public class Loan {
         return returnDate != null;
     }
 
-    private void requireActive() {
+    /** A closed loan cannot be renewed nor returned again (RN09); the application asks it before the reader's state. */
+    public void requireActive() {
         if (isReturned()) {
             throw new BusinessRuleException("o empréstimo já foi encerrado");
         }

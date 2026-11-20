@@ -263,6 +263,19 @@ class RenewLoanServiceTest {
     }
 
     @Test
+    void shouldReportTheClosedLoanEvenWhenTheReaderHasPenalties() { // RN09, #366
+        var id = openLoan(5);
+        var loan = loanRepository.findById(id).orElseThrow();
+        loan.returnCopy(TODAY);
+        loanRepository.save(loan);
+        readerIs(true, true);
+        fineRepository.save(Fine.create(1L, 20L, new BigDecimal("3.00")));
+
+        assertThatThrownBy(() -> renew(id)).isInstanceOf(BusinessRuleException.class)
+                .hasMessage("o empréstimo já foi encerrado");
+    }
+
+    @Test
     void shouldRefuseABlockedReaderAndChangeNothing() {
         var id = openLoan(5);
         var due = loanRepository.findById(id).orElseThrow().getDueDate();
