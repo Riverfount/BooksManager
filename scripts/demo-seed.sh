@@ -124,16 +124,16 @@ R1=$(reader "Ana Souza" 123456789 ana.souza@example.com 1990-05-10)
 R2=$(reader "Bia Lima" 234567891 bia.lima@example.com 1991-03-22)
 R3=$(reader "Carlos Pereira" 345678912 carlos.pereira@example.com 1988-11-02)
 R4=$(reader "Daniela Rocha" 456789123 daniela.rocha@example.com 1995-07-30)
-R5=$(reader "Eduardo Alves" 567891234 eduardo.alves@example.com 1979-01-15)
-R6=$(reader "Fernanda Costa" 678912345 fernanda.costa@example.com 2001-09-09)
-R7=$(reader "Gabriel Nunes" 789123456 gabriel.nunes@example.com 2011-04-18 "Helena Nunes" helena.nunes@example.com)
+reader "Eduardo Alves" 567891234 eduardo.alves@example.com 1979-01-15 >/dev/null
+reader "Fernanda Costa" 678912345 fernanda.costa@example.com 2001-09-09 >/dev/null
+reader "Gabriel Nunes" 789123456 gabriel.nunes@example.com 2011-04-18 "Helena Nunes" helena.nunes@example.com >/dev/null
 
 echo "loans, overdue dates, late return and one block..."
 lend() { post loans "{\"copyId\":${FIRST_COPY[$1]},\"readerId\":$2}" | id_of; }
 L1=$(lend "$B1" "$R1")   # Ana: Dom Casmurro, will be overdue
 L2=$(lend "$B4" "$R2")   # Bia: Eu, Robô, returned late (fine + suspension)
 L3=$(lend "$B7" "$R3")   # Carlos: O Senhor dos Anéis, overdue, and the reader is blocked
-L4=$(lend "$B8" "$R4")   # Daniela: 1984, on time
+lend "$B8" "$R4" >/dev/null   # Daniela: 1984, on time (nothing else uses this loan)
 
 sql() { docker exec "$PG" psql -U test -d test -tA -c "$1"; }
 # Safety: the container must hold the same loan the API just created, or it is another database.
