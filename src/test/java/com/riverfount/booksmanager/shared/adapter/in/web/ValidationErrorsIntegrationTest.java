@@ -87,7 +87,7 @@ class ValidationErrorsIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.detail").value("A requisição tem campos inválidos."))
                 .andExpect(jsonPath("$.errors[0].field").value("birthDate"))
-                .andExpect(jsonPath("$.errors[0].message").value("valor inválido"))
+                .andExpect(jsonPath("$.errors[0].message").value("data inválida: use o formato AAAA-MM-DD"))
                 .andExpect(content().string(not(containsString("Failed to read"))));
     }
 
@@ -104,7 +104,7 @@ class ValidationErrorsIntegrationTest {
         send(get("/api/v1/books/abc"), null)
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value("id"))
-                .andExpect(jsonPath("$.errors[0].message").value("valor inválido"));
+                .andExpect(jsonPath("$.errors[0].message").value("deve ser um número inteiro"));
     }
 
     @Test

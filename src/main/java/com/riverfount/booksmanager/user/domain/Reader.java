@@ -23,6 +23,8 @@ public class Reader {
     public static final int MAX_NAME_LENGTH = PersonalData.MAX_NAME_LENGTH;
     public static final int MAX_DOCUMENT_LENGTH = 30;
     public static final int ADULT_AGE = 18;
+    /** The oldest plausible age for a reader (#369): a birth date further back than this is a typing mistake. */
+    public static final int MAX_AGE = 120;
 
     private final Long id;
     private String name;
@@ -186,6 +188,10 @@ public class Reader {
         }
         if (birthDate.isAfter(today)) {
             throw new BusinessRuleException("a data de nascimento do leitor não pode ser futura");
+        }
+        if (birthDate.isBefore(today.minusYears(MAX_AGE))) {
+            throw new BusinessRuleException("a data de nascimento do leitor não pode ser de mais de " + MAX_AGE
+                    + " anos atrás");
         }
     }
 
